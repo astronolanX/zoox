@@ -1,0 +1,27 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Add index.json for O(1) metadata lookups</summary>
+  <context>
+    Current surface_relevant() loads and parses ALL blobs to score them.
+    At 1000 blobs, this takes ~100ms. Index file with metadata enables
+    O(1) lookups and filtering before full blob load.
+    Confidence: 0.85 (architecture analysis).
+  </context>
+  <files>
+    <file>src/goopy/blob.py</file>
+  </files>
+  <facts>
+    <fact>Severity: MEDIUM</fact>
+    <fact>Confidence: 0.85</fact>
+    <fact>Effort: 1 week</fact>
+    <fact>Impact: Enables scaling to 10K+ blobs</fact>
+  </facts>
+  <next>
+    <step>Design index.json schema (blob path, scope, status, summary, files)</step>
+    <step>Update sprout/decompose to maintain index</step>
+    <step>Update surface_relevant to use index for filtering</step>
+    <step>Add index rebuild command</step>
+  </next>
+  <related>
+    <ref>08-blob-caching</ref>
+  </related>
+</blob>

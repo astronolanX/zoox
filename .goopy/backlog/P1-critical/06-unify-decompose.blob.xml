@@ -1,0 +1,27 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Unify CLI/Glob decompose behavior</summary>
+  <context>
+    Glob.decompose() moves blobs to archive with ARCHIVED status.
+    CLI cmd_decompose() calls path.unlink() directly, permanently deleting.
+    Users expect archive behavior per documentation.
+    Confidence: 1.0 (verified behavioral mismatch).
+  </context>
+  <files>
+    <file>src/goopy/cli.py</file>
+    <file>src/goopy/blob.py</file>
+  </files>
+  <facts>
+    <fact>Severity: MEDIUM</fact>
+    <fact>Confidence: 1.0</fact>
+    <fact>Effort: 0.5 days</fact>
+    <fact>Location: cli.py:130-137</fact>
+  </facts>
+  <next>
+    <step>Change cmd_decompose to use Glob.decompose() for each blob</step>
+    <step>Remove direct path.unlink() call</step>
+    <step>Update test to verify archive behavior</step>
+  </next>
+  <related>
+    <ref>04-centralize-subdirs</ref>
+  </related>
+</blob>

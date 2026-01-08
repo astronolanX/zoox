@@ -1,0 +1,26 @@
+<blob type="context" scope="project" updated="2026-01-08" v="2">
+  <summary>Goopy audit backlog index - 13 items across P0-P3</summary>
+  <context>
+    Master index for audit tasks. Items stored as individual blobs in priority
+    subdirectories. Generated from comprehensive audit 2026-01-08.
+  </context>
+  <facts>
+    <fact>P0-emergency: 3 items (security, data integrity)</fact>
+    <fact>P1-critical: 3 items (architecture, correctness)</fact>
+    <fact>P2-important: 3 items (performance, documentation)</fact>
+    <fact>P3-nice-to-have: 4 items (vision, features)</fact>
+    <fact>Total: 13 backlog items</fact>
+  </facts>
+  <next>
+    <step>Review P0 items immediately</step>
+    <step>Schedule P1 items for this sprint</step>
+    <step>Plan P2 items for next sprint</step>
+    <step>Backlog P3 items for future consideration</step>
+  </next>
+  <related>
+    <ref>.goopy/reports/20260108-P0-security-audit</ref>
+    <ref>.goopy/reports/20260108-P1-architecture</ref>
+    <ref>.goopy/reports/20260108-P2-scalability</ref>
+    <ref>.goopy/reports/20260108-P3-vision</ref>
+  </related>
+</blob>

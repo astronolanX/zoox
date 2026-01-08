@@ -1,0 +1,27 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Add goopy graph for relationship visualization</summary>
+  <context>
+    The related field creates links between blobs. Visualizing these
+    relationships as a graph would reveal knowledge structure.
+    Output DOT format for Graphviz rendering.
+    Confidence: 0.75 (nice-to-have, clear implementation).
+  </context>
+  <files>
+    <file>src/goopy/cli.py</file>
+  </files>
+  <facts>
+    <fact>Severity: LOW</fact>
+    <fact>Confidence: 0.75</fact>
+    <fact>Effort: 2 days</fact>
+    <fact>Enables: Knowledge graph visualization</fact>
+  </facts>
+  <next>
+    <step>Add goopy graph subcommand</step>
+    <step>Generate DOT format output</step>
+    <step>Color nodes by blob type</step>
+    <step>Document usage: goopy graph | dot -Tpng > graph.png</step>
+  </next>
+  <related>
+    <ref>11-snapshot-command</ref>
+  </related>
+</blob>

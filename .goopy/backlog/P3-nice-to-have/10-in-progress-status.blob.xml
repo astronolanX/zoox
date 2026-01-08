@@ -1,0 +1,27 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Add IN_PROGRESS status for swarm task claiming</summary>
+  <context>
+    Current status enum has ACTIVE, BLOCKED, DONE, ARCHIVED.
+    Multi-agent scenarios need IN_PROGRESS to indicate claimed tasks.
+    Single line enum addition enables swarm coordination patterns.
+    Confidence: 0.90 (clear use case, minimal change).
+  </context>
+  <files>
+    <file>src/goopy/blob.py</file>
+  </files>
+  <facts>
+    <fact>Severity: LOW</fact>
+    <fact>Confidence: 0.90</fact>
+    <fact>Effort: 1 day (including tests)</fact>
+    <fact>Enables: Multi-agent task claiming</fact>
+  </facts>
+  <next>
+    <step>Add IN_PROGRESS = "in_progress" to BlobStatus enum</step>
+    <step>Update CLI sprout --status validation</step>
+    <step>Add tests for new status</step>
+    <step>Document swarm coordination pattern</step>
+  </next>
+  <related>
+    <ref>11-snapshot-command</ref>
+  </related>
+</blob>

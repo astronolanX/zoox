@@ -1,0 +1,39 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Vision document - goopy as lightweight coordination protocol beyond session memory</summary>
+  <context>
+    Goopy's minimal architecture (5 types, 3 scopes, 4 statuses, 850 LOC) is an
+    unexpectedly powerful substrate for multi-agent coordination, design workflows,
+    project management, and knowledge graphs. Key insight: blobs are a coordination
+    protocol with built-in relevance scoring and semantic linking.
+  </context>
+  <files>
+    <file>src/goopy/blob.py</file>
+    <file>src/goopy/cli.py</file>
+    <file>README.md</file>
+  </files>
+  <decisions>
+    <decision why="Enable swarm task claiming with minimal code">Add IN_PROGRESS status to BlobStatus enum</decision>
+    <decision why="Time-travel for project state">Add goopy snapshot/restore commands</decision>
+    <decision why="Scaling to 10K+ blobs">Implement hierarchical globs with date sharding</decision>
+    <decision why="Reduce token overhead">Create rollup blobs for context compression</decision>
+    <decision why="Auto-discover relationships">Implement semantic linking via file overlap</decision>
+  </decisions>
+  <facts>
+    <fact>72% enterprise AI now uses multi-agent (up from 23% 2024)</fact>
+    <fact>Disconnected models problem = biggest barrier to autonomy</fact>
+    <fact>Goopy fills niche between CLAUDE.md and database solutions</fact>
+    <fact>Design/PM workflows map naturally to existing blob types</fact>
+    <fact>Philosophy: remain lightweight, enable emergent patterns</fact>
+  </facts>
+  <next>
+    <step>Add IN_PROGRESS status (confidence 0.90, effort 1 day)</step>
+    <step>Document design/PM patterns in README (confidence 0.85)</step>
+    <step>Add goopy snapshot command (confidence 0.85, effort 3 days)</step>
+    <step>Implement index.json for scaling (confidence 0.82, effort 1 week)</step>
+  </next>
+  <related>
+    <ref>20260108-P0-security-audit</ref>
+    <ref>20260108-P1-architecture</ref>
+    <ref>20260108-P2-scalability</ref>
+  </related>
+</blob>

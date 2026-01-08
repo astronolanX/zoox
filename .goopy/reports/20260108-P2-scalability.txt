@@ -1,0 +1,36 @@
+GOOPY SCALABILITY ASSESSMENT SUMMARY
+Date: 2026-01-08 | Priority: P2 | Confidence: 0.85
+
+CURRENT LIMITS:
+- Sweet spot: 10-500 blobs
+- Comfortable: Up to 1,000 blobs
+- Noticeable latency: 1,000+ blobs
+- Consider alternatives: 5,000+ blobs
+
+PERFORMANCE ESTIMATES:
+| Operation         | 100 blobs | 1000 blobs |
+|-------------------|-----------|------------|
+| sprout()          | ~2ms      | ~2ms       |
+| get()             | ~1ms      | ~1ms       |
+| list_blobs()      | ~5ms      | ~50ms      |
+| surface_relevant()| ~10ms     | ~100ms     |
+
+FINDINGS:
+[MEDIUM] Linear blob scanning (6 subdirs x n blobs) - O(n*m) complexity
+[MEDIUM] No blob caching - Repeated queries reparse same files
+[LOW] No documentation of limits - Users may assume unlimited
+
+RECOMMENDATIONS:
+P2: Add index.json for O(1) metadata lookups
+P2: Implement in-memory blob caching with mtime invalidation
+P2: Document performance expectations in README
+
+SCALING STRATEGIES:
+Near-term: Keep blobs focused, decompose regularly
+Medium-term: Index file, caching, lazy loading
+Long-term: SQLite backend, hierarchical globs
+
+FILES TO MODIFY:
+- src/goopy/blob.py (add indexing, caching)
+- README.md (add Performance section)
+- tests/test_glob.py (add scaling tests)

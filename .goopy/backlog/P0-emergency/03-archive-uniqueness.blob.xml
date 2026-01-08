@@ -1,0 +1,26 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Add UUID suffix to archive filenames</summary>
+  <context>
+    Archive naming uses only date prefix: YYYYMMDD-name.blob.xml
+    Multiple decompositions of same-named blob on same day overwrite previous.
+    Need uniqueness suffix to prevent data loss.
+    Confidence: 0.95 (verified in test_bugs.py).
+  </context>
+  <files>
+    <file>src/goopy/blob.py</file>
+  </files>
+  <facts>
+    <fact>Severity: HIGH</fact>
+    <fact>Confidence: 0.95</fact>
+    <fact>Effort: 0.5 days</fact>
+    <fact>Location: blob.py:367-369</fact>
+  </facts>
+  <next>
+    <step>Import uuid4 from uuid module</step>
+    <step>Change archive format to: {date}-{name}-{uuid[:8]}.blob.xml</step>
+    <step>Update test_name_collision_in_archive to verify uniqueness</step>
+  </next>
+  <related>
+    <ref>01-file-locking</ref>
+  </related>
+</blob>

@@ -1,0 +1,39 @@
+GOOPY VISION DOCUMENT SUMMARY
+Date: 2026-01-08 | Priority: P3 | Confidence: Variable
+
+CORE INSIGHT:
+Blobs are a lightweight coordination protocol with built-in
+relevance scoring, temporal awareness, and semantic linking.
+
+HIGH CONFIDENCE INNOVATIONS (0.80+):
+- IN_PROGRESS status for swarm task claiming (0.90)
+- Design workflow mapping via existing types (0.88)
+- Time-travel snapshots with goopy snapshot/restore (0.85)
+- Hierarchical globs for 10K+ scaling (0.82)
+
+MEDIUM CONFIDENCE INNOVATIONS (0.60-0.79):
+- PM/Kanban workflow mapping (0.75)
+- Context compression via rollup blobs (0.70)
+- Semantic auto-linking via file overlap (0.65)
+- Consensus building via VOTE extension (0.60)
+
+LOW CONFIDENCE / SPECULATIVE (<0.60):
+- Personal productivity (meal planning, etc.) (0.55)
+- Cross-project pattern mining (0.45)
+- CRDT fields for real-time collaboration (0.40)
+- Privacy-preserving shared context (0.35)
+
+IMMEDIATE ACTIONS (This Sprint):
+1. Add IN_PROGRESS status (1 line code change)
+2. Document design/PM patterns in README
+3. Add goopy snapshot command
+
+RESEARCH CONTEXT:
+- 72% enterprise AI uses multi-agent (up from 23% in 2024)
+- "Disconnected models problem" = biggest barrier to autonomy
+- Goopy fills niche between flat CLAUDE.md and database solutions
+
+PHILOSOPHY:
+Remain lightweight while enabling emergent patterns.
+Swarm coordination, PM workflows, knowledge graphs all
+emerge from composable primitives (status + scope + refs).

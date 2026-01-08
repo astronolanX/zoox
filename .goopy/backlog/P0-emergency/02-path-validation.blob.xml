@@ -1,0 +1,27 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Validate subdir paths against traversal attacks</summary>
+  <context>
+    The sprout() method accepts arbitrary subdir strings without validation.
+    Subdir="../../../etc" could write files outside .claude/ directory.
+    Need to validate that resolved path is under .claude/.
+    Confidence: 0.92 (code review, partial test exists).
+  </context>
+  <files>
+    <file>src/goopy/blob.py</file>
+    <file>tests/test_absurd.py</file>
+  </files>
+  <facts>
+    <fact>Severity: HIGH</fact>
+    <fact>Confidence: 0.92</fact>
+    <fact>Effort: 0.5 days</fact>
+    <fact>Location: blob.py:255-260</fact>
+  </facts>
+  <next>
+    <step>Add path.resolve().is_relative_to(self.claude_dir) check</step>
+    <step>Raise ValueError if path escapes .claude/</step>
+    <step>Update test_sprout_to_parent_directory with assertion</step>
+  </next>
+  <related>
+    <ref>01-file-locking</ref>
+  </related>
+</blob>

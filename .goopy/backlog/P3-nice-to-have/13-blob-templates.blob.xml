@@ -1,0 +1,27 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Create blob templates for common patterns</summary>
+  <context>
+    Many projects need similar blobs (auth decisions, API design, etc).
+    Templates would accelerate onboarding and ensure consistency.
+    Could be stored in ~/.goopy/templates/ or distributed via package.
+    Confidence: 0.70 (nice-to-have, adoption enabler).
+  </context>
+  <files>
+    <file>src/goopy/cli.py</file>
+  </files>
+  <facts>
+    <fact>Severity: LOW</fact>
+    <fact>Confidence: 0.70</fact>
+    <fact>Effort: 2 days</fact>
+    <fact>Enables: Faster onboarding, consistency</fact>
+  </facts>
+  <next>
+    <step>Define template storage location (~/.goopy/templates/)</step>
+    <step>Add goopy sprout thread "X" --template auth-thread</step>
+    <step>Create starter templates (auth, api, db, testing)</step>
+    <step>Document template creation process</step>
+  </next>
+  <related>
+    <ref>10-in-progress-status</ref>
+  </related>
+</blob>

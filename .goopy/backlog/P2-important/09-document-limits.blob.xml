@@ -1,0 +1,28 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Document performance expectations in README</summary>
+  <context>
+    No guidance on expected blob counts or performance characteristics.
+    Users may assume unlimited scaling. Need Performance section with
+    realistic expectations and recommendations.
+    Confidence: 0.80 (user expectation gap).
+  </context>
+  <files>
+    <file>README.md</file>
+  </files>
+  <facts>
+    <fact>Severity: LOW</fact>
+    <fact>Confidence: 0.80</fact>
+    <fact>Effort: 0.5 days</fact>
+    <fact>Sweet spot: 10-500 blobs</fact>
+    <fact>Comfortable: Up to 1000 blobs</fact>
+  </facts>
+  <next>
+    <step>Add Performance section to README</step>
+    <step>Document blob count guidelines</step>
+    <step>Add scaling recommendations</step>
+    <step>Explain trade-offs (XML format, etc.)</step>
+  </next>
+  <related>
+    <ref>07-index-json</ref>
+  </related>
+</blob>

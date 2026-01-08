@@ -1,0 +1,26 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+  <summary>Use atomic write pattern for blob persistence</summary>
+  <context>
+    If system crashes during write_text(), blob file may be corrupted or
+    incomplete. Need atomic write: write to temp file, then rename.
+    Confidence: 0.85 (theoretical risk, standard practice).
+  </context>
+  <files>
+    <file>src/goopy/blob.py</file>
+  </files>
+  <facts>
+    <fact>Severity: MEDIUM</fact>
+    <fact>Confidence: 0.85</fact>
+    <fact>Effort: 0.5 days</fact>
+    <fact>Location: blob.py:223</fact>
+  </facts>
+  <next>
+    <step>Create atomic_write(path, content) helper</step>
+    <step>Use tempfile.NamedTemporaryFile with delete=False</step>
+    <step>os.replace() for atomic rename</step>
+    <step>Update Blob.save() to use helper</step>
+  </next>
+  <related>
+    <ref>01-file-locking</ref>
+  </related>
+</blob>

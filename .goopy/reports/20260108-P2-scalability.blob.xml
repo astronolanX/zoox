@@ -1,0 +1,33 @@
+<blob type="decision" scope="project" updated="2026-01-08" v="2">
+  <summary>Scalability assessment of goopy v0.1.0 - scales to ~1000 blobs, 3 optimizations identified</summary>
+  <context>
+    Goopy's current design scales well to ~1,000 blobs (sufficient for most projects).
+    Beyond this, linear scanning becomes noticeable. Overall confidence: 0.85.
+  </context>
+  <files>
+    <file>src/goopy/blob.py</file>
+    <file>README.md</file>
+    <file>tests/test_glob.py</file>
+  </files>
+  <decisions>
+    <decision why="O(1) metadata lookups at scale">Add index.json for blob metadata caching</decision>
+    <decision why="Avoid reparsing same files">Implement in-memory blob cache with mtime invalidation</decision>
+    <decision why="User expectations">Document performance limits in README</decision>
+  </decisions>
+  <facts>
+    <fact>Sweet spot: 10-500 blobs</fact>
+    <fact>Comfortable: Up to 1,000 blobs</fact>
+    <fact>Noticeable latency: 1,000+ blobs</fact>
+    <fact>surface_relevant at 1000 blobs: ~100ms</fact>
+    <fact>Bottleneck: File I/O and full XML parsing</fact>
+  </facts>
+  <next>
+    <step>Design index.json schema for metadata</step>
+    <step>Implement cache invalidation on file mtime change</step>
+    <step>Add Performance section to README</step>
+  </next>
+  <related>
+    <ref>20260108-P1-architecture</ref>
+    <ref>20260108-P3-vision</ref>
+  </related>
+</blob>
