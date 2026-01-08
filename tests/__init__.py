@@ -1,0 +1,1 @@
+# Goopy test suite
