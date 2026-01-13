@@ -46,9 +46,30 @@ zoox sink --days 7
 - **project** - Anytime in this project (persistent)
 - **always** - Every interaction (global rules)
 
+## Python API
+
+```python
+from zoox import Polyp, Reef, PolypType, PolypScope
+from pathlib import Path
+
+# Create a reef (collection of polyps)
+reef = Reef(Path.cwd())
+
+# Spawn a new polyp
+polyp = Polyp(
+    type=PolypType.THREAD,
+    summary="Implement user auth",
+    scope=PolypScope.PROJECT,
+)
+reef.sprout(polyp, "auth-thread", subdir="threads")
+
+# Surface relevant polyps
+relevant = reef.surface_relevant(query="authentication")
+```
+
 ## How It Works
 
-Polyps live in your project's `.claude/` directory as XML files. The glob injection hook surfaces relevant polyps at session start. The persist hook auto-creates context polyps at session end.
+Polyps live in your project's `.claude/` directory as XML files. The surfacing hook brings relevant polyps at session start. The persist hook auto-creates context polyps at session end.
 
 ## Terminology
 
