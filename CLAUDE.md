@@ -5,10 +5,12 @@ Symbiotic memory for AI.
 ## Dev Commands
 
 ```bash
-uv run pytest          # Run tests
-uv run pytest -x       # Stop on first failure
-uv run python -m zoox.cli # CLI entry point
-zoox reef              # View reef health
+uv run pytest              # Run tests
+uv run pytest -x           # Stop on first failure
+uv run python -m zoox.cli  # CLI entry point
+zoox reef                  # View reef health
+zoox sync                  # Check reef integrity
+zoox index --search "foo"  # Search polyps
 ```
 
 ## Constraints
@@ -24,6 +26,20 @@ zoox reef              # View reef health
 - `.claude/` directories store polyps as XML files
 - Polyp types: thread (current), decision (deposit), constraint (bedrock), context, fact (fossil)
 - Polyp scopes: always, project, session
+
+## Key Commands
+
+| Command | Purpose |
+|---------|---------|
+| `zoox sprout thread "summary"` | Create new current |
+| `zoox reef` | View reef health |
+| `zoox sync` | Check integrity |
+| `zoox sync --fix` | Auto-repair issues |
+| `zoox index --search "query"` | Search polyps |
+| `zoox index --type thread` | Filter by type |
+| `zoox template list` | Show templates |
+| `zoox template create name` | Create custom template |
+| `zoox drift discover` | Find nearby reefs |
 
 ## Terminology
 

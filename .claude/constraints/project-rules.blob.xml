@@ -1,5 +1,5 @@
-<blob type="constraint" scope="always" updated="2026-01-08" v="2">
-  <summary>Goopy project constraints</summary>
+<blob type="constraint" scope="always" updated="2026-01-13" v="2">
+  <summary>zoox project constraints</summary>
   <facts>
     <fact>Use uv for package management, not pip</fact>
     <fact>Run tests with: uv run pytest</fact>
@@ -7,8 +7,8 @@
     <fact>Zero dependencies - stdlib only</fact>
   </facts>
   <context>
-    Goopy is the XML blob system for Claude Code session memory.
-    Extracted from flubber to be a standalone, reusable package.
-    A "glob" is a collection of blobs in .claude/ directories.
+    zoox is symbiotic memory for AI - XML polyps that persist across sessions.
+    Coral terminology: polyp (blob), reef (glob), current (thread), bedrock (constraint).
+    A reef is a collection of polyps in .claude/ directories.
   </context>
 </blob>
