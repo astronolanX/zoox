@@ -520,6 +520,60 @@ def cmd_template(args):
         if tmpl.get('next_steps'):
             print(f"  Next steps: {len(tmpl['next_steps'])} items")
 
+    elif args.action == "create":
+        from zoox.blob import PathTraversalError
+
+        if not args.template_name:
+            print("Usage: zoox template create <name> --type thread --summary 'Bug: {title}'", file=sys.stderr)
+            sys.exit(1)
+
+        # Check for collision with built-in
+        if args.template_name in BUILTIN_TEMPLATES:
+            print(f"Cannot override built-in template '{args.template_name}'", file=sys.stderr)
+            sys.exit(1)
+
+        # Build template from args
+        template = {
+            "type": args.type or "thread",
+            "summary_template": args.summary or "{title}",
+            "scope": args.scope or "project",
+        }
+        if args.status:
+            template["status"] = args.status
+        if args.description:
+            template["description"] = args.description
+        if args.next_steps:
+            template["next_steps"] = args.next_steps.split("|")
+
+        try:
+            path = glob.save_template(args.template_name, template)
+            rel_path = path.relative_to(project_dir)
+            print(f"Created template: {rel_path}")
+        except PathTraversalError:
+            print(f"Invalid template name: '{args.template_name}' (path traversal not allowed)", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.action == "delete":
+        from zoox.blob import PathTraversalError
+
+        if not args.template_name:
+            print("Usage: zoox template delete <name>", file=sys.stderr)
+            sys.exit(1)
+
+        if args.template_name in BUILTIN_TEMPLATES:
+            print(f"Cannot delete built-in template '{args.template_name}'", file=sys.stderr)
+            sys.exit(1)
+
+        try:
+            if glob.delete_template(args.template_name):
+                print(f"Deleted template: {args.template_name}")
+            else:
+                print(f"Template '{args.template_name}' not found", file=sys.stderr)
+                sys.exit(1)
+        except PathTraversalError:
+            print(f"Invalid template name: '{args.template_name}' (path traversal not allowed)", file=sys.stderr)
+            sys.exit(1)
+
 
 def cmd_graph(args):
     """Visualize polyp relationships."""
@@ -679,6 +733,32 @@ def cmd_index(args):
     if args.rebuild:
         count = glob.rebuild_index()
         print(f"Index rebuilt: {count} polyp(s) indexed")
+        return
+
+    if args.search or args.type or args.scope or args.status:
+        # Search mode - any filter triggers search
+        results = glob.search_index(
+            query=args.search if args.search else None,
+            blob_type=args.type,
+            scope=args.scope,
+            status=args.status,
+            limit=args.limit or 20,
+        )
+
+        if not results:
+            print("No matches found")
+            if args.search:
+                print(f"  Query: '{args.search}'")
+            return
+
+        print(f"Search Results ({len(results)}):")
+        print()
+        for key, entry in results:
+            type_tag = f"[{entry.get('type', '?')}]"
+            scope_tag = f"[{entry.get('scope', '?')}]"
+            status_str = f" ({entry.get('status')})" if entry.get('status') else ""
+            print(f"  {key} {type_tag} {scope_tag}{status_str}")
+            print(f"    {entry.get('summary', '')[:60]}")
         return
 
     # Default: show stats
@@ -961,6 +1041,100 @@ def cmd_drift(args):
             print(f"  additional_paths: (none)")
 
 
+def cmd_sync(args):
+    """Check reef integrity and fix issues."""
+    from zoox.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    issues = glob.check_integrity()
+
+    # Count total issues
+    total_issues = sum(len(v) for v in issues.values())
+
+    if total_issues == 0:
+        print("Reef integrity: OK")
+        print("  No issues found")
+        return
+
+    print(f"Reef integrity: {total_issues} issue(s) found")
+    print()
+
+    # Missing files
+    if issues["missing_files"]:
+        print(f"Missing Files ({len(issues['missing_files'])}):")
+        for polyp_key, file_path in issues["missing_files"][:5]:
+            print(f"  {polyp_key}")
+            print(f"    -> {file_path}")
+        if len(issues["missing_files"]) > 5:
+            print(f"  ... and {len(issues['missing_files']) - 5} more")
+
+        if args.fix:
+            print()
+            fixed = 0
+            seen_keys = set()
+            for polyp_key, _ in issues["missing_files"]:
+                if polyp_key not in seen_keys:
+                    if glob.fix_missing_files(polyp_key):
+                        fixed += 1
+                    seen_keys.add(polyp_key)
+            print(f"  Fixed {fixed} polyp(s) - removed missing file refs")
+        print()
+
+    # Stale polyps
+    if issues["stale_polyps"]:
+        print(f"Stale Session Polyps ({len(issues['stale_polyps'])}):")
+        for polyp_key, days_old in issues["stale_polyps"][:5]:
+            print(f"  {polyp_key} ({days_old}d old)")
+        if len(issues["stale_polyps"]) > 5:
+            print(f"  ... and {len(issues['stale_polyps']) - 5} more")
+        print("  Tip: Run `zoox sink` to archive stale session polyps")
+        print()
+
+    # Orphan index entries
+    if issues["orphan_files"]:
+        print(f"Orphan Index Entries ({len(issues['orphan_files'])}):")
+        for key in issues["orphan_files"][:5]:
+            print(f"  {key}")
+        if len(issues["orphan_files"]) > 5:
+            print(f"  ... and {len(issues['orphan_files']) - 5} more")
+
+        if args.fix:
+            glob.rebuild_index()
+            print("  Fixed: Index rebuilt")
+        else:
+            print("  Tip: Run `zoox index --rebuild` to fix")
+        print()
+
+    # Broken refs
+    if issues["broken_refs"]:
+        print(f"Broken Related Refs ({len(issues['broken_refs'])}):")
+        for polyp_key, ref in issues["broken_refs"][:5]:
+            print(f"  {polyp_key} -> {ref}")
+        if len(issues["broken_refs"]) > 5:
+            print(f"  ... and {len(issues['broken_refs']) - 5} more")
+        print()
+
+    # Schema outdated
+    if issues["schema_outdated"]:
+        print(f"Schema Outdated ({len(issues['schema_outdated'])}):")
+        for polyp_key in issues["schema_outdated"][:5]:
+            print(f"  {polyp_key}")
+        if len(issues["schema_outdated"]) > 5:
+            print(f"  ... and {len(issues['schema_outdated']) - 5} more")
+
+        if args.fix:
+            count = glob.migrate_all()
+            print(f"  Fixed: Migrated {count} polyp(s)")
+        else:
+            print("  Tip: Run `zoox migrate` to update")
+        print()
+
+    if not args.fix and total_issues > 0:
+        print("Run `zoox sync --fix` to auto-fix where possible")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="zoox",
@@ -1026,8 +1200,13 @@ def main():
     index_parser = subparsers.add_parser(
         "index",
         help="Manage metadata index",
-        description="Rebuild or inspect the blob metadata index for fast lookups."
+        description="Search, rebuild, or inspect the polyp metadata index."
     )
+    index_parser.add_argument("--search", "-s", metavar="QUERY", help="Search polyp summaries")
+    index_parser.add_argument("--type", "-t", help="Filter by type: thread, decision, constraint, fact, context")
+    index_parser.add_argument("--scope", help="Filter by scope: always, project, session")
+    index_parser.add_argument("--status", help="Filter by status: active, blocked, done, archived")
+    index_parser.add_argument("--limit", "-n", type=int, help="Max results (default: 20)")
     index_parser.add_argument("--rebuild", action="store_true", help="Force full index rebuild")
     index_parser.add_argument("--stats", action="store_true", help="Show index statistics")
     index_parser.set_defaults(func=cmd_index)
@@ -1068,11 +1247,17 @@ def main():
     template_parser = subparsers.add_parser(
         "template",
         help="Manage and use polyp templates",
-        description="List, show, or use templates to create polyps with predefined structure."
+        description="List, show, use, create, or delete templates for polyp creation."
     )
-    template_parser.add_argument("action", choices=["list", "use", "show"], help="Action to perform")
-    template_parser.add_argument("template_name", nargs="?", help="Template name (for use/show)")
+    template_parser.add_argument("action", choices=["list", "use", "show", "create", "delete"], help="Action to perform")
+    template_parser.add_argument("template_name", nargs="?", help="Template name")
     template_parser.add_argument("title", nargs="?", help="Title for new polyp (with 'use')")
+    template_parser.add_argument("--type", "-t", help="Polyp type for create: thread, decision, constraint, fact")
+    template_parser.add_argument("--summary", "-s", help="Summary template with {title} placeholder")
+    template_parser.add_argument("--scope", help="Scope: project, session, always")
+    template_parser.add_argument("--status", help="Status for threads: active, blocked, done")
+    template_parser.add_argument("--description", "-d", help="Template description")
+    template_parser.add_argument("--next-steps", help="Pipe-separated next steps template")
     template_parser.set_defaults(func=cmd_template)
 
     # hook (Claude Code integration)
@@ -1110,6 +1295,15 @@ def main():
     drift_parser.add_argument("--add-path", help="Add path to drift config")
     drift_parser.add_argument("--remove-path", help="Remove path from drift config")
     drift_parser.set_defaults(func=cmd_drift)
+
+    # sync (integrity check)
+    sync_parser = subparsers.add_parser(
+        "sync",
+        help="Check reef integrity",
+        description="Scan for missing files, stale polyps, broken refs, and other integrity issues."
+    )
+    sync_parser.add_argument("--fix", action="store_true", help="Auto-fix issues where possible")
+    sync_parser.set_defaults(func=cmd_sync)
 
     args = parser.parse_args()
     args.func(args)

@@ -542,6 +542,52 @@ class Glob:
             index = self._load_index()
         return index
 
+    def search_index(
+        self,
+        query: Optional[str] = None,
+        blob_type: Optional[str] = None,
+        scope: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 20,
+    ) -> list[tuple[str, dict]]:
+        """
+        Search the index for matching polyps.
+
+        Args:
+            query: Text to search in summaries (case-insensitive)
+            blob_type: Filter by type (thread, decision, constraint, fact, context)
+            scope: Filter by scope (always, project, session)
+            status: Filter by status (active, blocked, done, archived)
+            limit: Maximum results to return
+
+        Returns:
+            List of (key, entry) tuples matching criteria
+        """
+        index = self.get_index()
+        results = []
+
+        query_lower = query.lower() if query else None
+
+        for key, entry in index.get("blobs", {}).items():
+            # Apply filters
+            if blob_type and entry.get("type") != blob_type:
+                continue
+            if scope and entry.get("scope") != scope:
+                continue
+            if status and entry.get("status") != status:
+                continue
+            if query_lower:
+                summary = entry.get("summary", "").lower()
+                if query_lower not in summary:
+                    continue
+
+            results.append((key, entry))
+
+            if len(results) >= limit:
+                break
+
+        return results
+
     def sprout(self, blob: Blob, name: str, subdir: Optional[str] = None) -> Path:
         """
         Sprout a new blob into the glob.
@@ -1062,13 +1108,167 @@ class Glob:
 
         Returns:
             Path to saved template file
+
+        Raises:
+            PathTraversalError: If name attempts directory traversal
         """
         template_dir = self.claude_dir / "templates"
         template_dir.mkdir(exist_ok=True)
 
         path = template_dir / f"{name}.template.json"
+
+        # Validate path is safely within templates directory
+        _validate_path_safe(template_dir, path)
+
         _atomic_write(path, json.dumps(template, indent=2))
         return path
+
+    def delete_template(self, name: str) -> bool:
+        """
+        Delete a user-defined template.
+
+        Args:
+            name: Template name
+
+        Returns:
+            True if deleted, False if not found or is built-in
+
+        Raises:
+            PathTraversalError: If name attempts directory traversal
+        """
+        if name in BUILTIN_TEMPLATES:
+            return False  # Can't delete built-in
+
+        template_dir = self.claude_dir / "templates"
+        template_path = template_dir / f"{name}.template.json"
+
+        # Validate path is safely within templates directory
+        _validate_path_safe(template_dir, template_path)
+
+        if template_path.exists():
+            template_path.unlink()
+            return True
+        return False
+
+    def check_integrity(self) -> dict:
+        """
+        Check reef integrity for issues.
+
+        Returns:
+            Dict with:
+                missing_files: list of (polyp_key, missing_file_path)
+                stale_polyps: list of (polyp_key, days_old) for session polyps >7d
+                orphan_files: list of blob files not in index
+                broken_refs: list of (polyp_key, broken_related_ref)
+                schema_outdated: list of polyps needing migration
+        """
+        from datetime import timedelta
+
+        issues = {
+            "missing_files": [],
+            "stale_polyps": [],
+            "orphan_files": [],
+            "broken_refs": [],
+            "schema_outdated": [],
+        }
+
+        now = datetime.now()
+        stale_threshold = now - timedelta(days=7)
+        index = self.get_index()
+        indexed_keys = set(index.get("blobs", {}).keys())
+        found_keys = set()
+
+        # Scan all polyps
+        for subdir in [None, *KNOWN_SUBDIRS]:
+            for blob_name, blob in self.list_blobs(subdir):
+                key = f"{subdir}/{blob_name}" if subdir else blob_name
+                key_with_ext = f"{key}.blob.xml"
+                found_keys.add(key_with_ext)
+
+                # Check file references
+                for f in blob.files:
+                    file_path = Path(f).expanduser()
+                    if not file_path.is_absolute():
+                        file_path = self.project_dir / f
+                    if not file_path.exists():
+                        issues["missing_files"].append((key, f))
+
+                # Check staleness (session polyps only)
+                if blob.scope == BlobScope.SESSION and blob.updated < stale_threshold:
+                    days_old = (now - blob.updated).days
+                    issues["stale_polyps"].append((key, days_old))
+
+                # Check related refs
+                for ref in blob.related:
+                    # Check if ref exists as a polyp
+                    ref_path = self.claude_dir / f"{ref}.blob.xml"
+                    if not ref_path.exists():
+                        # Try subdirs
+                        exists = False
+                        for sd in KNOWN_SUBDIRS:
+                            if (self.claude_dir / sd / f"{ref}.blob.xml").exists():
+                                exists = True
+                                break
+                        if not exists:
+                            issues["broken_refs"].append((key, ref))
+
+                # Check schema version
+                if blob.needs_migration():
+                    issues["schema_outdated"].append(key)
+
+        # Check for orphan files (in filesystem but not index)
+        for key in indexed_keys:
+            if key not in found_keys:
+                issues["orphan_files"].append(key)
+
+        return issues
+
+    def fix_missing_files(self, polyp_key: str, remove_missing: bool = True) -> bool:
+        """
+        Fix a polyp with missing file references.
+
+        Args:
+            polyp_key: Key like 'threads/my-thread' or 'my-thread'
+            remove_missing: If True, remove missing file refs; else just report
+
+        Returns:
+            True if fixed, False if polyp not found
+        """
+        # Parse key into subdir and name
+        if "/" in polyp_key:
+            subdir, name = polyp_key.split("/", 1)
+        else:
+            subdir, name = None, polyp_key
+
+        blob = self.get(name, subdir=subdir)
+        if not blob:
+            return False
+
+        if not remove_missing:
+            return True
+
+        # Filter out missing files
+        valid_files = []
+        for f in blob.files:
+            file_path = Path(f).expanduser()
+            if not file_path.is_absolute():
+                file_path = self.project_dir / f
+            if file_path.exists():
+                valid_files.append(f)
+
+        if len(valid_files) != len(blob.files):
+            blob.files = valid_files
+            blob.updated = datetime.now()
+
+            # Save back
+            if subdir:
+                path = self.claude_dir / subdir / f"{name}.blob.xml"
+            else:
+                path = self.claude_dir / f"{name}.blob.xml"
+            blob.save(path)
+            self._update_index(path, blob)
+
+        return True
 
     def build_graph(self) -> dict:
         """

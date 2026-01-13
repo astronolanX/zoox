@@ -48,6 +48,17 @@ zoox graph --dot | dot -Tpng -o reef.png
 zoox template list
 zoox template use bug "Login fails on Safari"
 zoox template use feature "Dark mode support"
+zoox template create my-bug --type thread --summary "Bug: {title}" --status active
+zoox template delete my-bug
+
+# Search polyps by content
+zoox index --search "authentication"
+zoox index --search "auth" --type thread --scope project
+zoox index --type decision  # list all decisions
+
+# Check reef integrity
+zoox sync
+zoox sync --fix  # auto-fix missing files, rebuild index, migrate
 ```
 
 ## Polyp Types
@@ -204,6 +215,82 @@ By default, only `always` scope polyps drift (constraints). This prevents noise 
 | `always` | Yes | Global rules, org standards |
 | `project` | No | Project-specific work |
 | `session` | No | Ephemeral context |
+
+## Templates
+
+Templates provide reusable polyp patterns. Built-in templates cover common workflows; custom templates let you define your own.
+
+### Built-in Templates
+
+| Name | Type | Use Case |
+|------|------|----------|
+| `bug` | thread | Bug reports with reproduction steps |
+| `feature` | thread | Feature requests with acceptance criteria |
+| `spike` | thread | Research/exploration tasks |
+| `refactor` | thread | Code improvement tasks |
+| `infra` | thread | Infrastructure changes |
+
+### Custom Templates
+
+```bash
+# Create a custom template
+zoox template create hotfix \
+  --type thread \
+  --summary "Hotfix: {title}" \
+  --status active \
+  --description "Urgent fix for production issues"
+
+# List all templates
+zoox template list
+
+# Show template details
+zoox template show hotfix
+
+# Delete custom template
+zoox template delete hotfix
+```
+
+## Index Search
+
+The metadata index enables fast polyp discovery without loading full XML.
+
+```bash
+# Search by summary text
+zoox index --search "authentication"
+
+# Filter by type, scope, or status
+zoox index --type thread --status active
+zoox index --scope always
+zoox index --search "api" --type decision
+
+# Limit results
+zoox index --search "bug" --limit 5
+
+# View index statistics
+zoox index --stats
+```
+
+## Sync: Integrity Checker
+
+The `sync` command detects reef health issues:
+
+```bash
+# Check for issues
+zoox sync
+
+# Auto-fix where possible
+zoox sync --fix
+```
+
+### What Sync Checks
+
+| Issue | Auto-Fix | Manual Fix |
+|-------|----------|------------|
+| Missing file refs | Yes (removes) | Edit polyp |
+| Stale session polyps | No | `zoox sink` |
+| Orphan index entries | Yes (rebuild) | `zoox index --rebuild` |
+| Broken related refs | No | Edit polyp |
+| Schema outdated | Yes (migrate) | `zoox migrate` |
 
 ## Performance
 

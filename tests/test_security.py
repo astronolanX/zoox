@@ -350,6 +350,22 @@ class TestPathTraversalPrevention:
             with pytest.raises(PathTraversalError):
                 glob.decompose("../../../etc/passwd")
 
+    def test_glob_save_template_traversal_blocked(self):
+        """Glob.save_template blocks traversal in name."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            glob = Glob(Path(tmpdir))
+
+            with pytest.raises(PathTraversalError):
+                glob.save_template("../../escape", {"type": "thread"})
+
+    def test_glob_delete_template_traversal_blocked(self):
+        """Glob.delete_template blocks traversal in name."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            glob = Glob(Path(tmpdir))
+
+            with pytest.raises(PathTraversalError):
+                glob.delete_template("../../escape")
+
 
 class TestPathTraversalUnicode:
     """Unicode-based path traversal attacks."""
