@@ -1256,3 +1256,224 @@ class Glob:
                 pass
 
         return results
+
+    # --- Drift: Cross-Project Discovery ---
+
+    def _get_drift_config(self) -> dict:
+        """Load drift configuration from .claude/drift.json."""
+        config_path = self.claude_dir / "drift.json"
+        default_config = {
+            "include_global": True,
+            "include_siblings": True,
+            "additional_paths": [],
+            "scope_filter": ["always"],  # Only drift 'always' scope by default
+        }
+        if config_path.exists():
+            try:
+                user_config = json.loads(config_path.read_text())
+                default_config.update(user_config)
+            except Exception:
+                pass
+        return default_config
+
+    def save_drift_config(self, config: dict) -> Path:
+        """Save drift configuration."""
+        path = self.claude_dir / "drift.json"
+        _atomic_write(path, json.dumps(config, indent=2))
+        return path
+
+    def discover_reefs(self) -> list[dict]:
+        """
+        Discover nearby reefs for drift.
+
+        Searches:
+        1. ~/.claude/ (global reef)
+        2. Sibling directories with .claude/
+        3. Configured additional paths
+
+        Returns list of reef info dicts with:
+        - path: Path to .claude/ directory
+        - name: Project/reef name
+        - source: 'global', 'sibling', or 'configured'
+        - polyp_count: Number of polyps found
+        """
+        config = self._get_drift_config()
+        reefs = []
+
+        # 1. Global reef (~/.claude/)
+        if config.get("include_global", True):
+            global_claude = Path.home() / ".claude"
+            if global_claude.exists():
+                count = self._count_polyps(global_claude)
+                if count > 0:
+                    reefs.append({
+                        "path": global_claude,
+                        "name": "~/.claude (global)",
+                        "source": "global",
+                        "polyp_count": count,
+                    })
+
+        # 2. Sibling directories
+        if config.get("include_siblings", True):
+            parent = self.project_dir.parent
+            for sibling in parent.iterdir():
+                if not sibling.is_dir():
+                    continue
+                if sibling == self.project_dir:
+                    continue
+                if sibling.name.startswith("."):
+                    continue
+                sibling_claude = sibling / ".claude"
+                if sibling_claude.exists():
+                    count = self._count_polyps(sibling_claude)
+                    if count > 0:
+                        reefs.append({
+                            "path": sibling_claude,
+                            "name": sibling.name,
+                            "source": "sibling",
+                            "polyp_count": count,
+                        })
+
+        # 3. Additional configured paths
+        for path_str in config.get("additional_paths", []):
+            path = Path(path_str).expanduser()
+            if path.exists() and path.is_dir():
+                claude_dir = path / ".claude" if not path.name == ".claude" else path
+                if claude_dir.exists():
+                    count = self._count_polyps(claude_dir)
+                    if count > 0:
+                        reefs.append({
+                            "path": claude_dir,
+                            "name": path.name,
+                            "source": "configured",
+                            "polyp_count": count,
+                        })
+
+        return reefs
+
+    def _count_polyps(self, claude_dir: Path) -> int:
+        """Count polyps in a .claude directory."""
+        count = len(list(claude_dir.glob("*.blob.xml")))
+        for subdir in KNOWN_SUBDIRS:
+            subpath = claude_dir / subdir
+            if subpath.exists():
+                count += len(list(subpath.glob("*.blob.xml")))
+        return count
+
+    def list_drift_polyps(self, scope_filter: list[str] = None) -> list[dict]:
+        """
+        List polyps from discovered reefs that match drift criteria.
+
+        Args:
+            scope_filter: List of scopes to include (default: from config)
+
+        Returns list of polyp info dicts with:
+        - reef_name: Source reef name
+        - reef_path: Path to source .claude/
+        - name: Polyp name
+        - subdir: Subdirectory (or None)
+        - blob: The Blob object
+        - key: Unique reference key (reef/subdir/name)
+        """
+        config = self._get_drift_config()
+        scope_filter = scope_filter or config.get("scope_filter", ["always"])
+
+        reefs = self.discover_reefs()
+        polyps = []
+
+        for reef in reefs:
+            reef_path = reef["path"]
+            reef_name = reef["name"]
+
+            # Scan root and subdirs
+            for subdir in [None, *KNOWN_SUBDIRS]:
+                if subdir:
+                    search_dir = reef_path / subdir
+                else:
+                    search_dir = reef_path
+
+                if not search_dir.exists():
+                    continue
+
+                for path in search_dir.glob("*.blob.xml"):
+                    try:
+                        blob = Blob.load(path)
+                        # Filter by scope
+                        if blob.scope.value not in scope_filter:
+                            continue
+
+                        name = path.stem
+                        if name.endswith(".blob"):
+                            name = name[:-5]
+
+                        key = f"{reef_name}/{subdir}/{name}" if subdir else f"{reef_name}/{name}"
+
+                        polyps.append({
+                            "reef_name": reef_name,
+                            "reef_path": reef_path,
+                            "name": name,
+                            "subdir": subdir,
+                            "blob": blob,
+                            "key": key,
+                            "path": path,
+                        })
+                    except Exception:
+                        continue
+
+        return polyps
+
+    def pull_polyp(self, key: str) -> Optional[Path]:
+        """
+        Pull (copy) a polyp from another reef into this one.
+
+        Args:
+            key: Reference key in format "reef/[subdir/]name"
+
+        Returns:
+            Path to the copied polyp, or None if not found
+        """
+        # Find the polyp by key
+        drift_polyps = self.list_drift_polyps(scope_filter=None)  # All scopes for pull
+
+        for polyp_info in drift_polyps:
+            if polyp_info["key"] == key:
+                blob = polyp_info["blob"]
+                name = polyp_info["name"]
+                subdir = polyp_info["subdir"]
+
+                # Update the blob for local context
+                blob.updated = datetime.now()
+
+                # Sprout into local reef
+                return self.sprout(blob, name, subdir)
+
+        return None
+
+    def inject_context_with_drift(self) -> str:
+        """
+        Generate XML context including drift polyps.
+
+        Extends inject_context() to include global/cross-project polyps.
+        """
+        relevant = self.surface_relevant()
+
+        # Add drift polyps
+        drift_polyps = self.list_drift_polyps()
+        for polyp_info in drift_polyps:
+            # Don't duplicate if already in local reef
+            local_blob = self.get(polyp_info["name"], polyp_info["subdir"])
+            if local_blob is None:
+                relevant.append(polyp_info["blob"])
+
+        if not relevant:
+            return ""
+
+        # Build composite XML
+        root = ET.Element("glob", project=str(self.project_dir.name))
+
+        for blob in relevant[:10]:  # Limit to top 10
+            blob_el = ET.fromstring(blob.to_xml())
+            root.append(blob_el)
+
+        ET.indent(root, space="  ")
+        return ET.tostring(root, encoding="unicode")

@@ -934,3 +934,155 @@ class TestCliHookIntegration:
             # Context may or may not surface depending on recency
             # But constraints should always surface
             assert "Use type hints" in next_surface.stdout
+
+
+class TestCliDrift:
+    """CLI drift command tests for cross-project polyp discovery."""
+
+    def test_drift_discover_empty(self):
+        """Discover with no nearby reefs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create isolated project with no siblings
+            project = Path(tmpdir) / "isolated" / "project"
+            project.mkdir(parents=True)
+
+            result = run_cli("drift", "discover", cwd=str(project))
+            assert result.returncode == 0
+            # May find ~/.claude or nothing
+            # Just verify it doesn't crash
+
+    def test_drift_discover_with_siblings(self):
+        """Discover finds sibling reefs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create two sibling projects
+            proj_a = Path(tmpdir) / "project-a"
+            proj_b = Path(tmpdir) / "project-b"
+
+            proj_a.mkdir()
+            proj_b.mkdir()
+
+            # Initialize reefs
+            run_cli("sprout", "constraint", "Rule A", cwd=str(proj_a))
+            run_cli("sprout", "fact", "Fact B", cwd=str(proj_b))
+
+            # Discover from project-a should find project-b
+            result = run_cli("drift", "discover", cwd=str(proj_a))
+            assert result.returncode == 0
+            assert "project-b" in result.stdout
+
+    def test_drift_list_default_scope(self):
+        """List shows only 'always' scope by default."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            proj_a = Path(tmpdir) / "project-a"
+            proj_b = Path(tmpdir) / "project-b"
+            proj_a.mkdir()
+            proj_b.mkdir()
+
+            # Create constraint (always scope) in project-b
+            run_cli("sprout", "constraint", "Global rule", cwd=str(proj_b))
+            # Create thread (project scope) in project-b
+            run_cli("sprout", "thread", "Local work", cwd=str(proj_b))
+
+            # List from project-a should only show constraint
+            result = run_cli("drift", "list", cwd=str(proj_a))
+            assert result.returncode == 0
+            assert "Global rule" in result.stdout
+            assert "Local work" not in result.stdout
+
+    def test_drift_list_with_scope_filter(self):
+        """List with custom scope filter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            proj_a = Path(tmpdir) / "project-a"
+            proj_b = Path(tmpdir) / "project-b"
+            proj_a.mkdir()
+            proj_b.mkdir()
+
+            run_cli("sprout", "constraint", "Global rule", cwd=str(proj_b))
+            run_cli("sprout", "thread", "Local work", cwd=str(proj_b))
+
+            # List with project scope included
+            result = run_cli("drift", "list", "--scope", "always,project", cwd=str(proj_a))
+            assert result.returncode == 0
+            assert "Global rule" in result.stdout
+            assert "Local work" in result.stdout
+
+    def test_drift_pull_copies_polyp(self):
+        """Pull copies a polyp from another reef."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            proj_a = Path(tmpdir) / "project-a"
+            proj_b = Path(tmpdir) / "project-b"
+            proj_a.mkdir()
+            proj_b.mkdir()
+
+            # Create constraint in project-b
+            run_cli("sprout", "constraint", "Shared rule", cwd=str(proj_b))
+
+            # Pull from project-a
+            result = run_cli("drift", "pull", "project-b/constraints/shared-rule", cwd=str(proj_a))
+            assert result.returncode == 0
+            assert "Pulled" in result.stdout
+
+            # Verify polyp exists locally
+            assert (Path(proj_a) / ".claude" / "constraints" / "shared-rule.blob.xml").exists()
+
+    def test_drift_pull_not_found(self):
+        """Pull fails gracefully for missing polyp."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli("drift", "pull", "nonexistent/polyp", cwd=tmpdir)
+            assert result.returncode != 0
+            assert "not found" in result.stderr.lower()
+
+    def test_drift_config_show(self):
+        """Config shows current drift settings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli("drift", "config", cwd=tmpdir)
+            assert result.returncode == 0
+            assert "include_global" in result.stdout
+            assert "include_siblings" in result.stdout
+            assert "scope_filter" in result.stdout
+
+    def test_drift_config_add_path(self):
+        """Config can add additional paths."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            extra_path = Path(tmpdir) / "extra-project"
+            extra_path.mkdir()
+
+            result = run_cli("drift", "config", "--add-path", str(extra_path), cwd=tmpdir)
+            assert result.returncode == 0
+            assert "Added" in result.stdout
+
+            # Verify in config
+            config_result = run_cli("drift", "config", cwd=tmpdir)
+            assert str(extra_path) in config_result.stdout
+
+    def test_drift_config_remove_path(self):
+        """Config can remove paths."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            extra_path = Path(tmpdir) / "extra-project"
+            extra_path.mkdir()
+
+            # Add then remove
+            run_cli("drift", "config", "--add-path", str(extra_path), cwd=tmpdir)
+            result = run_cli("drift", "config", "--remove-path", str(extra_path), cwd=tmpdir)
+            assert result.returncode == 0
+            assert "Removed" in result.stdout
+
+    def test_hook_surface_with_drift(self):
+        """Hook surface includes drift polyps when --drift flag used."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            proj_a = Path(tmpdir) / "project-a"
+            proj_b = Path(tmpdir) / "project-b"
+            proj_a.mkdir()
+            proj_b.mkdir()
+
+            # Create constraint in project-b
+            run_cli("sprout", "constraint", "Cross-project rule", cwd=str(proj_b))
+
+            # Create local polyp in project-a
+            run_cli("sprout", "thread", "Local work", cwd=str(proj_a))
+
+            # Surface with drift should include both
+            result = run_cli("hook", "surface", "--drift", cwd=str(proj_a))
+            assert result.returncode == 0
+            assert "Local work" in result.stdout
+            assert "Cross-project rule" in result.stdout

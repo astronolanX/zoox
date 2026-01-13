@@ -720,7 +720,12 @@ def cmd_hook(args):
     if args.action == "surface":
         # UserPromptSubmit hook: surface relevant polyps as XML
         glob = Glob(project_dir)
-        xml_output = glob.inject_context()
+
+        # Use drift-aware surfacing if --drift flag or by default
+        if args.drift:
+            xml_output = glob.inject_context_with_drift()
+        else:
+            xml_output = glob.inject_context()
 
         if xml_output:
             # Output in format Claude Code hooks expect
@@ -847,6 +852,113 @@ def cmd_hook(args):
         except json.JSONDecodeError:
             print("  settings.json: INVALID JSON")
             return
+
+
+def cmd_drift(args):
+    """Cross-project polyp discovery and sharing."""
+    from zoox.blob import Glob, KNOWN_SUBDIRS
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    if args.action == "discover":
+        # Find nearby reefs
+        reefs = glob.discover_reefs()
+
+        if not reefs:
+            print("No nearby reefs found.")
+            print()
+            print("Drift searches for:")
+            print("  - ~/.claude/ (global polyps)")
+            print("  - Sibling directories with .claude/")
+            print("  - Paths in .claude/drift.json")
+            return
+
+        print(f"Discovered Reefs ({len(reefs)}):")
+        print()
+        for reef in reefs:
+            source_tag = f"[{reef['source']}]"
+            print(f"  {reef['name']} {source_tag}")
+            print(f"    {reef['polyp_count']} polyp(s)")
+            print(f"    {reef['path']}")
+            print()
+
+    elif args.action == "list":
+        # List polyps available for drift
+        scope_filter = args.scope.split(",") if args.scope else None
+        polyps = glob.list_drift_polyps(scope_filter=scope_filter)
+
+        if not polyps:
+            print("No drift polyps found.")
+            if not args.scope:
+                print("  (Only 'always' scope by default)")
+                print("  Use --scope project,always to include more")
+            return
+
+        print(f"Drift Polyps ({len(polyps)}):")
+        print()
+        for p in polyps:
+            scope_tag = f"[{p['blob'].scope.value}]"
+            type_tag = f"[{p['blob'].type.value}]"
+            print(f"  {p['key']} {scope_tag} {type_tag}")
+            print(f"    {p['blob'].summary[:60]}")
+        print()
+        print("Pull with: zoox drift pull <key>")
+
+    elif args.action == "pull":
+        # Copy a polyp from another reef
+        if not args.key:
+            print("Usage: zoox drift pull <key>", file=sys.stderr)
+            print("  Get keys from: zoox drift list", file=sys.stderr)
+            sys.exit(1)
+
+        path = glob.pull_polyp(args.key)
+        if path:
+            rel_path = path.relative_to(project_dir)
+            print(f"Pulled: {rel_path}")
+        else:
+            print(f"Polyp not found: {args.key}", file=sys.stderr)
+            print("  Get keys from: zoox drift list --scope always,project", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.action == "config":
+        # Show or update drift configuration
+        config = glob._get_drift_config()
+
+        if args.add_path:
+            paths = config.get("additional_paths", [])
+            if args.add_path not in paths:
+                paths.append(args.add_path)
+                config["additional_paths"] = paths
+                glob.save_drift_config(config)
+                print(f"Added: {args.add_path}")
+            else:
+                print(f"Already configured: {args.add_path}")
+            return
+
+        if args.remove_path:
+            paths = config.get("additional_paths", [])
+            if args.remove_path in paths:
+                paths.remove(args.remove_path)
+                config["additional_paths"] = paths
+                glob.save_drift_config(config)
+                print(f"Removed: {args.remove_path}")
+            else:
+                print(f"Not found: {args.remove_path}")
+            return
+
+        # Default: show config
+        print("Drift Configuration:")
+        print(f"  include_global: {config.get('include_global', True)}")
+        print(f"  include_siblings: {config.get('include_siblings', True)}")
+        print(f"  scope_filter: {config.get('scope_filter', ['always'])}")
+        paths = config.get("additional_paths", [])
+        if paths:
+            print(f"  additional_paths:")
+            for p in paths:
+                print(f"    - {p}")
+        else:
+            print(f"  additional_paths: (none)")
 
 
 def main():
@@ -979,7 +1091,25 @@ def main():
     hook_parser.add_argument("--next", "-n", help="Pipe-separated next steps (for persist)")
     hook_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output (for persist)")
     hook_parser.add_argument("--json", action="store_true", help="Output raw JSON (for setup)")
+    hook_parser.add_argument("--drift", action="store_true", help="Include drift polyps (for surface)")
     hook_parser.set_defaults(func=cmd_hook)
+
+    # drift (cross-project discovery)
+    drift_parser = subparsers.add_parser(
+        "drift",
+        help="Cross-project polyp discovery",
+        description="Discover and share polyps across projects (global, siblings, configured paths)."
+    )
+    drift_parser.add_argument(
+        "action",
+        choices=["discover", "list", "pull", "config"],
+        help="discover: find reefs | list: show drift polyps | pull: copy polyp | config: settings"
+    )
+    drift_parser.add_argument("key", nargs="?", help="Polyp key for pull (from 'drift list')")
+    drift_parser.add_argument("--scope", help="Scope filter: always,project,session (comma-separated)")
+    drift_parser.add_argument("--add-path", help="Add path to drift config")
+    drift_parser.add_argument("--remove-path", help="Remove path from drift config")
+    drift_parser.set_defaults(func=cmd_drift)
 
     args = parser.parse_args()
     args.func(args)

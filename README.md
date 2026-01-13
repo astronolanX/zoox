@@ -152,6 +152,59 @@ zoox hook persist --next "Write tests|Update docs"
 zoox hook persist --quiet
 ```
 
+## Drift: Cross-Project Discovery
+
+Drift enables polyps to spread across projects. Global constraints, shared decisions, and common facts can be discovered from sibling projects and `~/.claude/`.
+
+### Discovery Sources
+
+| Source | Path | Enabled By Default |
+|--------|------|-------------------|
+| Global | `~/.claude/` | Yes |
+| Siblings | `../*/. claude/` | Yes |
+| Configured | `drift.json` paths | Manual |
+
+### Commands
+
+```bash
+# Discover nearby reefs
+zoox drift discover
+
+# List polyps available for drift (default: always scope only)
+zoox drift list
+zoox drift list --scope always,project  # include more scopes
+
+# Copy a polyp into current reef
+zoox drift pull project-b/constraints/shared-rule
+
+# Configure drift paths
+zoox drift config
+zoox drift config --add-path ~/work/shared-project
+zoox drift config --remove-path ~/old-project
+```
+
+### With Hook Integration
+
+```bash
+# Surface includes drift polyps
+zoox hook surface --drift
+```
+
+Or update settings.json:
+```json
+{ "type": "command", "command": "zoox hook surface --drift" }
+```
+
+### Scope Filtering
+
+By default, only `always` scope polyps drift (constraints). This prevents noise from project-specific threads and decisions.
+
+| Scope | Drifts By Default | Use Case |
+|-------|-------------------|----------|
+| `always` | Yes | Global rules, org standards |
+| `project` | No | Project-specific work |
+| `session` | No | Ephemeral context |
+
 ## Performance
 
 zoox is optimized for **human-scale** memory, not big data. Here's what to expect:
@@ -189,7 +242,7 @@ The naming is inspired by coral reef biology:
 | **current** | Active work thread |
 | **bedrock** | Foundation constraints |
 | **deposit** | Strategic decisions |
-| **drift** | Cross-project spread (coming soon) |
+| **drift** | Cross-project spread |
 
 *Zooxanthellae* are the symbiotic algae that live inside coral, producing 90% of the coral's energy. Without them, coral bleaches and dies. Memory without context starves. Memory with rich context thrives.
 
