@@ -1,0 +1,27 @@
+<run id="001" date="2026-01-13">
+  <summary>Completed P4 hooks + P5 drift features</summary>
+  <what-worked>
+    <item>Hook integration clean - surface/persist/setup/status commands work well</item>
+    <item>Drift discovery finds ~/.claude, siblings, configured paths correctly</item>
+    <item>Scope filtering prevents noise (only 'always' drifts by default)</item>
+    <item>Test suite comprehensive - 278 tests all passing</item>
+  </what-worked>
+  <what-didnt>
+    <item>Initial typo in cli.py (extra parenthesis) - caught by linter</item>
+  </what-didnt>
+  <files-modified>
+    <file>src/zoox/blob.py</file>
+    <file>src/zoox/cli.py</file>
+    <file>tests/test_cli.py</file>
+    <file>README.md</file>
+  </files-modified>
+  <commits>
+    <commit hash="ce263e0">feat: add Claude Code hook integration</commit>
+    <commit hash="c47fc1c">feat: add drift for cross-project polyp discovery</commit>
+  </commits>
+  <next-session>
+    <step>Consider P6: custom templates, scheduled cleanup, index search</step>
+    <step>Dogfood drift on real projects</step>
+    <step>Consider adding drift to default hook surface (not just --drift flag)</step>
+  </next-session>
+</run>
