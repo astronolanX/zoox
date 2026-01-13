@@ -623,3 +623,190 @@ class TestGlobStress:
             # Should have 50 archived blobs
             archive = list((project / ".claude" / "archive").glob("*.blob.xml"))
             assert len(archive) == 50
+
+
+class TestGlobCache:
+    """Cache functionality tests."""
+
+    def test_cache_hit_on_repeated_get(self):
+        """Repeated get() calls hit cache."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.FACT, summary="Cache me")
+            glob.sprout(blob, "cached")
+
+            # First call - cache miss
+            result1 = glob.get("cached")
+            stats1 = glob.cache_stats()
+            assert stats1["misses"] == 1
+            assert stats1["hits"] == 0
+
+            # Second call - cache hit
+            result2 = glob.get("cached")
+            stats2 = glob.cache_stats()
+            assert stats2["hits"] == 1
+            assert stats2["misses"] == 1
+
+            assert result1.summary == result2.summary
+
+    def test_cache_invalidated_on_file_change(self):
+        """Cache invalidates when file mtime changes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.FACT, summary="Original")
+            path = glob.sprout(blob, "changing")
+
+            # Load into cache
+            result1 = glob.get("changing")
+            assert result1.summary == "Original"
+
+            # Modify file directly (simulating external change)
+            import time
+            time.sleep(0.01)  # Ensure mtime differs
+            modified = Blob(type=BlobType.FACT, summary="Modified")
+            modified.save(path)
+
+            # Should reload due to mtime change
+            result2 = glob.get("changing")
+            assert result2.summary == "Modified"
+
+    def test_cache_invalidated_on_sprout(self):
+        """Sprout invalidates cache for that path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob1 = Blob(type=BlobType.FACT, summary="V1")
+            glob.sprout(blob1, "versioned")
+
+            # Load into cache
+            glob.get("versioned")
+
+            # Sprout again (overwrite)
+            blob2 = Blob(type=BlobType.FACT, summary="V2")
+            glob.sprout(blob2, "versioned")
+
+            # Should get new version
+            result = glob.get("versioned")
+            assert result.summary == "V2"
+
+    def test_cache_stats(self):
+        """Cache stats are accurate."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            # Create blobs
+            for i in range(5):
+                blob = Blob(type=BlobType.FACT, summary=f"Blob {i}")
+                glob.sprout(blob, f"blob-{i}")
+
+            # First list - all misses
+            glob.list_blobs()
+            stats1 = glob.cache_stats()
+            assert stats1["misses"] == 5
+            assert stats1["cached_blobs"] == 5
+
+            # Second list - all hits
+            glob.list_blobs()
+            stats2 = glob.cache_stats()
+            assert stats2["hits"] == 5
+            assert stats2["hit_rate"] == 50.0  # 5 hits / 10 total
+
+    def test_cache_handles_deleted_files(self):
+        """Cache handles externally deleted files gracefully."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.FACT, summary="Will be deleted")
+            path = glob.sprout(blob, "doomed")
+
+            # Load into cache
+            assert glob.get("doomed") is not None
+
+            # Delete externally
+            path.unlink()
+
+            # Should return None, not stale cache
+            assert glob.get("doomed") is None
+
+
+class TestGlobIndex:
+    """Index functionality tests."""
+
+    def test_index_created_on_sprout(self):
+        """Sprout creates/updates index entry."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.FACT, summary="Index me")
+            glob.sprout(blob, "indexed")
+
+            index = glob.get_index()
+            assert "indexed.blob.xml" in index["blobs"]
+            assert index["blobs"]["indexed.blob.xml"]["type"] == "fact"
+
+    def test_index_removed_on_decompose(self):
+        """Decompose removes from index and adds archive entry."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.CONTEXT, summary="Archive me", scope=BlobScope.SESSION)
+            glob.sprout(blob, "to-archive")
+
+            # Verify in index
+            index1 = glob.get_index()
+            assert "to-archive.blob.xml" in index1["blobs"]
+
+            # Decompose
+            glob.decompose("to-archive")
+
+            # Verify removed from index, archive added
+            index2 = glob.get_index()
+            assert "to-archive.blob.xml" not in index2["blobs"]
+            # Archive entry should exist
+            archive_keys = [k for k in index2["blobs"] if k.startswith("archive/")]
+            assert len(archive_keys) == 1
+
+    def test_index_rebuild(self):
+        """Rebuild recreates index from scratch."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            # Create some blobs
+            for i in range(5):
+                blob = Blob(type=BlobType.FACT, summary=f"Blob {i}")
+                glob.sprout(blob, f"blob-{i}")
+
+            # Delete index manually
+            index_path = project / ".claude" / "index.json"
+            index_path.unlink()
+
+            # Rebuild
+            count = glob.rebuild_index()
+            assert count == 5
+
+            # Verify all blobs in index
+            index = glob.get_index()
+            assert len(index["blobs"]) == 5
+
+    def test_index_handles_subdir_blobs(self):
+        """Index handles blobs in subdirectories."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.THREAD, summary="Thread blob", status=BlobStatus.ACTIVE)
+            glob.sprout(blob, "my-thread", subdir="threads")
+
+            index = glob.get_index()
+            assert "threads/my-thread.blob.xml" in index["blobs"]
+            assert index["blobs"]["threads/my-thread.blob.xml"]["status"] == "active"

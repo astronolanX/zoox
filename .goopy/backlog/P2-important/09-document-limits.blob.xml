@@ -1,4 +1,4 @@
-<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+<blob type="thread" scope="project" status="done" updated="2026-01-13" v="2">
   <summary>Document performance expectations in README</summary>
   <context>
     No guidance on expected blob counts or performance characteristics.

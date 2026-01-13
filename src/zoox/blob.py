@@ -7,6 +7,7 @@ A "glob" is a collection of blobs.
 """
 
 import xml.etree.ElementTree as ET
+import json
 import os
 import tempfile
 from dataclasses import dataclass, field
@@ -15,6 +16,9 @@ from pathlib import Path
 from typing import Optional
 from enum import Enum
 from uuid import uuid4
+
+# Index schema version - increment when index format changes
+INDEX_VERSION = 1
 
 
 class PathTraversalError(ValueError):
@@ -317,6 +321,169 @@ class Glob:
         self.project_dir = project_dir
         self.claude_dir = project_dir / ".claude"
         self.claude_dir.mkdir(exist_ok=True)
+        # Cache: path -> (mtime, Blob) for avoiding repeated I/O
+        self._cache: dict[Path, tuple[float, Blob]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    def _get_cached(self, path: Path) -> Optional[Blob]:
+        """
+        Get a blob from cache if valid, otherwise load and cache it.
+
+        Uses mtime for cache invalidation - if file changed, reload.
+        Returns None if file doesn't exist or can't be loaded.
+        """
+        if not path.exists():
+            # Remove from cache if file was deleted
+            self._cache.pop(path, None)
+            return None
+
+        try:
+            current_mtime = path.stat().st_mtime
+        except OSError:
+            return None
+
+        # Check cache
+        if path in self._cache:
+            cached_mtime, cached_blob = self._cache[path]
+            if cached_mtime == current_mtime:
+                self._cache_hits += 1
+                return cached_blob
+
+        # Cache miss - load and store
+        self._cache_misses += 1
+        try:
+            blob = Blob.load(path)
+            self._cache[path] = (current_mtime, blob)
+            return blob
+        except Exception:
+            # Remove invalid cache entry
+            self._cache.pop(path, None)
+            return None
+
+    def _invalidate_cache(self, path: Path) -> None:
+        """Remove a path from the cache."""
+        self._cache.pop(path, None)
+
+    def cache_stats(self) -> dict:
+        """Return cache statistics."""
+        total = self._cache_hits + self._cache_misses
+        hit_rate = (self._cache_hits / total * 100) if total > 0 else 0
+        return {
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "total": total,
+            "hit_rate": hit_rate,
+            "cached_blobs": len(self._cache),
+        }
+
+    # --- Index Management ---
+
+    def _index_path(self) -> Path:
+        """Path to the index file."""
+        return self.claude_dir / "index.json"
+
+    def _load_index(self) -> dict:
+        """Load index from disk, or return empty index if not exists."""
+        path = self._index_path()
+        if path.exists():
+            try:
+                data = json.loads(path.read_text())
+                if data.get("version") == INDEX_VERSION:
+                    return data
+            except (json.JSONDecodeError, KeyError):
+                pass
+        # Return fresh index
+        return {
+            "version": INDEX_VERSION,
+            "updated": datetime.now().isoformat(),
+            "blobs": {},
+        }
+
+    def _save_index(self, index: dict) -> None:
+        """Save index to disk atomically."""
+        index["updated"] = datetime.now().isoformat()
+        _atomic_write(self._index_path(), json.dumps(index, indent=2))
+
+    def _blob_key(self, path: Path) -> str:
+        """Get index key for a blob path (relative to claude_dir)."""
+        try:
+            return str(path.relative_to(self.claude_dir))
+        except ValueError:
+            return str(path)
+
+    def _update_index(self, path: Path, blob: Blob) -> None:
+        """Add or update a blob entry in the index."""
+        index = self._load_index()
+        key = self._blob_key(path)
+        index["blobs"][key] = {
+            "type": blob.type.value,
+            "scope": blob.scope.value,
+            "status": blob.status.value if blob.status else None,
+            "summary": blob.summary[:200],  # Truncate for index
+            "files": blob.files[:10],  # Limit files in index
+            "updated": blob.updated.strftime("%Y-%m-%d"),
+        }
+        self._save_index(index)
+
+    def _remove_from_index(self, path: Path) -> None:
+        """Remove a blob entry from the index."""
+        index = self._load_index()
+        key = self._blob_key(path)
+        if key in index["blobs"]:
+            del index["blobs"][key]
+            self._save_index(index)
+
+    def rebuild_index(self) -> int:
+        """
+        Rebuild index from scratch by scanning all blobs.
+
+        Returns number of blobs indexed.
+        """
+        index = {
+            "version": INDEX_VERSION,
+            "updated": datetime.now().isoformat(),
+            "blobs": {},
+        }
+
+        count = 0
+        # Scan root and all known subdirectories
+        for subdir in [None, *KNOWN_SUBDIRS, "archive"]:
+            if subdir:
+                search_dir = self.claude_dir / subdir
+            else:
+                search_dir = self.claude_dir
+
+            if not search_dir.exists():
+                continue
+
+            for path in search_dir.glob("*.blob.xml"):
+                try:
+                    blob = Blob.load(path)
+                    key = self._blob_key(path)
+                    index["blobs"][key] = {
+                        "type": blob.type.value,
+                        "scope": blob.scope.value,
+                        "status": blob.status.value if blob.status else None,
+                        "summary": blob.summary[:200],
+                        "files": blob.files[:10],
+                        "updated": blob.updated.strftime("%Y-%m-%d"),
+                    }
+                    count += 1
+                except Exception:
+                    continue
+
+        self._save_index(index)
+        return count
+
+    def get_index(self) -> dict:
+        """Get the current index (load or rebuild if missing)."""
+        index = self._load_index()
+        if not index["blobs"]:
+            # Empty index - try rebuild
+            self.rebuild_index()
+            index = self._load_index()
+        return index
 
     def sprout(self, blob: Blob, name: str, subdir: Optional[str] = None) -> Path:
         """
@@ -345,6 +512,8 @@ class Glob:
 
         target_dir.mkdir(parents=True, exist_ok=True)
         blob.save(path)
+        self._invalidate_cache(path)  # Invalidate after write
+        self._update_index(path, blob)  # Update index
         return path
 
     def get(self, name: str, subdir: Optional[str] = None) -> Optional[Blob]:
@@ -362,9 +531,7 @@ class Glob:
         # Validate path is safely within .claude directory
         _validate_path_safe(self.claude_dir, path)
 
-        if path.exists():
-            return Blob.load(path)
-        return None
+        return self._get_cached(path)
 
     def list_blobs(self, subdir: Optional[str] = None) -> list[tuple[str, Blob]]:
         """List all blobs, optionally in a subdirectory."""
@@ -378,15 +545,13 @@ class Glob:
 
         blobs = []
         for path in search_dir.glob("*.blob.xml"):
-            try:
-                blob = Blob.load(path)
+            blob = self._get_cached(path)
+            if blob is not None:
                 # Extract name by removing .blob.xml suffix (not using replace)
                 name = path.name
                 if name.endswith(".blob.xml"):
                     name = name[:-9]  # Remove ".blob.xml" (9 chars)
                 blobs.append((name, blob))
-            except Exception:
-                continue
 
         return blobs
 
@@ -471,8 +636,11 @@ class Glob:
         archive_path = archive_dir / f"{date_str}-{name}-{unique_id}.blob.xml"
         blob.save(archive_path)
 
-        # Remove original
+        # Remove original and update caches/index
         src.unlink()
+        self._invalidate_cache(src)
+        self._remove_from_index(src)
+        self._update_index(archive_path, blob)
 
     def inject_context(self) -> str:
         """

@@ -1,4 +1,4 @@
-<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+<blob type="thread" scope="project" status="done" updated="2026-01-13" v="2">
   <summary>Implement in-memory blob caching</summary>
   <context>
     Each list_blobs() call re-reads and re-parses files. In a session,

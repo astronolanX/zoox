@@ -317,6 +317,12 @@ def cmd_list(args):
     print(f"Surfacing Impact: ~{total_tokens:,} tokens / ~{est_ms}ms per session")
     print()
 
+    # Cache stats
+    cache = glob.cache_stats()
+    if cache["total"] > 0:
+        print(f"Cache: {cache['hits']}/{cache['total']} hits ({cache['hit_rate']:.0f}%)")
+        print()
+
     # Suggestions
     suggestions = []
 
@@ -389,6 +395,45 @@ def cmd_cleanup(args):
         print("\nRun without --dry-run to apply")
 
 
+def cmd_index(args):
+    """Manage metadata index."""
+    from zoox.blob import Glob, INDEX_VERSION
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    if args.rebuild:
+        count = glob.rebuild_index()
+        print(f"Index rebuilt: {count} polyp(s) indexed")
+        return
+
+    # Default: show stats
+    index = glob.get_index()
+    blob_count = len(index.get("blobs", {}))
+
+    print(f"Index v{INDEX_VERSION}")
+    print(f"  Polyps indexed: {blob_count}")
+    print(f"  Last updated: {index.get('updated', 'unknown')}")
+
+    if args.stats and blob_count > 0:
+        # Count by type and scope
+        type_counts = {}
+        scope_counts = {}
+        for entry in index["blobs"].values():
+            t = entry.get("type", "unknown")
+            s = entry.get("scope", "unknown")
+            type_counts[t] = type_counts.get(t, 0) + 1
+            scope_counts[s] = scope_counts.get(s, 0) + 1
+
+        print("\nBy type:")
+        for t, c in sorted(type_counts.items()):
+            print(f"  {t}: {c}")
+
+        print("\nBy scope:")
+        for s, c in sorted(scope_counts.items()):
+            print(f"  {s}: {c}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="zoox",
@@ -449,6 +494,16 @@ def main():
     cleanup_parser.add_argument("--archive-days", type=int, help="Days before pruning archives (default: 30)")
     cleanup_parser.add_argument("--dry-run", action="store_true", help="Preview without applying")
     cleanup_parser.set_defaults(func=cmd_cleanup)
+
+    # index
+    index_parser = subparsers.add_parser(
+        "index",
+        help="Manage metadata index",
+        description="Rebuild or inspect the blob metadata index for fast lookups."
+    )
+    index_parser.add_argument("--rebuild", action="store_true", help="Force full index rebuild")
+    index_parser.add_argument("--stats", action="store_true", help="Show index statistics")
+    index_parser.set_defaults(func=cmd_index)
 
     args = parser.parse_args()
     args.func(args)

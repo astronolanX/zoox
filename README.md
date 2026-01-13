@@ -71,6 +71,32 @@ relevant = reef.surface_relevant(query="authentication")
 
 Polyps live in your project's `.claude/` directory as XML files. The surfacing hook brings relevant polyps at session start. The persist hook auto-creates context polyps at session end.
 
+## Performance
+
+zoox is optimized for **human-scale** memory, not big data. Here's what to expect:
+
+| Polyp Count | Performance | Notes |
+|-------------|-------------|-------|
+| 10-100 | Instant | Ideal for most projects |
+| 100-500 | Fast (~50ms) | Sweet spot for active development |
+| 500-1000 | Acceptable (~100ms) | Consider archiving old polyps |
+| 1000+ | Slower | Use `zoox cleanup` aggressively |
+
+**Why these limits?**
+
+- XML parsing: ~0.1ms per polyp (simple, no external deps)
+- File I/O: ~0.5ms per polyp (filesystem bound)
+- Surfacing loads ALL polyps to score relevance
+
+**Recommendations:**
+
+1. **Archive aggressively** - Use `zoox sink` to move stale session polyps to archive
+2. **Use cleanup** - Run `zoox cleanup` at session start (swarm-safe, once-per-day)
+3. **Scope wisely** - Only `always` scope for true global rules; prefer `project` scope
+4. **Prune threads** - Mark completed currents as `done`, let cleanup archive them
+
+**Token budget:** ~200-500 tokens per surfaced polyp. At 10 polyps surfaced, expect ~2-5K tokens in context.
+
 ## Terminology
 
 The naming is inspired by coral reef biology:
