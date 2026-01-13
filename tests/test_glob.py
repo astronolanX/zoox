@@ -810,3 +810,315 @@ class TestGlobIndex:
             index = glob.get_index()
             assert "threads/my-thread.blob.xml" in index["blobs"]
             assert index["blobs"]["threads/my-thread.blob.xml"]["status"] == "active"
+
+
+# ============================================================================
+# P7 Feature Tests
+# ============================================================================
+
+
+class TestTFIDFSearch:
+    """Test TF-IDF fuzzy search implementation."""
+
+    def test_tfidf_basic_matching(self):
+        """TF-IDF scores documents containing query terms higher."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            # Create blobs with different content
+            blob1 = Blob(type=BlobType.FACT, summary="Authentication system design",
+                        scope=BlobScope.PROJECT)
+            blob2 = Blob(type=BlobType.FACT, summary="Database schema for users",
+                        scope=BlobScope.PROJECT)
+            blob3 = Blob(type=BlobType.FACT, summary="Auth login OAuth JWT tokens",
+                        scope=BlobScope.PROJECT)
+
+            glob.sprout(blob1, "auth-design")
+            glob.sprout(blob2, "db-schema")
+            glob.sprout(blob3, "auth-tokens")
+
+            # Search for "auth" - should return auth-related blobs
+            results = glob.search_index(query="auth")
+            assert len(results) >= 2
+            # Auth-specific blobs should score higher
+            keys = [r[0] for r in results]
+            assert "auth-design.blob.xml" in keys or "auth-tokens.blob.xml" in keys
+
+    def test_tfidf_ranks_relevant_higher(self):
+        """TF-IDF ranks more relevant documents higher."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            # Create blob with many occurrences of "api"
+            blob1 = Blob(type=BlobType.FACT, summary="API design API endpoints API versioning",
+                        scope=BlobScope.PROJECT)
+            # Create blob with single occurrence
+            blob2 = Blob(type=BlobType.FACT, summary="Backend API integration",
+                        scope=BlobScope.PROJECT)
+
+            glob.sprout(blob1, "api-heavy")
+            glob.sprout(blob2, "api-light")
+
+            results = glob.search_index(query="api")
+            assert len(results) == 2
+            # Higher TF should score higher
+            assert results[0][2] >= results[1][2]
+
+    def test_surface_relevant_with_tfidf(self):
+        """surface_relevant uses TF-IDF for query matching."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob1 = Blob(type=BlobType.CONSTRAINT, summary="Use TypeScript for all frontend",
+                        scope=BlobScope.ALWAYS)
+            blob2 = Blob(type=BlobType.FACT, summary="JavaScript legacy code",
+                        scope=BlobScope.PROJECT)
+
+            glob.sprout(blob1, "typescript-rule", subdir="constraints")
+            glob.sprout(blob2, "js-legacy")
+
+            # Query for "frontend" should surface the TypeScript constraint
+            results = glob.surface_relevant(query="frontend", track_access=False)
+            summaries = [b.summary for b in results]
+            assert "Use TypeScript for all frontend" in summaries
+
+
+class TestWikiLinking:
+    """Test [[wiki-style]] linking functionality."""
+
+    def test_extract_wiki_links_basic(self):
+        """Extract wiki links from content."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Working on [[auth-system]] feature",
+            context="This relates to [[user-management]] and [[permissions]]"
+        )
+
+        links = blob.extract_wiki_links()
+        assert "auth-system" in links
+        assert "user-management" in links
+        assert "permissions" in links
+
+    def test_extract_wiki_links_empty(self):
+        """No wiki links returns empty list."""
+        blob = Blob(type=BlobType.FACT, summary="No links here")
+        links = blob.extract_wiki_links()
+        assert links == []
+
+    def test_update_related_from_links(self):
+        """Wiki links auto-populate related field."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Working on [[auth-system]]",
+            context="See [[design-doc]] for details"
+        )
+
+        blob.update_related_from_links()
+        assert "auth-system" in blob.related
+        assert "design-doc" in blob.related
+
+    def test_update_related_preserves_existing(self):
+        """Wiki link update preserves existing manual references."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Working on [[new-feature]]",
+            related=["existing-ref", "manual-link"]
+        )
+
+        blob.update_related_from_links()
+        assert "new-feature" in blob.related
+        assert "existing-ref" in blob.related
+        assert "manual-link" in blob.related
+
+    def test_to_xml_auto_populates_related(self):
+        """to_xml automatically extracts wiki links to related."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Implements [[feature-x]]",
+            status=BlobStatus.ACTIVE
+        )
+
+        # Serialize - this should auto-populate related
+        xml = blob.to_xml()
+        assert "feature-x" in blob.related
+        assert "<ref>feature-x</ref>" in xml
+
+    def test_wiki_links_deduplicate(self):
+        """Duplicate wiki links only appear once in related."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Working on [[same-thing]]",
+            context="More about [[same-thing]] here"
+        )
+
+        blob.update_related_from_links()
+        assert blob.related.count("same-thing") == 1
+
+
+class TestLRUAccessTracking:
+    """Test LRU-style access count tracking."""
+
+    def test_access_count_in_index(self):
+        """New blobs have access_count of 0."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.FACT, summary="Test fact")
+            glob.sprout(blob, "test-fact")
+
+            index = glob.get_index()
+            assert index["blobs"]["test-fact.blob.xml"]["access_count"] == 0
+
+    def test_surface_increments_access(self):
+        """surface_relevant increments access count."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.CONSTRAINT, summary="Always surface me",
+                       scope=BlobScope.ALWAYS)
+            glob.sprout(blob, "always-surface", subdir="constraints")
+
+            # Surface should increment count
+            glob.surface_relevant(track_access=True)
+
+            index = glob.get_index()
+            key = "constraints/always-surface.blob.xml"
+            assert index["blobs"][key]["access_count"] >= 1
+
+    def test_access_count_preserved_on_update(self):
+        """Access count preserved when blob is updated."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.FACT, summary="Original")
+            path = glob.sprout(blob, "test-fact")
+
+            # Manually set access count
+            index = glob._load_index()
+            index["blobs"]["test-fact.blob.xml"]["access_count"] = 10
+            glob._save_index(index)
+
+            # Update the blob
+            blob.summary = "Updated"
+            glob._update_index(path, blob)
+
+            # Access count should be preserved
+            index = glob.get_index()
+            assert index["blobs"]["test-fact.blob.xml"]["access_count"] == 10
+
+    def test_access_count_preserved_on_rebuild(self):
+        """Access count preserved when index is rebuilt."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.FACT, summary="Test fact")
+            glob.sprout(blob, "test-fact")
+
+            # Set access count
+            index = glob._load_index()
+            index["blobs"]["test-fact.blob.xml"]["access_count"] = 42
+            glob._save_index(index)
+
+            # Rebuild index
+            glob.rebuild_index()
+
+            # Access count should be preserved
+            index = glob.get_index()
+            assert index["blobs"]["test-fact.blob.xml"]["access_count"] == 42
+
+    def test_track_access_false_skips_increment(self):
+        """track_access=False prevents access count increment."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            blob = Blob(type=BlobType.CONSTRAINT, summary="Test",
+                       scope=BlobScope.ALWAYS)
+            glob.sprout(blob, "test-constraint", subdir="constraints")
+
+            # Surface without tracking
+            glob.surface_relevant(track_access=False)
+            glob.surface_relevant(track_access=False)
+
+            index = glob.get_index()
+            assert index["blobs"]["constraints/test-constraint.blob.xml"]["access_count"] == 0
+
+
+class TestRichTemplateVariables:
+    """Test rich template variable expansion."""
+
+    def test_template_has_date(self):
+        """Template variables include current date."""
+        from zoox.blob import get_template_variables
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            vars = get_template_variables(project)
+
+            assert "date" in vars
+            assert len(vars["date"]) == 10  # YYYY-MM-DD format
+
+    def test_template_has_timestamp(self):
+        """Template variables include ISO timestamp."""
+        from zoox.blob import get_template_variables
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            vars = get_template_variables(project)
+
+            assert "timestamp" in vars
+            assert "T" in vars["timestamp"]  # ISO format has T separator
+
+    def test_template_has_project_name(self):
+        """Template variables include project directory name."""
+        from zoox.blob import get_template_variables
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            vars = get_template_variables(project)
+
+            assert "project_name" in vars
+            assert vars["project_name"] == project.name
+
+    def test_template_git_vars_empty_without_git(self):
+        """Git variables are empty strings in non-git directory."""
+        from zoox.blob import get_template_variables
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            vars = get_template_variables(project)
+
+            assert vars["git_branch"] == ""
+            assert vars["git_sha"] == ""
+            assert vars["git_short_sha"] == ""
+
+    def test_create_from_template_uses_variables(self):
+        """create_from_template expands rich variables."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            # Create custom template with date variable
+            template = {
+                "type": "thread",
+                "summary_template": "[{date}] {title}",
+                "scope": "project",
+                "status": "active"
+            }
+            glob.save_template("dated", template)
+
+            # Create from template
+            path = glob.create_from_template("dated", "Test Task")
+
+            # Load and verify
+            blob = Blob.load(path)
+            assert blob.summary.startswith("[")
+            assert "-" in blob.summary  # Date has dashes

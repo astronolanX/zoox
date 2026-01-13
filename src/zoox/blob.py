@@ -8,8 +8,12 @@ A "glob" is a collection of blobs.
 
 import xml.etree.ElementTree as ET
 import json
+import math
 import os
+import re
+import subprocess
 import tempfile
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -181,6 +185,115 @@ BLOB_VERSION = 2
 # Known subdirectories for blob organization (DRY: single source of truth)
 KNOWN_SUBDIRS = ("threads", "decisions", "constraints", "contexts", "facts")
 
+# Wiki link pattern: [[polyp-name]]
+WIKI_LINK_PATTERN = re.compile(r'\[\[([^\]]+)\]\]')
+
+
+def _tokenize(text: str) -> list[str]:
+    """Tokenize text into lowercase words for TF-IDF."""
+    return re.findall(r'\b[a-z0-9]+\b', text.lower())
+
+
+def _compute_tf(tokens: list[str]) -> dict[str, float]:
+    """Compute term frequency (normalized by document length)."""
+    if not tokens:
+        return {}
+    counts = Counter(tokens)
+    total = len(tokens)
+    return {term: count / total for term, count in counts.items()}
+
+
+def _compute_idf(term: str, documents: list[list[str]]) -> float:
+    """Compute inverse document frequency for a term."""
+    if not documents:
+        return 0.0
+    doc_count = sum(1 for doc in documents if term in doc)
+    if doc_count == 0:
+        return 0.0
+    return math.log(len(documents) / doc_count) + 1.0
+
+
+def _tfidf_score(query_tokens: list[str], doc_tokens: list[str], all_docs: list[list[str]]) -> float:
+    """Compute TF-IDF similarity score between query and document."""
+    if not query_tokens or not doc_tokens:
+        return 0.0
+
+    doc_tf = _compute_tf(doc_tokens)
+    query_tf = _compute_tf(query_tokens)
+
+    # Compute TF-IDF vectors
+    all_terms = set(query_tokens) | set(doc_tokens)
+
+    score = 0.0
+    for term in query_tf:
+        if term in doc_tf:
+            idf = _compute_idf(term, all_docs)
+            # Cosine similarity component
+            score += query_tf[term] * doc_tf[term] * idf * idf
+
+    return score
+
+
+def _get_git_info(project_dir: Path) -> dict[str, str]:
+    """
+    Get git information for template variables.
+
+    Returns dict with keys: git_branch, git_sha, git_short_sha
+    All values default to empty string if git not available.
+    """
+    result = {"git_branch": "", "git_sha": "", "git_short_sha": ""}
+
+    try:
+        # Get current branch
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+            timeout=5,
+        )
+        if proc.returncode == 0:
+            result["git_branch"] = proc.stdout.strip()
+
+        # Get current commit SHA
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+            timeout=5,
+        )
+        if proc.returncode == 0:
+            sha = proc.stdout.strip()
+            result["git_sha"] = sha
+            result["git_short_sha"] = sha[:7]
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+
+    return result
+
+
+def get_template_variables(project_dir: Path) -> dict[str, str]:
+    """
+    Get all available template variables.
+
+    Returns dict with keys:
+    - date: Current date (YYYY-MM-DD)
+    - timestamp: Current datetime (ISO format)
+    - project_name: Name of the project directory
+    - git_branch: Current git branch (or empty)
+    - git_sha: Full commit SHA (or empty)
+    - git_short_sha: Short commit SHA (or empty)
+    """
+    now = datetime.now()
+    variables = {
+        "date": now.strftime("%Y-%m-%d"),
+        "timestamp": now.isoformat(),
+        "project_name": project_dir.name,
+    }
+    variables.update(_get_git_info(project_dir))
+    return variables
+
 
 @dataclass
 class Blob:
@@ -215,8 +328,44 @@ class Blob:
         self.updated = datetime.now()
         return self
 
+    def extract_wiki_links(self) -> list[str]:
+        """
+        Extract [[wiki-style]] links from summary and context.
+
+        Returns:
+            List of unique polyp names referenced via [[name]] syntax
+        """
+        links = set()
+        # Search in summary and context
+        for text in [self.summary, self.context]:
+            if text:
+                for match in WIKI_LINK_PATTERN.finditer(text):
+                    links.add(match.group(1))
+        return sorted(links)
+
+    def update_related_from_links(self) -> None:
+        """
+        Auto-populate related field from wiki links found in content.
+
+        Merges wiki link references with any existing manual references.
+        """
+        wiki_links = self.extract_wiki_links()
+        existing = set(self.related)
+        # Merge wiki links with existing, preserving order
+        for link in wiki_links:
+            if link not in existing:
+                self.related.append(link)
+                existing.add(link)
+
     def to_xml(self) -> str:
-        """Serialize blob to XML string."""
+        """Serialize blob to XML string.
+
+        Automatically extracts [[wiki links]] from content and adds them
+        to the related field before serialization.
+        """
+        # Auto-populate related from wiki links
+        self.update_related_from_links()
+
         # Root element with attributes
         attribs = {
             "type": self.type.value,
@@ -473,6 +622,9 @@ class Glob:
         """Add or update a blob entry in the index."""
         index = self._load_index()
         key = self._blob_key(path)
+        # Preserve existing access_count if present
+        existing = index["blobs"].get(key, {})
+        access_count = existing.get("access_count", 0)
         index["blobs"][key] = {
             "type": blob.type.value,
             "scope": blob.scope.value,
@@ -480,8 +632,24 @@ class Glob:
             "summary": blob.summary[:200],  # Truncate for index
             "files": blob.files[:10],  # Limit files in index
             "updated": blob.updated.strftime("%Y-%m-%d"),
+            "access_count": access_count,
         }
         self._save_index(index)
+
+    def _increment_access(self, keys: list[str]) -> None:
+        """Increment access count for surfaced polyps (LRU tracking)."""
+        if not keys:
+            return
+        index = self._load_index()
+        for key in keys:
+            if key in index["blobs"]:
+                index["blobs"][key]["access_count"] = index["blobs"][key].get("access_count", 0) + 1
+        self._save_index(index)
+
+    def get_access_count(self, key: str) -> int:
+        """Get access count for a polyp from index."""
+        index = self.get_index()
+        return index.get("blobs", {}).get(key, {}).get("access_count", 0)
 
     def _remove_from_index(self, path: Path) -> None:
         """Remove a blob entry from the index."""
@@ -495,8 +663,13 @@ class Glob:
         """
         Rebuild index from scratch by scanning all blobs.
 
+        Preserves access_count from existing index entries.
         Returns number of blobs indexed.
         """
+        # Load existing index to preserve access counts
+        old_index = self._load_index()
+        old_blobs = old_index.get("blobs", {})
+
         index = {
             "version": INDEX_VERSION,
             "updated": datetime.now().isoformat(),
@@ -518,6 +691,8 @@ class Glob:
                 try:
                     blob = Blob.load(path)
                     key = self._blob_key(path)
+                    # Preserve access_count from old index
+                    access_count = old_blobs.get(key, {}).get("access_count", 0)
                     index["blobs"][key] = {
                         "type": blob.type.value,
                         "scope": blob.scope.value,
@@ -525,6 +700,7 @@ class Glob:
                         "summary": blob.summary[:200],
                         "files": blob.files[:10],
                         "updated": blob.updated.strftime("%Y-%m-%d"),
+                        "access_count": access_count,
                     }
                     count += 1
                 except Exception:
@@ -549,44 +725,71 @@ class Glob:
         scope: Optional[str] = None,
         status: Optional[str] = None,
         limit: int = 20,
-    ) -> list[tuple[str, dict]]:
+    ) -> list[tuple[str, dict, float]]:
         """
-        Search the index for matching polyps.
+        Search the index for matching polyps using TF-IDF ranking.
 
         Args:
-            query: Text to search in summaries (case-insensitive)
+            query: Text to search in summaries (fuzzy TF-IDF matching)
             blob_type: Filter by type (thread, decision, constraint, fact, context)
             scope: Filter by scope (always, project, session)
             status: Filter by status (active, blocked, done, archived)
             limit: Maximum results to return
 
         Returns:
-            List of (key, entry) tuples matching criteria
+            List of (key, entry, score) tuples matching criteria, ranked by relevance
         """
         index = self.get_index()
         results = []
+        blobs_dict = index.get("blobs", {})
 
-        query_lower = query.lower() if query else None
+        # Pre-compute document tokens for TF-IDF if query provided
+        all_docs = []
+        all_keys = []
+        if query:
+            for key, entry in blobs_dict.items():
+                summary = entry.get("summary", "")
+                all_docs.append(_tokenize(summary))
+                all_keys.append(key)
+            query_tokens = _tokenize(query)
+            query_lower = query.lower()
 
-        for key, entry in index.get("blobs", {}).items():
-            # Apply filters
+        for key, entry in blobs_dict.items():
+            # Apply type/scope/status filters
             if blob_type and entry.get("type") != blob_type:
                 continue
             if scope and entry.get("scope") != scope:
                 continue
             if status and entry.get("status") != status:
                 continue
-            if query_lower:
-                summary = entry.get("summary", "").lower()
-                if query_lower not in summary:
+
+            score = 0.0
+            if query:
+                summary = entry.get("summary", "")
+                doc_idx = all_keys.index(key) if key in all_keys else -1
+
+                if doc_idx >= 0:
+                    # TF-IDF score
+                    tfidf = _tfidf_score(query_tokens, all_docs[doc_idx], all_docs)
+                    score = tfidf * 10.0
+
+                    # Bonus for exact substring match
+                    if query_lower in summary.lower():
+                        score += 5.0
+
+                # Skip if no relevance to query
+                if score == 0.0:
                     continue
+            else:
+                # No query = all matching filters get same score
+                score = 1.0
 
-            results.append((key, entry))
+            results.append((key, entry, score))
 
-            if len(results) >= limit:
-                break
+        # Sort by score descending
+        results.sort(key=lambda x: x[2], reverse=True)
 
-        return results
+        return results[:limit]
 
     def sprout(self, blob: Blob, name: str, subdir: Optional[str] = None) -> Path:
         """
@@ -658,13 +861,23 @@ class Glob:
 
         return blobs
 
-    def surface_relevant(self, files: list[str] = None, query: str = None) -> list[Blob]:
+    def surface_relevant(
+        self,
+        files: list[str] = None,
+        query: str = None,
+        track_access: bool = True,
+    ) -> list[Blob]:
         """
         Surface blobs relevant to current context.
+
+        Uses TF-IDF scoring for query matching, providing fuzzy semantic search
+        that ranks results by relevance rather than just substring matching.
+        Includes LRU-style access tracking to boost frequently-used polyps.
 
         Args:
             files: Files being touched (surfaces blobs that reference them)
             query: Free-text query to match against summaries/context
+            track_access: If True, increment access count for surfaced polyps
 
         Returns:
             List of relevant blobs, scored by relevance
@@ -672,41 +885,75 @@ class Glob:
         relevant = []
 
         # Collect all blobs from root and all known subdirectories
-        all_blobs = []
-        all_blobs.extend(self.list_blobs())
+        all_blobs = []  # (name, blob, subdir) tuples
+        for name, blob in self.list_blobs():
+            all_blobs.append((name, blob, None))
         for subdir in KNOWN_SUBDIRS:
-            all_blobs.extend(self.list_blobs(subdir))
+            for name, blob in self.list_blobs(subdir):
+                all_blobs.append((name, blob, subdir))
 
-        for name, blob in all_blobs:
-            score = 0
+        # Get index for access counts
+        index = self.get_index()
+        blobs_index = index.get("blobs", {})
+
+        # Pre-tokenize all documents for TF-IDF if we have a query
+        all_doc_tokens = []
+        if query:
+            for name, blob, subdir in all_blobs:
+                doc_text = f"{blob.summary} {blob.context}"
+                all_doc_tokens.append(_tokenize(doc_text))
+            query_tokens = _tokenize(query)
+
+        for i, (name, blob, subdir) in enumerate(all_blobs):
+            score = 0.0
 
             # Always-scope blobs always surface
             if blob.scope == BlobScope.ALWAYS:
-                score += 10
+                score += 10.0
 
             # Active/blocked threads surface
             if blob.status in (BlobStatus.ACTIVE, BlobStatus.BLOCKED):
-                score += 5
+                score += 5.0
 
             # File overlap
             if files and blob.files:
                 overlap = set(files) & set(blob.files)
-                score += len(overlap) * 3
+                score += len(overlap) * 3.0
 
-            # Query match (simple substring for now)
-            if query:
+            # LRU boost: frequently accessed polyps get a small boost
+            # Use logarithmic scaling to prevent runaway scores
+            key = f"{subdir}/{name}.blob.xml" if subdir else f"{name}.blob.xml"
+            access_count = blobs_index.get(key, {}).get("access_count", 0)
+            if access_count > 0:
+                # log(1 + count) gives diminishing returns: 1->0.69, 10->2.4, 100->4.6
+                score += math.log(1 + access_count)
+
+            # TF-IDF query matching
+            if query and all_doc_tokens:
+                tfidf = _tfidf_score(query_tokens, all_doc_tokens[i], all_doc_tokens)
+                # Scale TF-IDF score to be comparable with other scoring factors
+                # TF-IDF scores are typically small, so multiply by 10
+                score += tfidf * 10.0
+
+                # Bonus for exact substring match (in addition to TF-IDF)
                 query_lower = query.lower()
                 if query_lower in blob.summary.lower():
-                    score += 5
+                    score += 3.0
                 if query_lower in blob.context.lower():
-                    score += 2
+                    score += 1.0
 
             if score > 0:
-                relevant.append((score, blob))
+                relevant.append((score, blob, key))
 
         # Sort by score descending
         relevant.sort(key=lambda x: x[0], reverse=True)
-        return [blob for _, blob in relevant]
+
+        # Track access for surfaced polyps
+        if track_access and relevant:
+            accessed_keys = [key for _, _, key in relevant]
+            self._increment_access(accessed_keys)
+
+        return [blob for _, blob, _ in relevant]
 
     def decompose(self, name: str, subdir: Optional[str] = None):
         """
@@ -1029,6 +1276,15 @@ class Glob:
         """
         Create a polyp from a template.
 
+        Supports rich template variables:
+        - {title}: The provided title
+        - {date}: Current date (YYYY-MM-DD)
+        - {timestamp}: Current datetime (ISO format)
+        - {project_name}: Name of the project directory
+        - {git_branch}: Current git branch (or empty)
+        - {git_sha}: Full commit SHA (or empty)
+        - {git_short_sha}: Short commit SHA (or empty)
+
         Args:
             template_name: Name of the template to use
             title: Title for the polyp (used in summary)
@@ -1041,12 +1297,17 @@ class Glob:
         if not template:
             return None
 
+        # Get rich template variables
+        tmpl_vars = get_template_variables(self.project_dir)
+        tmpl_vars["title"] = title
+        tmpl_vars.update(kwargs)
+
         # Parse type
         blob_type = BlobType(template.get("type", "thread"))
 
         # Build summary from template
         summary_tmpl = template.get("summary_template", "{title}")
-        summary = summary_tmpl.format(title=title, **kwargs)
+        summary = summary_tmpl.format(**tmpl_vars)
 
         # Parse scope
         scope_str = template.get("scope", "project")
@@ -1061,13 +1322,14 @@ class Glob:
         # Build context from template if provided
         context = ""
         if "context_template" in template:
-            context = template["context_template"].format(
-                title=title,
-                context=kwargs.get("context", ""),
-                decision=kwargs.get("decision", ""),
-                consequences=kwargs.get("consequences", ""),
-                **kwargs,
-            )
+            # Add default empty values for optional template vars
+            ctx_vars = {
+                "context": "",
+                "decision": "",
+                "consequences": "",
+            }
+            ctx_vars.update(tmpl_vars)
+            context = template["context_template"].format(**ctx_vars)
 
         # Get next steps from template
         next_steps = template.get("next_steps", [])

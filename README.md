@@ -292,6 +292,113 @@ zoox sync --fix
 | Broken related refs | No | Edit polyp |
 | Schema outdated | Yes (migrate) | `zoox migrate` |
 
+## Team Workflows
+
+zoox uses **git as the sync mechanism** - no special server required.
+
+### Quick Setup
+
+```bash
+# Initialize zoox with team-friendly .gitignore
+zoox init --gitignore
+
+# Or append to existing .gitignore
+zoox init --gitignore --append
+```
+
+### What to Commit
+
+| Polyp Type | Scope | Commit? | Reason |
+|------------|-------|---------|--------|
+| **constraints/** | always | Yes | Team-wide rules |
+| **decisions/** | project | Yes | Architectural records |
+| **facts/** | project | Yes | Shared knowledge |
+| **threads/** | project | Maybe | Active work (your call) |
+| **contexts/** | session | No | Ephemeral per-session |
+| **archive/** | - | No | Historical, can rebuild |
+| **index.json** | - | No | Generated, can rebuild |
+
+### Recommended .gitignore
+
+```gitignore
+# zoox - Commit constraints and decisions, ignore ephemeral
+.claude/context.blob.xml
+.claude/contexts/
+.claude/index.json
+.claude/archive/
+.claude/snapshots/
+```
+
+### Team Patterns
+
+**Shared Constraints (bedrock):**
+```bash
+# Alice creates constraint
+zoox sprout constraint "Use TypeScript for all frontend"
+git add .claude/constraints/
+git commit -m "feat: add TypeScript constraint"
+git push
+
+# Bob pulls and surfaces it automatically
+git pull
+zoox reef  # Shows new constraint
+```
+
+**Architectural Decisions (ADR):**
+```bash
+# Create ADR using template
+zoox template use decision "Use PostgreSQL for persistence"
+
+# Edit the generated polyp to add context
+# Then commit
+git add .claude/decisions/
+git commit -m "docs: ADR for PostgreSQL"
+```
+
+**Thread Handoff:**
+```bash
+# Alice working on auth
+zoox sprout thread "Implement OAuth2 login"
+# ... work in progress ...
+
+# Hand off to Bob
+zoox status oauth-login blocked -b "Needs Bob's API expertise"
+git add .claude/threads/
+git commit -m "wip: OAuth2 in progress, blocked on API"
+git push
+
+# Bob picks it up
+git pull
+zoox status oauth-login active
+```
+
+### Cross-Project with Drift
+
+Share polyps between projects without committing to each repo:
+
+```bash
+# Discover nearby reefs
+zoox drift discover
+
+# Pull shared constraints from global reef
+zoox drift pull ~/.claude/constraints/security-rules
+
+# Configure additional drift sources
+zoox drift config --add-path ~/work/shared-standards/.claude
+```
+
+### Wiki-Style Linking
+
+Create knowledge graphs with `[[wiki links]]`:
+
+```bash
+# Reference other polyps in content
+zoox sprout thread "Implement [[oauth-login]] for [[user-dashboard]]"
+
+# Related field auto-populates
+zoox index --search "oauth"
+```
+
 ## Performance
 
 zoox is optimized for **human-scale** memory, not big data. Here's what to expect:

@@ -17,6 +17,88 @@ from pathlib import Path
 from collections import defaultdict
 
 
+# Optimal .gitignore for team workflows
+GITIGNORE_TEMPLATE = """\
+# zoox - Polyp memory system
+# Commit constraints and decisions, ignore session-scoped polyps
+
+# Session-scoped polyps (ephemeral, per-session)
+.claude/context.blob.xml
+.claude/contexts/
+
+# Index is generated (can be rebuilt)
+.claude/index.json
+
+# Archive contains decomposed polyps
+.claude/archive/
+
+# Snapshots are local state
+.claude/snapshots/
+
+# Keep constraints (bedrock rules) - committed
+# !.claude/constraints/
+
+# Keep decisions (architectural records) - committed
+# !.claude/decisions/
+
+# Keep facts (preserved knowledge) - committed
+# !.claude/facts/
+
+# Thread polyps are typically session-specific
+# Uncomment to commit active threads:
+# !.claude/threads/
+"""
+
+
+def cmd_init(args):
+    """Initialize zoox in the current project."""
+    from zoox.blob import Glob
+
+    project_dir = Path.cwd()
+    claude_dir = project_dir / ".claude"
+
+    # Create .claude directory if needed
+    if not claude_dir.exists():
+        claude_dir.mkdir(parents=True)
+        print(f"Created {claude_dir}")
+    else:
+        print(f"Directory {claude_dir} already exists")
+
+    # Generate .gitignore if requested
+    if args.gitignore:
+        gitignore_path = project_dir / ".gitignore"
+
+        if gitignore_path.exists() and not args.force:
+            # Check if zoox section already exists
+            content = gitignore_path.read_text()
+            if "zoox" in content.lower() or ".claude/" in content:
+                print("Existing .gitignore already has zoox/claude entries")
+                print("Use --force to overwrite, or manually add entries")
+                return
+
+            # Append to existing
+            if args.append:
+                with open(gitignore_path, "a") as f:
+                    f.write("\n" + GITIGNORE_TEMPLATE)
+                print(f"Appended zoox entries to {gitignore_path}")
+            else:
+                print(f"File {gitignore_path} exists. Use --append to add entries")
+                return
+        else:
+            # Create new or overwrite
+            gitignore_path.write_text(GITIGNORE_TEMPLATE)
+            print(f"Created {gitignore_path} with team workflow settings")
+
+    # Initialize index
+    glob = Glob(project_dir)
+    count = glob.rebuild_index()
+    print(f"Indexed {count} existing polyp(s)")
+
+    print("\nzoox initialized!")
+    print("  Use 'zoox sprout' to create polyps")
+    print("  Use 'zoox reef' to view reef health")
+
+
 def cmd_sprout(args):
     """Create a new polyp (spawn)."""
     from zoox.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, KNOWN_SUBDIRS
@@ -753,11 +835,13 @@ def cmd_index(args):
 
         print(f"Search Results ({len(results)}):")
         print()
-        for key, entry in results:
+        for key, entry, score in results:
             type_tag = f"[{entry.get('type', '?')}]"
             scope_tag = f"[{entry.get('scope', '?')}]"
             status_str = f" ({entry.get('status')})" if entry.get('status') else ""
-            print(f"  {key} {type_tag} {scope_tag}{status_str}")
+            # Show relevance score if query was provided
+            score_str = f" [{score:.1f}]" if args.search else ""
+            print(f"  {key} {type_tag} {scope_tag}{status_str}{score_str}")
             print(f"    {entry.get('summary', '')[:60]}")
         return
 
@@ -1143,6 +1227,20 @@ def main():
     )
     parser.add_argument("--version", "-V", action="version", version="zoox 0.1.0")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # init
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Initialize zoox in current project",
+        description="Set up zoox with .claude/ directory and optional .gitignore"
+    )
+    init_parser.add_argument("--gitignore", "-g", action="store_true",
+                             help="Generate .gitignore for team workflows")
+    init_parser.add_argument("--append", "-a", action="store_true",
+                             help="Append to existing .gitignore instead of failing")
+    init_parser.add_argument("--force", "-f", action="store_true",
+                             help="Overwrite existing .gitignore")
+    init_parser.set_defaults(func=cmd_init)
 
     # sprout (spawn)
     sprout_parser = subparsers.add_parser(

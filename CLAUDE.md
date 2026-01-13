@@ -31,15 +31,23 @@ zoox index --search "foo"  # Search polyps
 
 | Command | Purpose |
 |---------|---------|
+| `zoox init --gitignore` | Setup with team-friendly .gitignore |
 | `zoox sprout thread "summary"` | Create new current |
 | `zoox reef` | View reef health |
 | `zoox sync` | Check integrity |
 | `zoox sync --fix` | Auto-repair issues |
-| `zoox index --search "query"` | Search polyps |
+| `zoox index --search "query"` | TF-IDF fuzzy search |
 | `zoox index --type thread` | Filter by type |
 | `zoox template list` | Show templates |
 | `zoox template create name` | Create custom template |
 | `zoox drift discover` | Find nearby reefs |
+
+## P7 Features
+
+- **TF-IDF search**: Fuzzy semantic search using term frequency-inverse document frequency
+- **Wiki linking**: Use `[[polyp-name]]` in content; auto-populates `related` field
+- **LRU tracking**: Access counts boost frequently-used polyps in surfacing
+- **Rich templates**: `{date}`, `{git_branch}`, `{project_name}` in template expansion
 
 ## Terminology
 
