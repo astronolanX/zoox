@@ -1,4 +1,4 @@
-<blob type="thread" scope="project" status="active" updated="2026-01-08" v="2">
+<blob type="thread" scope="project" status="done" updated="2026-01-13" v="2">
   <summary>Unify CLI/Glob decompose behavior</summary>
   <context>
     Glob.decompose() moves blobs to archive with ARCHIVED status.

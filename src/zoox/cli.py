@@ -105,7 +105,7 @@ def cmd_decompose(args):
     days = args.days or 7
     threshold = datetime.now() - timedelta(days=days)
 
-    stale: list[tuple[Path, str, object]] = []
+    stale: list[tuple[Path, str, object, str | None]] = []
 
     # Check root and all subdirs
     for subdir in [None, *KNOWN_SUBDIRS]:
@@ -118,14 +118,14 @@ def cmd_decompose(args):
                     path = glob.claude_dir / subdir / f"{name}.blob.xml"
                 else:
                     path = glob.claude_dir / f"{name}.blob.xml"
-                stale.append((path, name, blob))
+                stale.append((path, name, blob, subdir))
 
     if not stale:
         print(f"No stale session polyps (>{days} days old)")
         return
 
     print(f"Found {len(stale)} stale session polyp(s):")
-    for path, name, blob in stale:
+    for path, name, blob, subdir in stale:
         rel_path = path.relative_to(project_dir)
         age = (datetime.now() - blob.updated).days
         print(f"  {rel_path} ({age}d old)")
@@ -135,10 +135,10 @@ def cmd_decompose(args):
         print("\nRun without --dry-run to sink")
         return
 
-    # Archive by deleting (session polyps are ephemeral)
+    # Archive via Glob.decompose() (preserves blobs in archive/)
     print()
-    for path, name, blob in stale:
-        path.unlink()
+    for path, name, blob, subdir in stale:
+        glob.decompose(name, subdir)
         rel_path = path.relative_to(project_dir)
         print(f"Sunk: {rel_path}")
 
