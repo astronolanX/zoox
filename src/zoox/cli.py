@@ -395,6 +395,280 @@ def cmd_cleanup(args):
         print("\nRun without --dry-run to apply")
 
 
+def cmd_status(args):
+    """View or change polyp status."""
+    from zoox.blob import Glob, BlobStatus, KNOWN_SUBDIRS
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    name = args.name
+
+    # Find the blob - check all subdirs if not specified
+    blob = None
+    found_subdir = None
+
+    if args.dir:
+        blob = glob.get(name, subdir=args.dir)
+        found_subdir = args.dir
+    else:
+        # Search known subdirs (threads first since status is most relevant there)
+        search_order = ["threads", *[d for d in KNOWN_SUBDIRS if d != "threads"], None]
+        for subdir in search_order:
+            blob = glob.get(name, subdir=subdir)
+            if blob:
+                found_subdir = subdir
+                break
+
+    if not blob:
+        print(f"Polyp '{name}' not found", file=sys.stderr)
+        sys.exit(1)
+
+    # If no new status, show current
+    if not args.new_status:
+        status_str = blob.status.value if blob.status else "none"
+        print(f"{name}: {status_str}")
+        if blob.blocked_by:
+            print(f"  blocked by: {blob.blocked_by}")
+        return
+
+    # Parse new status
+    try:
+        new_status = BlobStatus(args.new_status)
+    except ValueError:
+        valid = ", ".join(s.value for s in BlobStatus if s != BlobStatus.ARCHIVED)
+        print(f"Invalid status: {args.new_status}", file=sys.stderr)
+        print(f"Valid statuses: {valid}", file=sys.stderr)
+        sys.exit(1)
+
+    if new_status == BlobStatus.ARCHIVED:
+        print("Use 'zoox decompose' to archive polyps", file=sys.stderr)
+        sys.exit(1)
+
+    # Update status
+    updated = glob.update_status(
+        name,
+        new_status,
+        subdir=found_subdir,
+        blocked_by=args.blocked_by if new_status == BlobStatus.BLOCKED else None,
+    )
+
+    if updated:
+        old_status = blob.status.value if blob.status else "none"
+        print(f"{name}: {old_status} -> {new_status.value}")
+        if args.blocked_by and new_status == BlobStatus.BLOCKED:
+            print(f"  blocked by: {args.blocked_by}")
+    else:
+        print(f"Failed to update '{name}'", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_template(args):
+    """Manage and use polyp templates."""
+    from zoox.blob import Glob, BUILTIN_TEMPLATES
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    if args.action == "list":
+        templates = glob.list_templates()
+        if not templates:
+            print("No templates available")
+            return
+
+        print(f"Templates ({len(templates)}):")
+        for name, tmpl, is_builtin in templates:
+            tag = "[built-in]" if is_builtin else "[custom]"
+            desc = tmpl.get("description", "")[:50]
+            print(f"  {name} {tag}")
+            if desc:
+                print(f"    {desc}")
+        print()
+        print("Usage: zoox template use <name> <title>")
+
+    elif args.action == "use":
+        if not args.template_name or not args.title:
+            print("Usage: zoox template use <template-name> <title>", file=sys.stderr)
+            sys.exit(1)
+
+        path = glob.create_from_template(args.template_name, args.title)
+        if path:
+            rel_path = path.relative_to(project_dir)
+            print(f"Created: {rel_path}")
+        else:
+            print(f"Template '{args.template_name}' not found", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.action == "show":
+        if not args.template_name:
+            print("Usage: zoox template show <template-name>", file=sys.stderr)
+            sys.exit(1)
+
+        tmpl = glob.get_template(args.template_name)
+        if not tmpl:
+            print(f"Template '{args.template_name}' not found", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"Template: {args.template_name}")
+        print(f"  Type: {tmpl.get('type', 'thread')}")
+        print(f"  Scope: {tmpl.get('scope', 'project')}")
+        if tmpl.get('status'):
+            print(f"  Status: {tmpl['status']}")
+        print(f"  Summary: {tmpl.get('summary_template', '{title}')}")
+        if tmpl.get('description'):
+            print(f"  Description: {tmpl['description']}")
+        if tmpl.get('next_steps'):
+            print(f"  Next steps: {len(tmpl['next_steps'])} items")
+
+
+def cmd_graph(args):
+    """Visualize polyp relationships."""
+    from zoox.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    graph = glob.build_graph()
+
+    if args.dot:
+        # Output DOT format
+        print(glob.to_dot())
+        return
+
+    # ASCII summary
+    nodes = graph["nodes"]
+    edges = graph["edges"]
+
+    if not nodes:
+        print("No polyps to graph")
+        return
+
+    print(f"Reef Graph: {len(nodes)} polyps, {len(edges)} connections")
+    print()
+
+    # Group by type
+    by_type = {}
+    for key, attrs in nodes.items():
+        t = attrs["type"]
+        if t not in by_type:
+            by_type[t] = []
+        by_type[t].append((key, attrs))
+
+    # Print by type
+    type_symbols = {
+        "thread": "~",
+        "decision": "+",
+        "constraint": "!",
+        "fact": ".",
+        "context": "*",
+    }
+
+    for blob_type in ["constraint", "thread", "decision", "fact", "context"]:
+        if blob_type not in by_type:
+            continue
+        items = by_type[blob_type]
+        symbol = type_symbols.get(blob_type, "o")
+        print(f"  [{symbol}] {blob_type} ({len(items)})")
+        for key, attrs in items[:5]:
+            status_str = f" [{attrs['status']}]" if attrs["status"] else ""
+            print(f"      {key}{status_str}")
+        if len(items) > 5:
+            print(f"      ... and {len(items) - 5} more")
+        print()
+
+    # Print connections
+    if edges:
+        print("  Connections:")
+        related = [e for e in edges if e[2] == "related"]
+        file_shared = [e for e in edges if e[2].startswith("file:")]
+
+        if related:
+            print(f"    -> {len(related)} explicit link(s)")
+            for src, dst, _ in related[:3]:
+                print(f"       {src} -> {dst}")
+
+        if file_shared:
+            print(f"    -> {len(file_shared)} shared file(s)")
+
+    if args.dot:
+        print()
+        print("Tip: zoox graph --dot | dot -Tpng -o reef.png")
+
+
+def cmd_snapshot(args):
+    """Manage reef snapshots."""
+    from zoox.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    if args.action == "create":
+        path = glob.create_snapshot(name=args.name)
+        rel_path = path.relative_to(project_dir)
+        blob_count = len(glob.list_blobs()) + sum(len(glob.list_blobs(s)) for s in ["threads", "decisions", "constraints", "contexts", "facts"])
+        print(f"Snapshot created: {rel_path}")
+        print(f"  {blob_count} polyp(s) captured")
+
+    elif args.action == "list":
+        snapshots = glob.list_snapshots()
+        if not snapshots:
+            print("No snapshots found")
+            return
+
+        print(f"Snapshots ({len(snapshots)}):")
+        for path, meta in snapshots[:10]:
+            name_str = f" ({meta['name']})" if meta.get("name") else ""
+            created = meta.get("created", "unknown")[:19]  # Trim microseconds
+            print(f"  {path.stem}{name_str}")
+            print(f"    {meta['blob_count']} polyps | {created}")
+
+    elif args.action == "diff":
+        if not args.snapshot_id:
+            print("Usage: zoox snapshot diff <snapshot-id>", file=sys.stderr)
+            sys.exit(1)
+
+        # Find snapshot by prefix match
+        snapshots = glob.list_snapshots()
+        matches = [s for s in snapshots if args.snapshot_id in s[0].stem]
+
+        if not matches:
+            print(f"No snapshot matching '{args.snapshot_id}'", file=sys.stderr)
+            sys.exit(1)
+        if len(matches) > 1:
+            print(f"Multiple snapshots match '{args.snapshot_id}':", file=sys.stderr)
+            for path, _ in matches[:5]:
+                print(f"  {path.stem}", file=sys.stderr)
+            sys.exit(1)
+
+        snapshot_path = matches[0][0]
+        diff = glob.diff_snapshot(snapshot_path)
+
+        name_str = f" ({diff['snapshot_name']})" if diff.get("snapshot_name") else ""
+        print(f"Diff vs {snapshot_path.stem}{name_str}:")
+
+        if diff["added"]:
+            print(f"\n  + Added ({len(diff['added'])}):")
+            for key in diff["added"][:5]:
+                print(f"    {key}")
+            if len(diff["added"]) > 5:
+                print(f"    ... and {len(diff['added']) - 5} more")
+
+        if diff["removed"]:
+            print(f"\n  - Removed ({len(diff['removed'])}):")
+            for key in diff["removed"][:5]:
+                print(f"    {key}")
+            if len(diff["removed"]) > 5:
+                print(f"    ... and {len(diff['removed']) - 5} more")
+
+        if diff["changed"]:
+            print(f"\n  ~ Changed ({len(diff['changed'])}):")
+            for key, changes in list(diff["changed"].items())[:5]:
+                print(f"    {key}: {', '.join(changes)}")
+
+        if not diff["added"] and not diff["removed"] and not diff["changed"]:
+            print("  No changes")
+
+
 def cmd_index(args):
     """Manage metadata index."""
     from zoox.blob import Glob, INDEX_VERSION
@@ -504,6 +778,49 @@ def main():
     index_parser.add_argument("--rebuild", action="store_true", help="Force full index rebuild")
     index_parser.add_argument("--stats", action="store_true", help="Show index statistics")
     index_parser.set_defaults(func=cmd_index)
+
+    # status
+    status_parser = subparsers.add_parser(
+        "status",
+        help="View or change polyp status",
+        description="View current status or transition a polyp to a new status (active, blocked, done)."
+    )
+    status_parser.add_argument("name", help="Polyp name (without .blob.xml)")
+    status_parser.add_argument("new_status", nargs="?", help="New status: active, blocked, done")
+    status_parser.add_argument("--blocked-by", "-b", help="Reason for blocking (with 'blocked' status)")
+    status_parser.add_argument("--dir", "-d", help="Subdirectory to search (default: auto-detect)")
+    status_parser.set_defaults(func=cmd_status)
+
+    # snapshot
+    snapshot_parser = subparsers.add_parser(
+        "snapshot",
+        help="Manage reef snapshots",
+        description="Create, list, and compare reef snapshots for tracking changes over time."
+    )
+    snapshot_parser.add_argument("action", choices=["create", "list", "diff"], help="Action to perform")
+    snapshot_parser.add_argument("snapshot_id", nargs="?", help="Snapshot ID for diff (prefix match)")
+    snapshot_parser.add_argument("--name", "-n", help="Name for new snapshot")
+    snapshot_parser.set_defaults(func=cmd_snapshot)
+
+    # graph
+    graph_parser = subparsers.add_parser(
+        "graph",
+        help="Visualize polyp relationships",
+        description="Show polyp graph with connections. Use --dot for Graphviz export."
+    )
+    graph_parser.add_argument("--dot", action="store_true", help="Output Graphviz DOT format")
+    graph_parser.set_defaults(func=cmd_graph)
+
+    # template
+    template_parser = subparsers.add_parser(
+        "template",
+        help="Manage and use polyp templates",
+        description="List, show, or use templates to create polyps with predefined structure."
+    )
+    template_parser.add_argument("action", choices=["list", "use", "show"], help="Action to perform")
+    template_parser.add_argument("template_name", nargs="?", help="Template name (for use/show)")
+    template_parser.add_argument("title", nargs="?", help="Title for new polyp (with 'use')")
+    template_parser.set_defaults(func=cmd_template)
 
     args = parser.parse_args()
     args.func(args)

@@ -30,6 +30,24 @@ zoox migrate
 
 # Sink stale session polyps
 zoox sink --days 7
+
+# Change polyp status
+zoox status auth-thread blocked -b "Waiting for API approval"
+zoox status auth-thread done
+
+# Create snapshots for tracking changes
+zoox snapshot create --name milestone-1
+zoox snapshot list
+zoox snapshot diff milestone-1
+
+# Visualize reef relationships
+zoox graph
+zoox graph --dot | dot -Tpng -o reef.png
+
+# Use templates for common polyp patterns
+zoox template list
+zoox template use bug "Login fails on Safari"
+zoox template use feature "Dark mode support"
 ```
 
 ## Polyp Types

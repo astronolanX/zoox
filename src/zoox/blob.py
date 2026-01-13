@@ -20,6 +20,63 @@ from uuid import uuid4
 # Index schema version - increment when index format changes
 INDEX_VERSION = 1
 
+# Built-in polyp templates
+BUILTIN_TEMPLATES = {
+    "bug": {
+        "type": "thread",
+        "summary_template": "Bug: {title}",
+        "scope": "project",
+        "status": "active",
+        "next_steps": [
+            "Reproduce the issue",
+            "Identify root cause",
+            "Implement fix",
+            "Add regression test",
+        ],
+        "description": "Bug tracking thread with standard fix workflow",
+    },
+    "feature": {
+        "type": "thread",
+        "summary_template": "Feature: {title}",
+        "scope": "project",
+        "status": "active",
+        "next_steps": [
+            "Define requirements",
+            "Design solution",
+            "Implement",
+            "Test",
+            "Document",
+        ],
+        "description": "Feature development thread with standard workflow",
+    },
+    "decision": {
+        "type": "decision",
+        "summary_template": "ADR: {title}",
+        "scope": "project",
+        "context_template": "## Context\n{context}\n\n## Decision\n{decision}\n\n## Consequences\n{consequences}",
+        "description": "Architecture Decision Record (ADR) template",
+    },
+    "research": {
+        "type": "thread",
+        "summary_template": "Research: {title}",
+        "scope": "project",
+        "status": "active",
+        "next_steps": [
+            "Define research questions",
+            "Gather sources",
+            "Analyze findings",
+            "Document conclusions",
+        ],
+        "description": "Research spike thread",
+    },
+    "constraint": {
+        "type": "constraint",
+        "summary_template": "{title}",
+        "scope": "always",
+        "description": "Project-wide constraint or rule",
+    },
+}
+
 
 class PathTraversalError(ValueError):
     """Raised when a path attempts directory traversal."""
@@ -702,6 +759,405 @@ class Glob:
             blob.migrate()
             blob.save(path)
         return len(outdated)
+
+    def update_status(
+        self,
+        name: str,
+        status: BlobStatus,
+        subdir: Optional[str] = None,
+        blocked_by: Optional[str] = None,
+    ) -> Optional[Blob]:
+        """
+        Update the status of an existing blob.
+
+        Args:
+            name: Blob name (without .blob.xml extension)
+            status: New status to set
+            subdir: Optional subdirectory
+            blocked_by: Reason for blocking (only used with BLOCKED status)
+
+        Returns:
+            Updated blob if found, None if not found
+
+        Raises:
+            PathTraversalError: If name or subdir attempts directory traversal
+        """
+        if subdir:
+            path = self.claude_dir / subdir / f"{name}.blob.xml"
+        else:
+            path = self.claude_dir / f"{name}.blob.xml"
+
+        # Validate path is safely within .claude directory
+        _validate_path_safe(self.claude_dir, path)
+
+        if not path.exists():
+            return None
+
+        blob = Blob.load(path)
+        blob.status = status
+        blob.updated = datetime.now()
+
+        # Handle blocked_by field
+        if status == BlobStatus.BLOCKED and blocked_by:
+            blob.blocked_by = blocked_by
+        elif status != BlobStatus.BLOCKED:
+            blob.blocked_by = None  # Clear when not blocked
+
+        blob.save(path)
+        self._invalidate_cache(path)
+        self._update_index(path, blob)
+        return blob
+
+    def create_snapshot(self, name: Optional[str] = None) -> Path:
+        """
+        Create a snapshot of current reef state.
+
+        Args:
+            name: Optional name for the snapshot (default: timestamp)
+
+        Returns:
+            Path to the created snapshot file
+        """
+        snapshot_dir = self.claude_dir / "snapshots"
+        snapshot_dir.mkdir(exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        if name:
+            filename = f"{timestamp}-{name}.snapshot.json"
+        else:
+            filename = f"{timestamp}.snapshot.json"
+
+        # Collect all blobs
+        snapshot_data = {
+            "version": 1,
+            "created": datetime.now().isoformat(),
+            "name": name,
+            "blobs": {},
+        }
+
+        # Scan all locations
+        for subdir in [None, *KNOWN_SUBDIRS]:
+            for blob_name, blob in self.list_blobs(subdir):
+                key = f"{subdir}/{blob_name}" if subdir else blob_name
+                snapshot_data["blobs"][key] = {
+                    "type": blob.type.value,
+                    "scope": blob.scope.value,
+                    "status": blob.status.value if blob.status else None,
+                    "summary": blob.summary,
+                    "updated": blob.updated.strftime("%Y-%m-%d"),
+                    "files": blob.files,
+                    "next_steps": blob.next_steps,
+                }
+
+        path = snapshot_dir / filename
+        _atomic_write(path, json.dumps(snapshot_data, indent=2))
+        return path
+
+    def list_snapshots(self) -> list[tuple[Path, dict]]:
+        """
+        List all snapshots.
+
+        Returns:
+            List of (path, metadata) tuples, sorted by date descending
+        """
+        snapshot_dir = self.claude_dir / "snapshots"
+        if not snapshot_dir.exists():
+            return []
+
+        snapshots = []
+        for path in snapshot_dir.glob("*.snapshot.json"):
+            try:
+                data = json.loads(path.read_text())
+                snapshots.append((path, {
+                    "name": data.get("name"),
+                    "created": data.get("created"),
+                    "blob_count": len(data.get("blobs", {})),
+                }))
+            except Exception:
+                continue
+
+        # Sort by filename (which starts with timestamp) descending
+        snapshots.sort(key=lambda x: x[0].name, reverse=True)
+        return snapshots
+
+    def diff_snapshot(self, snapshot_path: Path) -> dict:
+        """
+        Compare current reef to a snapshot.
+
+        Args:
+            snapshot_path: Path to snapshot file
+
+        Returns:
+            Dict with added, removed, changed blob keys
+        """
+        snapshot_data = json.loads(snapshot_path.read_text())
+        snapshot_blobs = snapshot_data.get("blobs", {})
+
+        # Collect current blobs
+        current_blobs = {}
+        for subdir in [None, *KNOWN_SUBDIRS]:
+            for blob_name, blob in self.list_blobs(subdir):
+                key = f"{subdir}/{blob_name}" if subdir else blob_name
+                current_blobs[key] = {
+                    "type": blob.type.value,
+                    "status": blob.status.value if blob.status else None,
+                    "summary": blob.summary,
+                }
+
+        snapshot_keys = set(snapshot_blobs.keys())
+        current_keys = set(current_blobs.keys())
+
+        added = current_keys - snapshot_keys
+        removed = snapshot_keys - current_keys
+        common = current_keys & snapshot_keys
+
+        # Check for changes in common blobs
+        changed = {}
+        for key in common:
+            old = snapshot_blobs[key]
+            new = current_blobs[key]
+            diffs = []
+            if old.get("status") != new.get("status"):
+                diffs.append(f"status: {old.get('status')} -> {new.get('status')}")
+            if old.get("summary") != new.get("summary"):
+                diffs.append("summary changed")
+            if diffs:
+                changed[key] = diffs
+
+        return {
+            "added": sorted(added),
+            "removed": sorted(removed),
+            "changed": changed,
+            "snapshot_name": snapshot_data.get("name"),
+            "snapshot_created": snapshot_data.get("created"),
+        }
+
+    def list_templates(self) -> list[tuple[str, dict, bool]]:
+        """
+        List available templates (built-in and user-defined).
+
+        Returns:
+            List of (name, template_data, is_builtin) tuples
+        """
+        templates = []
+
+        # Built-in templates
+        for name, tmpl in BUILTIN_TEMPLATES.items():
+            templates.append((name, tmpl, True))
+
+        # User-defined templates
+        template_dir = self.claude_dir / "templates"
+        if template_dir.exists():
+            for path in template_dir.glob("*.template.json"):
+                try:
+                    data = json.loads(path.read_text())
+                    name = path.stem.replace(".template", "")
+                    templates.append((name, data, False))
+                except Exception:
+                    continue
+
+        return templates
+
+    def get_template(self, name: str) -> Optional[dict]:
+        """Get a template by name (built-in or user-defined)."""
+        # Check built-in first
+        if name in BUILTIN_TEMPLATES:
+            return BUILTIN_TEMPLATES[name]
+
+        # Check user-defined
+        template_path = self.claude_dir / "templates" / f"{name}.template.json"
+        if template_path.exists():
+            try:
+                return json.loads(template_path.read_text())
+            except Exception:
+                return None
+
+        return None
+
+    def create_from_template(
+        self,
+        template_name: str,
+        title: str,
+        **kwargs,
+    ) -> Optional[Path]:
+        """
+        Create a polyp from a template.
+
+        Args:
+            template_name: Name of the template to use
+            title: Title for the polyp (used in summary)
+            **kwargs: Additional template variables
+
+        Returns:
+            Path to created polyp, or None if template not found
+        """
+        template = self.get_template(template_name)
+        if not template:
+            return None
+
+        # Parse type
+        blob_type = BlobType(template.get("type", "thread"))
+
+        # Build summary from template
+        summary_tmpl = template.get("summary_template", "{title}")
+        summary = summary_tmpl.format(title=title, **kwargs)
+
+        # Parse scope
+        scope_str = template.get("scope", "project")
+        scope = BlobScope(scope_str)
+
+        # Parse status (only for threads)
+        status = None
+        if blob_type == BlobType.THREAD:
+            status_str = template.get("status")
+            status = BlobStatus(status_str) if status_str else BlobStatus.ACTIVE
+
+        # Build context from template if provided
+        context = ""
+        if "context_template" in template:
+            context = template["context_template"].format(
+                title=title,
+                context=kwargs.get("context", ""),
+                decision=kwargs.get("decision", ""),
+                consequences=kwargs.get("consequences", ""),
+                **kwargs,
+            )
+
+        # Get next steps from template
+        next_steps = template.get("next_steps", [])
+
+        # Create blob
+        blob = Blob(
+            type=blob_type,
+            summary=summary,
+            scope=scope,
+            status=status,
+            context=context,
+            next_steps=next_steps,
+        )
+
+        # Determine subdirectory
+        subdir_map = {
+            BlobType.THREAD: "threads",
+            BlobType.DECISION: "decisions",
+            BlobType.CONSTRAINT: "constraints",
+            BlobType.FACT: "facts",
+        }
+        subdir = subdir_map.get(blob_type)
+
+        # Generate name from title
+        name = title.lower()
+        name = "".join(c if c.isalnum() or c == " " else "" for c in name)
+        name = "-".join(name.split())[:30]
+
+        return self.sprout(blob, name, subdir)
+
+    def save_template(self, name: str, template: dict) -> Path:
+        """
+        Save a user-defined template.
+
+        Args:
+            name: Template name
+            template: Template data
+
+        Returns:
+            Path to saved template file
+        """
+        template_dir = self.claude_dir / "templates"
+        template_dir.mkdir(exist_ok=True)
+
+        path = template_dir / f"{name}.template.json"
+        _atomic_write(path, json.dumps(template, indent=2))
+        return path
+
+    def build_graph(self) -> dict:
+        """
+        Build a graph of polyp relationships.
+
+        Returns:
+            Dict with nodes (polyps) and edges (relationships)
+        """
+        nodes = {}
+        edges = []
+        file_refs = {}  # file -> list of blob keys
+
+        # Collect all blobs
+        for subdir in [None, *KNOWN_SUBDIRS]:
+            for blob_name, blob in self.list_blobs(subdir):
+                key = f"{subdir}/{blob_name}" if subdir else blob_name
+                nodes[key] = {
+                    "type": blob.type.value,
+                    "status": blob.status.value if blob.status else None,
+                    "summary": blob.summary[:40],
+                    "scope": blob.scope.value,
+                }
+
+                # Track related links
+                for ref in blob.related:
+                    edges.append((key, ref, "related"))
+
+                # Track file references for co-reference edges
+                for f in blob.files:
+                    if f not in file_refs:
+                        file_refs[f] = []
+                    file_refs[f].append(key)
+
+        # Create edges for polyps sharing files
+        for f, blob_keys in file_refs.items():
+            if len(blob_keys) > 1:
+                # Connect all polyps that reference the same file
+                for i, k1 in enumerate(blob_keys):
+                    for k2 in blob_keys[i + 1:]:
+                        edges.append((k1, k2, f"file:{f}"))
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+        }
+
+    def to_dot(self) -> str:
+        """
+        Generate Graphviz DOT format for the polyp graph.
+
+        Returns:
+            DOT format string
+        """
+        graph = self.build_graph()
+
+        # Type -> color mapping
+        colors = {
+            "thread": "lightblue",
+            "decision": "lightgreen",
+            "constraint": "lightyellow",
+            "fact": "lightgray",
+            "context": "lightpink",
+        }
+
+        # Status -> shape mapping
+        shapes = {
+            "active": "ellipse",
+            "blocked": "octagon",
+            "done": "box",
+            None: "ellipse",
+        }
+
+        lines = ["digraph reef {", "  rankdir=LR;", "  node [fontsize=10];"]
+
+        # Add nodes
+        for key, attrs in graph["nodes"].items():
+            color = colors.get(attrs["type"], "white")
+            shape = shapes.get(attrs["status"], "ellipse")
+            label = f"{key}\\n{attrs['summary']}"
+            lines.append(f'  "{key}" [label="{label}", fillcolor="{color}", style=filled, shape={shape}];')
+
+        # Add edges
+        for src, dst, label in graph["edges"]:
+            if dst in graph["nodes"]:  # Only include edges to existing nodes
+                style = "dashed" if label.startswith("file:") else "solid"
+                lines.append(f'  "{src}" -> "{dst}" [label="{label}", style={style}];')
+
+        lines.append("}")
+        return "\n".join(lines)
 
     def cleanup_session(
         self,
