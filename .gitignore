@@ -26,18 +26,14 @@ venv/
 .pytest_cache/
 .mypy_cache/
 
-# Goopy ephemeral blobs (session-scoped)
+# zoox ephemeral polyps (session-scoped)
 .claude/context.blob.xml
 .claude/contexts/
 .claude/.last-cleanup
 .claude/constraints/
 .claude/facts/
 .claude/threads/
-
-# Audit draft artifacts and session contexts
-.goopy/reports/*-draft.*
-.goopy/cache/
-.goopy/contexts/
+.claude/index.json
 
 # IDE
 .idea/
