@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
 
-from goopy.blob import Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION
+from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION
 
 
 class TestBlobBasics:

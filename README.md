@@ -1,46 +1,46 @@
-# Goopy
+# zoox
 
-XML blob system for Claude Code session memory.
+Symbiotic memory for AI.
 
-A "glob" is a collection of blobs - lightweight XML context files that persist across sessions.
+A "reef" is a colony of polyps - lightweight XML context files that persist across sessions.
 
 ## Installation
 
 ```bash
-uv add goopy
+pip install zoox
 ```
 
 ## Usage
 
 ```bash
-# Create a new thread blob
-goopy sprout thread "Implement user authentication"
+# Spawn a new current (thread polyp)
+zoox sprout thread "Implement user authentication"
 
-# Create a decision blob
-goopy sprout decision "Use JWT for auth tokens"
+# Spawn a deposit (decision polyp)
+zoox sprout decision "Use JWT for auth tokens"
 
-# Create a constraint blob (always-on rules)
-goopy sprout constraint "Use uv for package management"
+# Spawn bedrock (constraint polyp)
+zoox sprout constraint "Use uv for package management"
 
-# List blob health
-goopy list
+# View reef health
+zoox reef
 
-# Migrate blobs to current schema
-goopy migrate
+# Migrate polyps to current schema
+zoox migrate
 
-# Archive stale session blobs
-goopy decompose --days 7
+# Sink stale session polyps
+zoox sink --days 7
 ```
 
-## Blob Types
+## Polyp Types
 
 - **context** - Session state (auto-created by persist hook)
-- **thread** - Active work stream
-- **decision** - Architectural choice made
-- **constraint** - Always-on rules
-- **fact** - Key information about project
+- **thread** (current) - Active work stream
+- **decision** (deposit) - Architectural choice made
+- **constraint** (bedrock) - Always-on rules
+- **fact** (fossil) - Key information about project
 
-## Blob Scopes
+## Polyp Scopes
 
 - **session** - Only current session (ephemeral)
 - **project** - Anytime in this project (persistent)
@@ -48,6 +48,21 @@ goopy decompose --days 7
 
 ## How It Works
 
-Blobs live in your project's `.claude/` directory as XML files. The glob injection hook surfaces relevant blobs at session start. The persist hook auto-creates context blobs at session end.
+Polyps live in your project's `.claude/` directory as XML files. The glob injection hook surfaces relevant polyps at session start. The persist hook auto-creates context polyps at session end.
 
-This is separate from [flubber](https://github.com/astronolanX/flubber), which handles multi-agent coordination via spores. Goopy is for human-agent session continuity.
+## Terminology
+
+The naming is inspired by coral reef biology:
+
+| Term | Meaning |
+|------|---------|
+| **polyp** | Individual memory unit (was: blob) |
+| **reef** | Project colony (was: glob) |
+| **current** | Active work thread |
+| **bedrock** | Foundation constraints |
+| **deposit** | Strategic decisions |
+| **drift** | Cross-project spread (coming soon) |
+
+*Zooxanthellae* are the symbiotic algae that live inside coral, producing 90% of the coral's energy. Without them, coral bleaches and dies. Memory without context starves. Memory with rich context thrives.
+
+**zoox: Symbiotic memory for AI.**

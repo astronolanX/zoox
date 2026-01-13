@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
-from goopy.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
+from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
 
 
 class TestAbsurdInputs:
@@ -212,7 +212,7 @@ class TestAbsurdGlobOperations:
 
     def test_sprout_to_parent_directory(self):
         """Attempting to sprout outside .claude raises PathTraversalError."""
-        from goopy.blob import PathTraversalError
+        from zoox.blob import PathTraversalError
 
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))

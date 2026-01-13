@@ -10,13 +10,13 @@ import os
 from pathlib import Path
 from datetime import datetime, timedelta
 
-from goopy.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
+from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
 
 
 def run_cli(*args, cwd=None):
-    """Run goopy CLI and return result."""
+    """Run zoox CLI and return result."""
     result = subprocess.run(
-        ["uv", "run", "goopy", *args],
+        ["uv", "run", "zoox", *args],
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -32,7 +32,7 @@ class TestCliSprout:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("sprout", "thread", "Test thread", cwd=tmpdir)
             assert result.returncode == 0
-            assert "Sprouted" in result.stdout
+            assert "Spawned" in result.stdout
 
             # Verify file exists
             assert (Path(tmpdir) / ".claude" / "threads" / "test-thread.blob.xml").exists()
@@ -148,7 +148,7 @@ class TestCliList:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("list", cwd=tmpdir)
             assert result.returncode == 0
-            assert "No blobs found" in result.stdout
+            assert "No polyps found" in result.stdout
 
     def test_list_with_blobs(self):
         """List shows blob population."""
@@ -171,7 +171,7 @@ class TestCliList:
 
             result = run_cli("list", cwd=tmpdir)
             assert result.returncode == 0
-            assert "Active Threads" in result.stdout
+            assert "Active Currents" in result.stdout
 
     def test_list_shows_schema_status(self):
         """List shows schema version status."""
@@ -205,7 +205,7 @@ class TestCliList:
 
             result = run_cli("list", cwd=tmpdir)
             assert result.returncode == 0
-            assert "Injection Impact" in result.stdout
+            assert "Surfacing Impact" in result.stdout
             assert "tokens" in result.stdout
 
 

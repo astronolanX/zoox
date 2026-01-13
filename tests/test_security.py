@@ -19,7 +19,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
-from goopy.blob import (
+from zoox.blob import (
     Blob,
     BlobType,
     BlobScope,
@@ -496,7 +496,7 @@ class TestKnownSubdirsConsistency:
     def test_glob_uses_known_subdirs(self):
         """Glob methods use KNOWN_SUBDIRS constant."""
         import inspect
-        from goopy import blob as blob_module
+        from zoox import blob as blob_module
 
         # Check that surface_relevant and check_migrations use the constant
         surface_src = inspect.getsource(Glob.surface_relevant)
@@ -508,7 +508,7 @@ class TestKnownSubdirsConsistency:
 
     def test_no_hardcoded_subdir_lists(self):
         """No hardcoded subdir lists in blob.py."""
-        from goopy import blob as blob_module
+        from zoox import blob as blob_module
         import re
 
         source = inspect.getsource(blob_module)

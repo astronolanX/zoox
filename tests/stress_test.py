@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Heavy stress tests for goopy security and cleanup features.
+Heavy stress tests for zoox security and cleanup features.
 Run with: uv run python tests/stress_test.py
 """
 
@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from goopy.blob import (
+from zoox.blob import (
     Blob, BlobType, BlobScope, BlobStatus, Glob,
     _atomic_write, _validate_path_safe, PathTraversalError
 )

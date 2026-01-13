@@ -1,5 +1,13 @@
 """
-Goopy CLI - XML blob management for Claude Code session memory.
+zoox CLI - Symbiotic memory for AI.
+
+Terminology:
+  polyp   = individual memory unit (was: blob)
+  reef    = project colony (was: glob)
+  spawn   = create polyp
+  surface = bring polyp from depth
+  sink    = archive to deep reef
+  drift   = cross-project spread
 """
 
 import argparse
@@ -10,8 +18,8 @@ from collections import defaultdict
 
 
 def cmd_sprout(args):
-    """Create a new blob."""
-    from goopy.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, KNOWN_SUBDIRS
+    """Create a new polyp (spawn)."""
+    from zoox.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -26,7 +34,7 @@ def cmd_sprout(args):
         sys.exit(1)
 
     if blob_type == BlobType.CONTEXT:
-        print("context blobs are auto-created by the persist hook", file=sys.stderr)
+        print("context polyps are auto-created by the persist hook", file=sys.stderr)
         print("Use: thread, decision, constraint, or fact", file=sys.stderr)
         sys.exit(1)
 
@@ -43,7 +51,7 @@ def cmd_sprout(args):
     status = None
     if args.status:
         if blob_type != BlobType.THREAD:
-            print("--status only applies to thread blobs", file=sys.stderr)
+            print("--status only applies to thread polyps", file=sys.stderr)
             sys.exit(1)
         try:
             status = BlobStatus(args.status)
@@ -55,7 +63,7 @@ def cmd_sprout(args):
     elif blob_type == BlobType.THREAD:
         status = BlobStatus.ACTIVE  # default for threads
 
-    # Create blob
+    # Create polyp
     blob = Blob(
         type=blob_type,
         summary=args.summary,
@@ -80,20 +88,20 @@ def cmd_sprout(args):
         name = "".join(c if c.isalnum() or c == " " else "" for c in name)
         name = "-".join(name.split())[:30]
 
-    # Write blob
+    # Write polyp
     path = glob.sprout(blob, name, subdir)
     rel_path = path.relative_to(project_dir)
-    print(f"Sprouted: {rel_path}")
+    print(f"Spawned: {rel_path}")
 
 
 def cmd_decompose(args):
-    """Archive stale blobs."""
-    from goopy.blob import Glob, BlobScope, KNOWN_SUBDIRS
+    """Archive stale polyps (sink)."""
+    from zoox.blob import Glob, BlobScope, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
 
-    # Find stale session blobs
+    # Find stale session polyps
     days = args.days or 7
     threshold = datetime.now() - timedelta(days=days)
 
@@ -102,7 +110,7 @@ def cmd_decompose(args):
     # Check root and all subdirs
     for subdir in [None, *KNOWN_SUBDIRS]:
         for name, blob in glob.list_blobs(subdir):
-            # Only session-scoped blobs are candidates for decomposition
+            # Only session-scoped polyps are candidates for decomposition
             if blob.scope != BlobScope.SESSION:
                 continue
             if blob.updated < threshold:
@@ -113,10 +121,10 @@ def cmd_decompose(args):
                 stale.append((path, name, blob))
 
     if not stale:
-        print(f"No stale session blobs (>{days} days old)")
+        print(f"No stale session polyps (>{days} days old)")
         return
 
-    print(f"Found {len(stale)} stale session blob(s):")
+    print(f"Found {len(stale)} stale session polyp(s):")
     for path, name, blob in stale:
         rel_path = path.relative_to(project_dir)
         age = (datetime.now() - blob.updated).days
@@ -124,22 +132,22 @@ def cmd_decompose(args):
         print(f"    {blob.summary[:60]}")
 
     if args.dry_run:
-        print("\nRun without --dry-run to archive")
+        print("\nRun without --dry-run to sink")
         return
 
-    # Archive by deleting (session blobs are ephemeral)
+    # Archive by deleting (session polyps are ephemeral)
     print()
     for path, name, blob in stale:
         path.unlink()
         rel_path = path.relative_to(project_dir)
-        print(f"Archived: {rel_path}")
+        print(f"Sunk: {rel_path}")
 
-    print(f"\nDecomposed {len(stale)} blob(s)")
+    print(f"\nDecomposed {len(stale)} polyp(s)")
 
 
 def cmd_migrate(args):
-    """Migrate blobs to current schema version."""
-    from goopy.blob import Glob, BLOB_VERSION
+    """Migrate polyps to current schema version."""
+    from zoox.blob import Glob, BLOB_VERSION
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -147,44 +155,44 @@ def cmd_migrate(args):
     outdated = glob.check_migrations()
 
     if not outdated:
-        print(f"All blobs are at current version (v{BLOB_VERSION})")
+        print(f"All polyps are at current version (v{BLOB_VERSION})")
         return
 
     if args.dry_run:
-        print(f"Found {len(outdated)} blob(s) needing migration:")
+        print(f"Found {len(outdated)} polyp(s) needing migration:")
         for path, blob in outdated:
             print(f"  {path.name} (v{blob.version} -> v{BLOB_VERSION})")
         print("\nRun without --dry-run to migrate")
         return
 
     count = glob.migrate_all()
-    print(f"Migrated {count} blob(s) to v{BLOB_VERSION}")
+    print(f"Migrated {count} polyp(s) to v{BLOB_VERSION}")
 
 
 def cmd_list(args):
-    """Show blob population health and diagnostics."""
-    from goopy.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION, KNOWN_SUBDIRS
+    """Show reef health and diagnostics."""
+    from zoox.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
 
-    # Collect all blobs with their paths
+    # Collect all polyps with their paths
     all_blobs: list[tuple[Path, str, Blob]] = []
 
-    # Root level blobs
+    # Root level polyps
     for name, blob in glob.list_blobs():
         path = glob.claude_dir / f"{name}.blob.xml"
         all_blobs.append((path, name, blob))
 
-    # Subdirectory blobs
+    # Subdirectory polyps
     for subdir in KNOWN_SUBDIRS:
         for name, blob in glob.list_blobs(subdir):
             path = glob.claude_dir / subdir / f"{name}.blob.xml"
             all_blobs.append((path, name, blob))
 
     if not all_blobs:
-        print("No blobs found in .claude/")
-        print("Blobs are XML context files that persist across sessions.")
+        print("No polyps found in reef (.claude/)")
+        print("Polyps are XML context files that persist across sessions.")
         return
 
     # Aggregate stats
@@ -209,7 +217,7 @@ def cmd_list(args):
             status_counts[blob.status.value] += 1
         version_counts[blob.version] += 1
 
-        # Estimate tokens (~200 per blob + content)
+        # Estimate tokens (~200 per polyp + content)
         xml_len = len(blob.to_xml())
         tokens = max(200, xml_len // 4)  # Rough estimate
         total_tokens += tokens
@@ -222,7 +230,7 @@ def cmd_list(args):
         if blob.scope == BlobScope.SESSION and blob.updated < stale_threshold:
             stale_sessions.append((name, blob))
 
-        # Track active threads
+        # Track active threads (currents)
         if blob.type == BlobType.THREAD and blob.status == BlobStatus.ACTIVE:
             active_threads.append((name, blob))
 
@@ -238,12 +246,12 @@ def cmd_list(args):
 
     # Output
     project_name = project_dir.name
-    print(f"Glob Health: {project_name}")
+    print(f"Reef Health: {project_name}")
     print("=" * 45)
     print()
 
     # Population summary
-    print(f"Population: {len(all_blobs)} blob(s) (~{total_tokens:,} tokens)")
+    print(f"Population: {len(all_blobs)} polyp(s) (~{total_tokens:,} tokens)")
 
     # Type breakdown
     type_str = "  "
@@ -263,9 +271,9 @@ def cmd_list(args):
 
     print()
 
-    # Active threads
+    # Active threads (currents)
     if active_threads:
-        print(f"Active Threads: {len(active_threads)}")
+        print(f"Active Currents: {len(active_threads)}")
         for name, blob in active_threads[:3]:
             next_count = len(blob.next_steps)
             next_str = f" ({next_count} next steps)" if next_count else ""
@@ -276,21 +284,21 @@ def cmd_list(args):
 
     # Schema health
     if needs_migration:
-        print(f"Schema: ! {len(needs_migration)} blob(s) need migration")
-        print(f"  Run: goopy migrate")
+        print(f"Schema: ! {len(needs_migration)} polyp(s) need migration")
+        print(f"  Run: zoox migrate")
     else:
         print(f"Schema: OK all v{BLOB_VERSION}")
     print()
 
     # Staleness
     if stale_sessions:
-        print(f"Staleness: ! {len(stale_sessions)} session blob(s) >7 days old")
+        print(f"Staleness: ! {len(stale_sessions)} session polyp(s) >7 days old")
         for name, blob in stale_sessions[:2]:
             print(f"  -> {name} (updated {blob.updated.strftime('%Y-%m-%d')})")
     else:
         session_count = scope_counts.get("session", 0)
         if session_count:
-            print(f"Staleness: OK {session_count} session blob(s) all recent")
+            print(f"Staleness: OK {session_count} session polyp(s) all recent")
     print()
 
     # File references
@@ -306,27 +314,27 @@ def cmd_list(args):
     # Injection impact
     # Estimate ~0.5ms per 100 tokens + 30ms baseline
     est_ms = 30 + (total_tokens // 200)
-    print(f"Injection Impact: ~{total_tokens:,} tokens / ~{est_ms}ms per session")
+    print(f"Surfacing Impact: ~{total_tokens:,} tokens / ~{est_ms}ms per session")
     print()
 
     # Suggestions
     suggestions = []
 
     if needs_migration:
-        suggestions.append(f"Run `goopy migrate` to update {len(needs_migration)} blob(s)")
+        suggestions.append(f"Run `zoox migrate` to update {len(needs_migration)} polyp(s)")
 
     for name, blob in stale_sessions:
-        suggestions.append(f"Archive stale session '{name}' (updated {blob.updated.strftime('%b %d')})")
+        suggestions.append(f"Sink stale session '{name}' (updated {blob.updated.strftime('%b %d')})")
 
     for name, blob in active_threads:
         if len(blob.next_steps) > 5:
-            suggestions.append(f"Thread '{name}' has {len(blob.next_steps)} next steps - consider splitting")
+            suggestions.append(f"Current '{name}' has {len(blob.next_steps)} next steps - consider splitting")
 
     if not type_counts.get("constraint"):
-        suggestions.append("No constraints defined - consider adding project rules")
+        suggestions.append("No bedrock defined - consider adding project constraints")
 
     if len(active_threads) > 3:
-        suggestions.append(f"{len(active_threads)} active threads - consider completing some")
+        suggestions.append(f"{len(active_threads)} active currents - consider completing some")
 
     if missing_files:
         suggestions.append(f"Update or remove {len(missing_files)} stale file reference(s)")
@@ -336,12 +344,12 @@ def cmd_list(args):
         for s in suggestions[:5]:
             print(f"  -> {s}")
     else:
-        print("Suggestions: None - glob looks healthy!")
+        print("Suggestions: None - reef looks healthy!")
 
 
 def cmd_cleanup(args):
     """Session-start cleanup with swarm-safe locking."""
-    from goopy.blob import Glob
+    from zoox.blob import Glob
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -375,7 +383,7 @@ def cmd_cleanup(args):
     if results["archives_pruned"]:
         print(f"  Archives pruned: {results['archives_pruned']}")
     if results["migrated"]:
-        print(f"  Blobs migrated: {results['migrated']}")
+        print(f"  Polyps migrated: {results['migrated']}")
 
     if args.dry_run:
         print("\nRun without --dry-run to apply")
@@ -383,57 +391,60 @@ def cmd_cleanup(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="goopy",
-        description="XML blob system for Claude Code session memory",
+        prog="zoox",
+        description="Symbiotic memory for AI",
+        epilog="polyp = memory unit | reef = colony | current = active thread | bedrock = constraint"
     )
-    parser.add_argument("--version", "-V", action="version", version="goopy 0.1.0")
+    parser.add_argument("--version", "-V", action="version", version="zoox 0.1.0")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # sprout
+    # sprout (spawn)
     sprout_parser = subparsers.add_parser(
         "sprout",
-        help="Create a new blob",
-        description="Sprout a new blob into the glob (.claude/ directory)"
+        help="Spawn a new polyp",
+        description="Spawn a new polyp into the reef (.claude/ directory)"
     )
-    sprout_parser.add_argument("type", help="Blob type: thread, decision, constraint, fact")
-    sprout_parser.add_argument("summary", help="Brief summary of the blob")
-    sprout_parser.add_argument("--status", help="Status for threads: active, blocked, done, archived")
-    sprout_parser.add_argument("--name", "-n", help="Blob filename (default: derived from summary)")
+    sprout_parser.add_argument("type", help="Polyp type: thread, decision, constraint, fact")
+    sprout_parser.add_argument("summary", help="Brief summary of the polyp")
+    sprout_parser.add_argument("--status", help="Status for currents: active, blocked, done, archived")
+    sprout_parser.add_argument("--name", "-n", help="Polyp filename (default: derived from summary)")
     sprout_parser.add_argument("--dir", "-d", help="Subdirectory override (default: based on type)")
     sprout_parser.set_defaults(func=cmd_sprout)
 
-    # list
+    # list (reef)
     list_parser = subparsers.add_parser(
         "list",
-        help="Show blob health and diagnostics",
-        description="Display population health and diagnostics for all blobs"
+        help="Show reef health and diagnostics",
+        aliases=["reef"],
+        description="Display population health and diagnostics for all polyps"
     )
     list_parser.set_defaults(func=cmd_list)
 
     # migrate
     migrate_parser = subparsers.add_parser(
         "migrate",
-        help="Migrate blobs to current schema",
-        description="Upgrade blobs to the current schema version"
+        help="Migrate polyps to current schema",
+        description="Upgrade polyps to the current schema version"
     )
     migrate_parser.add_argument("--dry-run", action="store_true", help="Preview migrations without applying")
     migrate_parser.set_defaults(func=cmd_migrate)
 
-    # decompose
+    # decompose (sink)
     decompose_parser = subparsers.add_parser(
         "decompose",
-        help="Archive stale session blobs",
-        description="Find and archive session-scoped blobs older than threshold"
+        help="Sink stale session polyps",
+        aliases=["sink"],
+        description="Find and sink session-scoped polyps older than threshold"
     )
     decompose_parser.add_argument("--days", type=int, help="Age threshold in days (default: 7)")
-    decompose_parser.add_argument("--dry-run", action="store_true", help="Preview without archiving")
+    decompose_parser.add_argument("--dry-run", action="store_true", help="Preview without sinking")
     decompose_parser.set_defaults(func=cmd_decompose)
 
     # cleanup
     cleanup_parser = subparsers.add_parser(
         "cleanup",
         help="Session-start cleanup (swarm-safe)",
-        description="Prune stale sessions, old archives, and migrate blobs. Uses lock file for swarm safety."
+        description="Prune stale sessions, old archives, and migrate polyps. Uses lock file for swarm safety."
     )
     cleanup_parser.add_argument("--archive-days", type=int, help="Days before pruning archives (default: 30)")
     cleanup_parser.add_argument("--dry-run", action="store_true", help="Preview without applying")

@@ -1,10 +1,10 @@
 """
-Goopy - XML blob system for Claude Code session memory.
+zoox - Symbiotic memory for AI.
 
-A glob is a collection of blobs.
+A reef is a colony of polyps.
 """
 
-from goopy.blob import (
+from zoox.blob import (
     Blob,
     BlobType,
     BlobScope,
@@ -12,7 +12,7 @@ from goopy.blob import (
     Glob,
     BLOB_VERSION,
 )
-from goopy import cli
+from zoox import cli
 
 __all__ = [
     "Blob",

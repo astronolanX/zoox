@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 import shutil
 
-from goopy.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
+from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
 
 
 class TestGlobBasics:
