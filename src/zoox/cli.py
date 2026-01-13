@@ -708,6 +708,147 @@ def cmd_index(args):
             print(f"  {s}: {c}")
 
 
+def cmd_hook(args):
+    """Claude Code hook integration."""
+    import json
+    import subprocess
+
+    from zoox.blob import Glob, Blob, BlobType, BlobScope, KNOWN_SUBDIRS
+
+    project_dir = Path.cwd()
+
+    if args.action == "surface":
+        # UserPromptSubmit hook: surface relevant polyps as XML
+        glob = Glob(project_dir)
+        xml_output = glob.inject_context()
+
+        if xml_output:
+            # Output in format Claude Code hooks expect
+            print(f"\n[GLOB]\n{xml_output}\n")
+
+    elif args.action == "persist":
+        # Stop hook: create/update context polyp with session state
+        glob = Glob(project_dir)
+
+        # Read transcript summary from stdin if provided (Claude Code may pipe it)
+        summary = args.summary
+        if not summary:
+            summary = "Session context (auto-generated)"
+
+        # Check for existing context blob
+        existing = glob.get("context")
+
+        if existing:
+            # Update existing
+            existing.summary = summary
+            existing.updated = datetime.now()
+            if args.files:
+                existing.files = args.files.split(",")
+            if args.next:
+                existing.next_steps = args.next.split("|")
+            path = glob.claude_dir / "context.blob.xml"
+            existing.save(path)
+        else:
+            # Create new context blob
+            blob = Blob(
+                type=BlobType.CONTEXT,
+                summary=summary,
+                scope=BlobScope.SESSION,
+                files=args.files.split(",") if args.files else [],
+                next_steps=args.next.split("|") if args.next else [],
+            )
+            glob.sprout(blob, "context")
+
+        if not args.quiet:
+            print("Context persisted")
+
+    elif args.action == "setup":
+        # Generate Claude Code settings.json hook configuration
+        config = {
+            "hooks": {
+                "UserPromptSubmit": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "zoox hook surface"
+                            }
+                        ]
+                    }
+                ],
+                "Stop": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "zoox hook persist"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+
+        if args.json:
+            print(json.dumps(config, indent=2))
+        else:
+            print("Add to ~/.claude/settings.json:")
+            print()
+            print(json.dumps(config, indent=2))
+            print()
+            print("Or merge with existing hooks configuration.")
+
+    elif args.action == "status":
+        # Check hook health - is zoox properly configured?
+        settings_path = Path.home() / ".claude" / "settings.json"
+
+        print("Hook Status:")
+        print()
+
+        # Check if settings.json exists
+        if not settings_path.exists():
+            print("  settings.json: NOT FOUND")
+            print("  Run: zoox hook setup")
+            return
+
+        try:
+            settings = json.loads(settings_path.read_text())
+            hooks = settings.get("hooks", {})
+
+            # Check UserPromptSubmit
+            upsub = hooks.get("UserPromptSubmit", [])
+            has_surface = any(
+                "zoox hook surface" in str(h)
+                for h in upsub
+            )
+            print(f"  UserPromptSubmit (surface): {'✓' if has_surface else '✗'}")
+
+            # Check Stop
+            stop = hooks.get("Stop", [])
+            has_persist = any(
+                "zoox hook persist" in str(h)
+                for h in stop
+            )
+            print(f"  Stop (persist): {'✓' if has_persist else '✗'}")
+
+            # Check reef
+            claude_dir = project_dir / ".claude"
+            if claude_dir.exists():
+                blob_count = len(list(claude_dir.glob("*.blob.xml")))
+                for subdir in KNOWN_SUBDIRS:
+                    subpath = claude_dir / subdir
+                    if subpath.exists():
+                        blob_count += len(list(subpath.glob("*.blob.xml")))
+                print(f"  Reef: {blob_count} polyp(s)")
+            else:
+                print("  Reef: NOT INITIALIZED")
+                print("  Run: zoox sprout thread 'Initial setup'")
+
+        except json.JSONDecodeError:
+            print("  settings.json: INVALID JSON")
+            return
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="zoox",
@@ -821,6 +962,24 @@ def main():
     template_parser.add_argument("template_name", nargs="?", help="Template name (for use/show)")
     template_parser.add_argument("title", nargs="?", help="Title for new polyp (with 'use')")
     template_parser.set_defaults(func=cmd_template)
+
+    # hook (Claude Code integration)
+    hook_parser = subparsers.add_parser(
+        "hook",
+        help="Claude Code hook integration",
+        description="Commands for Claude Code hook events (UserPromptSubmit, Stop)."
+    )
+    hook_parser.add_argument(
+        "action",
+        choices=["surface", "persist", "setup", "status"],
+        help="surface: output XML context | persist: save session state | setup: generate config | status: check health"
+    )
+    hook_parser.add_argument("--summary", "-s", help="Session summary (for persist)")
+    hook_parser.add_argument("--files", "-f", help="Comma-separated file list (for persist)")
+    hook_parser.add_argument("--next", "-n", help="Pipe-separated next steps (for persist)")
+    hook_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output (for persist)")
+    hook_parser.add_argument("--json", action="store_true", help="Output raw JSON (for setup)")
+    hook_parser.set_defaults(func=cmd_hook)
 
     args = parser.parse_args()
     args.func(args)

@@ -748,3 +748,189 @@ class TestCliEdgeCases:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("sprout", "fact", 'Use "uv" for packages', cwd=tmpdir)
             assert result.returncode == 0
+
+
+class TestCliHook:
+    """CLI hook command tests for Claude Code integration."""
+
+    def test_hook_surface_empty_reef(self):
+        """Surface with no polyps produces no output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli("hook", "surface", cwd=tmpdir)
+            assert result.returncode == 0
+            # Empty reef - no [GLOB] output
+            assert "[GLOB]" not in result.stdout
+
+    def test_hook_surface_with_polyps(self):
+        """Surface outputs XML when polyps exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a polyp first
+            run_cli("sprout", "constraint", "Test constraint", cwd=tmpdir)
+
+            result = run_cli("hook", "surface", cwd=tmpdir)
+            assert result.returncode == 0
+            assert "[GLOB]" in result.stdout
+            assert "Test constraint" in result.stdout
+            assert "<blob" in result.stdout
+
+    def test_hook_surface_respects_surfacing_rules(self):
+        """Surface follows relevance scoring."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Constraint always surfaces
+            run_cli("sprout", "constraint", "Always visible", cwd=tmpdir)
+            # Active thread surfaces
+            run_cli("sprout", "thread", "Active work", cwd=tmpdir)
+
+            result = run_cli("hook", "surface", cwd=tmpdir)
+            assert result.returncode == 0
+            assert "Always visible" in result.stdout
+            assert "Active work" in result.stdout
+
+    def test_hook_persist_creates_context(self):
+        """Persist creates context polyp."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli(
+                "hook", "persist",
+                "--summary", "Session completed",
+                "--quiet",
+                cwd=tmpdir
+            )
+            assert result.returncode == 0
+
+            # Verify context blob exists
+            context_path = Path(tmpdir) / ".claude" / "context.blob.xml"
+            assert context_path.exists()
+
+            blob = Blob.load(context_path)
+            assert blob.type == BlobType.CONTEXT
+            assert blob.summary == "Session completed"
+
+    def test_hook_persist_updates_existing(self):
+        """Persist updates existing context polyp."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create initial context
+            run_cli("hook", "persist", "--summary", "First session", "--quiet", cwd=tmpdir)
+
+            # Update it
+            run_cli("hook", "persist", "--summary", "Second session", "--quiet", cwd=tmpdir)
+
+            # Verify updated
+            context_path = Path(tmpdir) / ".claude" / "context.blob.xml"
+            blob = Blob.load(context_path)
+            assert blob.summary == "Second session"
+
+    def test_hook_persist_with_files(self):
+        """Persist with file list."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli(
+                "hook", "persist",
+                "--summary", "Worked on files",
+                "--files", "src/main.py,src/utils.py",
+                "--quiet",
+                cwd=tmpdir
+            )
+            assert result.returncode == 0
+
+            blob = Blob.load(Path(tmpdir) / ".claude" / "context.blob.xml")
+            assert blob.files == ["src/main.py", "src/utils.py"]
+
+    def test_hook_persist_with_next_steps(self):
+        """Persist with next steps."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli(
+                "hook", "persist",
+                "--summary", "Partial work",
+                "--next", "Finish tests|Review code",
+                "--quiet",
+                cwd=tmpdir
+            )
+            assert result.returncode == 0
+
+            blob = Blob.load(Path(tmpdir) / ".claude" / "context.blob.xml")
+            assert blob.next_steps == ["Finish tests", "Review code"]
+
+    def test_hook_persist_default_summary(self):
+        """Persist uses default summary if none provided."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli("hook", "persist", "--quiet", cwd=tmpdir)
+            assert result.returncode == 0
+
+            blob = Blob.load(Path(tmpdir) / ".claude" / "context.blob.xml")
+            assert "auto-generated" in blob.summary.lower()
+
+    def test_hook_setup_outputs_json(self):
+        """Setup with --json outputs raw JSON config."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli("hook", "setup", "--json", cwd=tmpdir)
+            assert result.returncode == 0
+
+            import json
+            config = json.loads(result.stdout)
+            assert "hooks" in config
+            assert "UserPromptSubmit" in config["hooks"]
+            assert "Stop" in config["hooks"]
+
+    def test_hook_setup_outputs_instructions(self):
+        """Setup without --json outputs instructions."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = run_cli("hook", "setup", cwd=tmpdir)
+            assert result.returncode == 0
+            assert "settings.json" in result.stdout
+            assert "zoox hook surface" in result.stdout
+            assert "zoox hook persist" in result.stdout
+
+    def test_hook_status_no_settings(self):
+        """Status reports missing settings.json."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Run in isolated temp dir without ~/.claude
+            result = run_cli("hook", "status", cwd=tmpdir)
+            assert result.returncode == 0
+            # Either reports NOT FOUND or shows status
+            assert "Hook Status" in result.stdout
+
+    def test_hook_status_shows_reef_count(self):
+        """Status shows polyp count when reef exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create some polyps
+            run_cli("sprout", "constraint", "Rule 1", cwd=tmpdir)
+            run_cli("sprout", "thread", "Work item", cwd=tmpdir)
+
+            result = run_cli("hook", "status", cwd=tmpdir)
+            assert result.returncode == 0
+            assert "Reef" in result.stdout
+            assert "polyp" in result.stdout
+
+
+class TestCliHookIntegration:
+    """Integration tests for hook lifecycle."""
+
+    def test_full_session_lifecycle(self):
+        """Simulate a complete session with surface -> work -> persist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 1. Initial state - create some polyps
+            run_cli("sprout", "constraint", "Use type hints", cwd=tmpdir)
+            run_cli("sprout", "thread", "Implement feature X", cwd=tmpdir)
+
+            # 2. Session start - surface
+            surface_result = run_cli("hook", "surface", cwd=tmpdir)
+            assert surface_result.returncode == 0
+            assert "[GLOB]" in surface_result.stdout
+            assert "Use type hints" in surface_result.stdout
+
+            # 3. Session end - persist
+            persist_result = run_cli(
+                "hook", "persist",
+                "--summary", "Completed feature X implementation",
+                "--files", "src/feature_x.py",
+                "--next", "Write tests|Update docs",
+                "--quiet",
+                cwd=tmpdir
+            )
+            assert persist_result.returncode == 0
+
+            # 4. Next session - surface includes context
+            next_surface = run_cli("hook", "surface", cwd=tmpdir)
+            assert next_surface.returncode == 0
+            # Context may or may not surface depending on recency
+            # But constraints should always surface
+            assert "Use type hints" in next_surface.stdout

@@ -89,6 +89,69 @@ relevant = reef.surface_relevant(query="authentication")
 
 Polyps live in your project's `.claude/` directory as XML files. The surfacing hook brings relevant polyps at session start. The persist hook auto-creates context polyps at session end.
 
+## Claude Code Integration
+
+zoox provides native hook commands for Claude Code integration:
+
+```bash
+# Check hook status
+zoox hook status
+
+# Generate settings.json configuration
+zoox hook setup
+zoox hook setup --json  # Raw JSON output
+```
+
+### Quick Setup
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "zoox hook surface" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "zoox hook persist" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Hook Commands
+
+| Command | Event | Purpose |
+|---------|-------|---------|
+| `zoox hook surface` | UserPromptSubmit | Inject relevant polyps into context |
+| `zoox hook persist` | Stop | Save session state as context polyp |
+| `zoox hook setup` | - | Generate settings.json config |
+| `zoox hook status` | - | Check hook health |
+
+### Persist Options
+
+```bash
+# Save session with custom summary
+zoox hook persist --summary "Completed auth feature"
+
+# Include files touched
+zoox hook persist --files "src/auth.py,src/users.py"
+
+# Add next steps for continuity
+zoox hook persist --next "Write tests|Update docs"
+
+# Silent mode (for hooks)
+zoox hook persist --quiet
+```
+
 ## Performance
 
 zoox is optimized for **human-scale** memory, not big data. Here's what to expect:
