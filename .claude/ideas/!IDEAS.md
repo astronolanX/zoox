@@ -19,6 +19,10 @@ Captured explorations ranked by FII (Feasibility + Importance + Innovation).
 |-----|------|--------|------|
 | 8 | [[self-healing-knowledge-ecosystems]] | captured | memory, adversarial |
 | 7 | [[spark-to-idea-pipeline]] | prototyping | spark, workflow |
+| 7 | [[adversarial-decay]] | captured | memory, decay, selection |
+| 7 | [[polip-drift-migration]] | captured | memory, migration, autonomy |
+| 7 | [[metaphor-death-rebirth]] | captured | metaphor, naming, identity |
+| 7 | [[composable-operations]] | captured | architecture, operations, composition |
 
 ## By Status
 
@@ -26,6 +30,10 @@ Captured explorations ranked by FII (Feasibility + Importance + Innovation).
 Ideas worth exploring, not yet started.
 
 - [[self-healing-knowledge-ecosystems]] (FII 8) — adversarial + federated + compositional memory
+- [[adversarial-decay]] (FII 7) — reef decay command with selection pressure for memories
+- [[polip-drift-migration]] (FII 7) — autonomous polip relocation based on content affinity
+- [[metaphor-death-rebirth]] (FII 7) — coral metaphor may need to evolve or die for digital clarity
+- [[composable-operations]] (FII 7) — operations over syntax; Unix pipes as reef's composition layer
 
 ### Prototyping
 Active development or testing.
