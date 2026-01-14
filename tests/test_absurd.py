@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
-from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
+from reef.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
 
 
 class TestAbsurdInputs:
@@ -73,7 +73,7 @@ class TestAbsurdInputs:
         try:
             blob = Blob.from_xml(malicious_xml)
             assert "root:" not in blob.summary  # /etc/passwd indicator
-        except ET.ParseError:
+        except (ET.ParseError, ValueError):
             pass  # Expected - rejection is fine
 
     def test_file_path_traversal(self):
@@ -212,7 +212,7 @@ class TestAbsurdGlobOperations:
 
     def test_sprout_to_parent_directory(self):
         """Attempting to sprout outside .claude raises PathTraversalError."""
-        from zoox.blob import PathTraversalError
+        from reef.blob import PathTraversalError
 
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))

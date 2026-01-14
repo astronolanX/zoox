@@ -24,7 +24,7 @@ from uuid import uuid4
 # Index schema version - increment when index format changes
 INDEX_VERSION = 1
 
-# Built-in polyp templates
+# Built-in polip templates
 BUILTIN_TEMPLATES = {
     "bug": {
         "type": "thread",
@@ -185,7 +185,7 @@ BLOB_VERSION = 2
 # Known subdirectories for blob organization (DRY: single source of truth)
 KNOWN_SUBDIRS = ("threads", "decisions", "constraints", "contexts", "facts")
 
-# Wiki link pattern: [[polyp-name]]
+# Wiki link pattern: [[polip-name]]
 WIKI_LINK_PATTERN = re.compile(r'\[\[([^\]]+)\]\]')
 
 
@@ -333,7 +333,7 @@ class Blob:
         Extract [[wiki-style]] links from summary and context.
 
         Returns:
-            List of unique polyp names referenced via [[name]] syntax
+            List of unique polip names referenced via [[name]] syntax
         """
         links = set()
         # Search in summary and context
@@ -433,8 +433,15 @@ class Blob:
 
     @classmethod
     def from_xml(cls, xml_string: str) -> "Blob":
-        """Parse blob from XML string."""
-        root = ET.fromstring(xml_string)
+        """Parse blob from XML string.
+
+        Raises:
+            ValueError: If XML is malformed or cannot be parsed
+        """
+        try:
+            root = ET.fromstring(xml_string)
+        except ET.ParseError as e:
+            raise ValueError(f"Malformed XML in blob: {e}") from e
 
         # Parse attributes
         blob_type = BlobType(root.get("type", "context"))
@@ -512,8 +519,21 @@ class Blob:
 
     @classmethod
     def load(cls, path: Path) -> "Blob":
-        """Load blob from file."""
-        return cls.from_xml(path.read_text())
+        """Load blob from file.
+
+        Raises:
+            FileNotFoundError: If the blob file doesn't exist
+            ValueError: If the blob XML is malformed
+            UnicodeDecodeError: If the file contains invalid UTF-8
+        """
+        try:
+            xml_content = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Blob file not found: {path}")
+        except UnicodeDecodeError as e:
+            raise ValueError(f"Blob file contains invalid UTF-8: {path}") from e
+
+        return cls.from_xml(xml_content)
 
 
 class Glob:
@@ -637,7 +657,7 @@ class Glob:
         self._save_index(index)
 
     def _increment_access(self, keys: list[str]) -> None:
-        """Increment access count for surfaced polyps (LRU tracking)."""
+        """Increment access count for surfaced polips (LRU tracking)."""
         if not keys:
             return
         index = self._load_index()
@@ -647,7 +667,7 @@ class Glob:
         self._save_index(index)
 
     def get_access_count(self, key: str) -> int:
-        """Get access count for a polyp from index."""
+        """Get access count for a polip from index."""
         index = self.get_index()
         return index.get("blobs", {}).get(key, {}).get("access_count", 0)
 
@@ -727,7 +747,7 @@ class Glob:
         limit: int = 20,
     ) -> list[tuple[str, dict, float]]:
         """
-        Search the index for matching polyps using TF-IDF ranking.
+        Search the index for matching polips using TF-IDF ranking.
 
         Args:
             query: Text to search in summaries (fuzzy TF-IDF matching)
@@ -872,12 +892,12 @@ class Glob:
 
         Uses TF-IDF scoring for query matching, providing fuzzy semantic search
         that ranks results by relevance rather than just substring matching.
-        Includes LRU-style access tracking to boost frequently-used polyps.
+        Includes LRU-style access tracking to boost frequently-used polips.
 
         Args:
             files: Files being touched (surfaces blobs that reference them)
             query: Free-text query to match against summaries/context
-            track_access: If True, increment access count for surfaced polyps
+            track_access: If True, increment access count for surfaced polips
 
         Returns:
             List of relevant blobs, scored by relevance
@@ -920,7 +940,7 @@ class Glob:
                 overlap = set(files) & set(blob.files)
                 score += len(overlap) * 3.0
 
-            # LRU boost: frequently accessed polyps get a small boost
+            # LRU boost: frequently accessed polips get a small boost
             # Use logarithmic scaling to prevent runaway scores
             key = f"{subdir}/{name}.blob.xml" if subdir else f"{name}.blob.xml"
             access_count = blobs_index.get(key, {}).get("access_count", 0)
@@ -948,7 +968,7 @@ class Glob:
         # Sort by score descending
         relevant.sort(key=lambda x: x[0], reverse=True)
 
-        # Track access for surfaced polyps
+        # Track access for surfaced polips
         if track_access and relevant:
             accessed_keys = [key for _, _, key in relevant]
             self._increment_access(accessed_keys)
@@ -1274,7 +1294,7 @@ class Glob:
         **kwargs,
     ) -> Optional[Path]:
         """
-        Create a polyp from a template.
+        Create a polip from a template.
 
         Supports rich template variables:
         - {title}: The provided title
@@ -1287,11 +1307,11 @@ class Glob:
 
         Args:
             template_name: Name of the template to use
-            title: Title for the polyp (used in summary)
+            title: Title for the polip (used in summary)
             **kwargs: Additional template variables
 
         Returns:
-            Path to created polyp, or None if template not found
+            Path to created polip, or None if template not found
         """
         template = self.get_template(template_name)
         if not template:
@@ -1418,17 +1438,17 @@ class Glob:
 
         Returns:
             Dict with:
-                missing_files: list of (polyp_key, missing_file_path)
-                stale_polyps: list of (polyp_key, days_old) for session polyps >7d
+                missing_files: list of (polip_key, missing_file_path)
+                stale_polips: list of (polip_key, days_old) for session polips >7d
                 orphan_files: list of blob files not in index
-                broken_refs: list of (polyp_key, broken_related_ref)
-                schema_outdated: list of polyps needing migration
+                broken_refs: list of (polip_key, broken_related_ref)
+                schema_outdated: list of polips needing migration
         """
         from datetime import timedelta
 
         issues = {
             "missing_files": [],
-            "stale_polyps": [],
+            "stale_polips": [],
             "orphan_files": [],
             "broken_refs": [],
             "schema_outdated": [],
@@ -1440,7 +1460,7 @@ class Glob:
         indexed_keys = set(index.get("blobs", {}).keys())
         found_keys = set()
 
-        # Scan all polyps
+        # Scan all polips
         for subdir in [None, *KNOWN_SUBDIRS]:
             for blob_name, blob in self.list_blobs(subdir):
                 key = f"{subdir}/{blob_name}" if subdir else blob_name
@@ -1455,14 +1475,14 @@ class Glob:
                     if not file_path.exists():
                         issues["missing_files"].append((key, f))
 
-                # Check staleness (session polyps only)
+                # Check staleness (session polips only)
                 if blob.scope == BlobScope.SESSION and blob.updated < stale_threshold:
                     days_old = (now - blob.updated).days
-                    issues["stale_polyps"].append((key, days_old))
+                    issues["stale_polips"].append((key, days_old))
 
                 # Check related refs
                 for ref in blob.related:
-                    # Check if ref exists as a polyp
+                    # Check if ref exists as a polip
                     ref_path = self.claude_dir / f"{ref}.blob.xml"
                     if not ref_path.exists():
                         # Try subdirs
@@ -1485,22 +1505,22 @@ class Glob:
 
         return issues
 
-    def fix_missing_files(self, polyp_key: str, remove_missing: bool = True) -> bool:
+    def fix_missing_files(self, polip_key: str, remove_missing: bool = True) -> bool:
         """
-        Fix a polyp with missing file references.
+        Fix a polip with missing file references.
 
         Args:
-            polyp_key: Key like 'threads/my-thread' or 'my-thread'
+            polip_key: Key like 'threads/my-thread' or 'my-thread'
             remove_missing: If True, remove missing file refs; else just report
 
         Returns:
-            True if fixed, False if polyp not found
+            True if fixed, False if polip not found
         """
         # Parse key into subdir and name
-        if "/" in polyp_key:
-            subdir, name = polyp_key.split("/", 1)
+        if "/" in polip_key:
+            subdir, name = polip_key.split("/", 1)
         else:
-            subdir, name = None, polyp_key
+            subdir, name = None, polip_key
 
         blob = self.get(name, subdir=subdir)
         if not blob:
@@ -1534,10 +1554,10 @@ class Glob:
 
     def build_graph(self) -> dict:
         """
-        Build a graph of polyp relationships.
+        Build a graph of polip relationships.
 
         Returns:
-            Dict with nodes (polyps) and edges (relationships)
+            Dict with nodes (polips) and edges (relationships)
         """
         nodes = {}
         edges = []
@@ -1564,10 +1584,10 @@ class Glob:
                         file_refs[f] = []
                     file_refs[f].append(key)
 
-        # Create edges for polyps sharing files
+        # Create edges for polips sharing files
         for f, blob_keys in file_refs.items():
             if len(blob_keys) > 1:
-                # Connect all polyps that reference the same file
+                # Connect all polips that reference the same file
                 for i, k1 in enumerate(blob_keys):
                     for k2 in blob_keys[i + 1:]:
                         edges.append((k1, k2, f"file:{f}"))
@@ -1579,7 +1599,7 @@ class Glob:
 
     def to_dot(self) -> str:
         """
-        Generate Graphviz DOT format for the polyp graph.
+        Generate Graphviz DOT format for the polip graph.
 
         Returns:
             DOT format string
@@ -1757,7 +1777,7 @@ class Glob:
         - path: Path to .claude/ directory
         - name: Project/reef name
         - source: 'global', 'sibling', or 'configured'
-        - polyp_count: Number of polyps found
+        - polip_count: Number of polips found
         """
         config = self._get_drift_config()
         reefs = []
@@ -1766,13 +1786,13 @@ class Glob:
         if config.get("include_global", True):
             global_claude = Path.home() / ".claude"
             if global_claude.exists():
-                count = self._count_polyps(global_claude)
+                count = self._count_polips(global_claude)
                 if count > 0:
                     reefs.append({
                         "path": global_claude,
                         "name": "~/.claude (global)",
                         "source": "global",
-                        "polyp_count": count,
+                        "polip_count": count,
                     })
 
         # 2. Sibling directories
@@ -1787,13 +1807,13 @@ class Glob:
                     continue
                 sibling_claude = sibling / ".claude"
                 if sibling_claude.exists():
-                    count = self._count_polyps(sibling_claude)
+                    count = self._count_polips(sibling_claude)
                     if count > 0:
                         reefs.append({
                             "path": sibling_claude,
                             "name": sibling.name,
                             "source": "sibling",
-                            "polyp_count": count,
+                            "polip_count": count,
                         })
 
         # 3. Additional configured paths
@@ -1802,19 +1822,19 @@ class Glob:
             if path.exists() and path.is_dir():
                 claude_dir = path / ".claude" if not path.name == ".claude" else path
                 if claude_dir.exists():
-                    count = self._count_polyps(claude_dir)
+                    count = self._count_polips(claude_dir)
                     if count > 0:
                         reefs.append({
                             "path": claude_dir,
                             "name": path.name,
                             "source": "configured",
-                            "polyp_count": count,
+                            "polip_count": count,
                         })
 
         return reefs
 
-    def _count_polyps(self, claude_dir: Path) -> int:
-        """Count polyps in a .claude directory."""
+    def _count_polips(self, claude_dir: Path) -> int:
+        """Count polips in a .claude directory."""
         count = len(list(claude_dir.glob("*.blob.xml")))
         for subdir in KNOWN_SUBDIRS:
             subpath = claude_dir / subdir
@@ -1822,17 +1842,17 @@ class Glob:
                 count += len(list(subpath.glob("*.blob.xml")))
         return count
 
-    def list_drift_polyps(self, scope_filter: list[str] = None) -> list[dict]:
+    def list_drift_polips(self, scope_filter: list[str] = None) -> list[dict]:
         """
-        List polyps from discovered reefs that match drift criteria.
+        List polips from discovered reefs that match drift criteria.
 
         Args:
             scope_filter: List of scopes to include (default: from config)
 
-        Returns list of polyp info dicts with:
+        Returns list of polip info dicts with:
         - reef_name: Source reef name
         - reef_path: Path to source .claude/
-        - name: Polyp name
+        - name: Polip name
         - subdir: Subdirectory (or None)
         - blob: The Blob object
         - key: Unique reference key (reef/subdir/name)
@@ -1841,7 +1861,7 @@ class Glob:
         scope_filter = scope_filter or config.get("scope_filter", ["always"])
 
         reefs = self.discover_reefs()
-        polyps = []
+        polips = []
 
         for reef in reefs:
             reef_path = reef["path"]
@@ -1870,7 +1890,7 @@ class Glob:
 
                         key = f"{reef_name}/{subdir}/{name}" if subdir else f"{reef_name}/{name}"
 
-                        polyps.append({
+                        polips.append({
                             "reef_name": reef_name,
                             "reef_path": reef_path,
                             "name": name,
@@ -1882,26 +1902,26 @@ class Glob:
                     except Exception:
                         continue
 
-        return polyps
+        return polips
 
-    def pull_polyp(self, key: str) -> Optional[Path]:
+    def pull_polip(self, key: str) -> Optional[Path]:
         """
-        Pull (copy) a polyp from another reef into this one.
+        Pull (copy) a polip from another reef into this one.
 
         Args:
             key: Reference key in format "reef/[subdir/]name"
 
         Returns:
-            Path to the copied polyp, or None if not found
+            Path to the copied polip, or None if not found
         """
-        # Find the polyp by key
-        drift_polyps = self.list_drift_polyps(scope_filter=None)  # All scopes for pull
+        # Find the polip by key
+        drift_polips = self.list_drift_polips(scope_filter=None)  # All scopes for pull
 
-        for polyp_info in drift_polyps:
-            if polyp_info["key"] == key:
-                blob = polyp_info["blob"]
-                name = polyp_info["name"]
-                subdir = polyp_info["subdir"]
+        for polip_info in drift_polips:
+            if polip_info["key"] == key:
+                blob = polip_info["blob"]
+                name = polip_info["name"]
+                subdir = polip_info["subdir"]
 
                 # Update the blob for local context
                 blob.updated = datetime.now()
@@ -1913,19 +1933,19 @@ class Glob:
 
     def inject_context_with_drift(self) -> str:
         """
-        Generate XML context including drift polyps.
+        Generate XML context including drift polips.
 
-        Extends inject_context() to include global/cross-project polyps.
+        Extends inject_context() to include global/cross-project polips.
         """
         relevant = self.surface_relevant()
 
-        # Add drift polyps
-        drift_polyps = self.list_drift_polyps()
-        for polyp_info in drift_polyps:
+        # Add drift polips
+        drift_polips = self.list_drift_polips()
+        for polip_info in drift_polips:
             # Don't duplicate if already in local reef
-            local_blob = self.get(polyp_info["name"], polyp_info["subdir"])
+            local_blob = self.get(polip_info["name"], polip_info["subdir"])
             if local_blob is None:
-                relevant.append(polyp_info["blob"])
+                relevant.append(polip_info["blob"])
 
         if not relevant:
             return ""

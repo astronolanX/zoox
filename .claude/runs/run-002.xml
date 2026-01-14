@@ -3,7 +3,7 @@
   <summary>
     Implemented P6 features (template CRUD, index search, sync integrity checker),
     conducted comprehensive E2E testing, discovered and fixed path traversal security
-    vulnerability, cleaned up reef by removing misplaced polyps and normalizing naming.
+    vulnerability, cleaned up reef by removing misplaced polips and normalizing naming.
   </summary>
 
   <what-worked>
@@ -15,7 +15,7 @@
 
   <what-didnt>
     <item>Path traversal validation was missing from new template CRUD methods</item>
-    <item>Several polyps were misplaced in zoox project (belonged to custody-mediation)</item>
+    <item>Several polips were misplaced in zoox project (belonged to custody-mediation)</item>
     <item>Naming inconsistency (Goopy vs zoox) persisted in constraint blobs</item>
   </what-didnt>
 
@@ -33,12 +33,12 @@
 
   <commits>
     <commit hash="68e4763">feat: add P6 features - template CRUD, index search, sync integrity checker</commit>
-    <commit hash="7d8ea21">chore: cleanup reef - normalize naming, remove stale polyps</commit>
+    <commit hash="7d8ea21">chore: cleanup reef - normalize naming, remove stale polips</commit>
   </commits>
 
   <metrics>
     <metric name="tests">280 passing</metric>
-    <metric name="polyps">3 (down from 7)</metric>
+    <metric name="polips">3 (down from 7)</metric>
     <metric name="tokens">725 (down from ~1400)</metric>
     <metric name="integrity">OK</metric>
   </metrics>

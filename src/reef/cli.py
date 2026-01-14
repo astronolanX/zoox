@@ -1,11 +1,11 @@
 """
-zoox CLI - Symbiotic memory for AI.
+reef CLI - Symbiotic memory for AI.
 
 Terminology:
-  polyp   = individual memory unit (was: blob)
+  polip   = individual memory unit (was: blob)
   reef    = project colony (was: glob)
-  spawn   = create polyp
-  surface = bring polyp from depth
+  spawn   = create polip
+  surface = bring polip from depth
   sink    = archive to deep reef
   drift   = cross-project spread
 """
@@ -19,17 +19,17 @@ from collections import defaultdict
 
 # Optimal .gitignore for team workflows
 GITIGNORE_TEMPLATE = """\
-# zoox - Polyp memory system
-# Commit constraints and decisions, ignore session-scoped polyps
+# reef - Polip memory system
+# Commit constraints and decisions, ignore session-scoped polips
 
-# Session-scoped polyps (ephemeral, per-session)
+# Session-scoped polips (ephemeral, per-session)
 .claude/context.blob.xml
 .claude/contexts/
 
 # Index is generated (can be rebuilt)
 .claude/index.json
 
-# Archive contains decomposed polyps
+# Archive contains decomposed polips
 .claude/archive/
 
 # Snapshots are local state
@@ -44,15 +44,15 @@ GITIGNORE_TEMPLATE = """\
 # Keep facts (preserved knowledge) - committed
 # !.claude/facts/
 
-# Thread polyps are typically session-specific
+# Thread polips are typically session-specific
 # Uncomment to commit active threads:
 # !.claude/threads/
 """
 
 
 def cmd_init(args):
-    """Initialize zoox in the current project."""
-    from zoox.blob import Glob
+    """Initialize reef in the current project."""
+    from reef.blob import Glob
 
     project_dir = Path.cwd()
     claude_dir = project_dir / ".claude"
@@ -69,10 +69,10 @@ def cmd_init(args):
         gitignore_path = project_dir / ".gitignore"
 
         if gitignore_path.exists() and not args.force:
-            # Check if zoox section already exists
+            # Check if reef section already exists
             content = gitignore_path.read_text()
-            if "zoox" in content.lower() or ".claude/" in content:
-                print("Existing .gitignore already has zoox/claude entries")
+            if "reef" in content.lower() or ".claude/" in content:
+                print("Existing .gitignore already has reef/claude entries")
                 print("Use --force to overwrite, or manually add entries")
                 return
 
@@ -80,7 +80,7 @@ def cmd_init(args):
             if args.append:
                 with open(gitignore_path, "a") as f:
                     f.write("\n" + GITIGNORE_TEMPLATE)
-                print(f"Appended zoox entries to {gitignore_path}")
+                print(f"Appended reef entries to {gitignore_path}")
             else:
                 print(f"File {gitignore_path} exists. Use --append to add entries")
                 return
@@ -92,16 +92,16 @@ def cmd_init(args):
     # Initialize index
     glob = Glob(project_dir)
     count = glob.rebuild_index()
-    print(f"Indexed {count} existing polyp(s)")
+    print(f"Indexed {count} existing polip(s)")
 
-    print("\nzoox initialized!")
-    print("  Use 'zoox sprout' to create polyps")
-    print("  Use 'zoox reef' to view reef health")
+    print("\nreef initialized!")
+    print("  Use 'reef sprout' to create polips")
+    print("  Use 'reef reef' to view reef health")
 
 
 def cmd_sprout(args):
-    """Create a new polyp (spawn)."""
-    from zoox.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, KNOWN_SUBDIRS
+    """Create a new polip (spawn)."""
+    from reef.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -116,7 +116,7 @@ def cmd_sprout(args):
         sys.exit(1)
 
     if blob_type == BlobType.CONTEXT:
-        print("context polyps are auto-created by the persist hook", file=sys.stderr)
+        print("context polips are auto-created by the persist hook", file=sys.stderr)
         print("Use: thread, decision, constraint, or fact", file=sys.stderr)
         sys.exit(1)
 
@@ -133,7 +133,7 @@ def cmd_sprout(args):
     status = None
     if args.status:
         if blob_type != BlobType.THREAD:
-            print("--status only applies to thread polyps", file=sys.stderr)
+            print("--status only applies to thread polips", file=sys.stderr)
             sys.exit(1)
         try:
             status = BlobStatus(args.status)
@@ -145,7 +145,7 @@ def cmd_sprout(args):
     elif blob_type == BlobType.THREAD:
         status = BlobStatus.ACTIVE  # default for threads
 
-    # Create polyp
+    # Create polip
     blob = Blob(
         type=blob_type,
         summary=args.summary,
@@ -170,20 +170,20 @@ def cmd_sprout(args):
         name = "".join(c if c.isalnum() or c == " " else "" for c in name)
         name = "-".join(name.split())[:30]
 
-    # Write polyp
+    # Write polip
     path = glob.sprout(blob, name, subdir)
     rel_path = path.relative_to(project_dir)
     print(f"Spawned: {rel_path}")
 
 
 def cmd_decompose(args):
-    """Archive stale polyps (sink)."""
-    from zoox.blob import Glob, BlobScope, KNOWN_SUBDIRS
+    """Archive stale polips (sink)."""
+    from reef.blob import Glob, BlobScope, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
 
-    # Find stale session polyps
+    # Find stale session polips
     days = args.days or 7
     threshold = datetime.now() - timedelta(days=days)
 
@@ -192,7 +192,7 @@ def cmd_decompose(args):
     # Check root and all subdirs
     for subdir in [None, *KNOWN_SUBDIRS]:
         for name, blob in glob.list_blobs(subdir):
-            # Only session-scoped polyps are candidates for decomposition
+            # Only session-scoped polips are candidates for decomposition
             if blob.scope != BlobScope.SESSION:
                 continue
             if blob.updated < threshold:
@@ -203,10 +203,10 @@ def cmd_decompose(args):
                 stale.append((path, name, blob, subdir))
 
     if not stale:
-        print(f"No stale session polyps (>{days} days old)")
+        print(f"No stale session polips (>{days} days old)")
         return
 
-    print(f"Found {len(stale)} stale session polyp(s):")
+    print(f"Found {len(stale)} stale session polip(s):")
     for path, name, blob, subdir in stale:
         rel_path = path.relative_to(project_dir)
         age = (datetime.now() - blob.updated).days
@@ -224,12 +224,12 @@ def cmd_decompose(args):
         rel_path = path.relative_to(project_dir)
         print(f"Sunk: {rel_path}")
 
-    print(f"\nDecomposed {len(stale)} polyp(s)")
+    print(f"\nDecomposed {len(stale)} polip(s)")
 
 
 def cmd_migrate(args):
-    """Migrate polyps to current schema version."""
-    from zoox.blob import Glob, BLOB_VERSION
+    """Migrate polips to current schema version."""
+    from reef.blob import Glob, BLOB_VERSION
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -237,44 +237,44 @@ def cmd_migrate(args):
     outdated = glob.check_migrations()
 
     if not outdated:
-        print(f"All polyps are at current version (v{BLOB_VERSION})")
+        print(f"All polips are at current version (v{BLOB_VERSION})")
         return
 
     if args.dry_run:
-        print(f"Found {len(outdated)} polyp(s) needing migration:")
+        print(f"Found {len(outdated)} polip(s) needing migration:")
         for path, blob in outdated:
             print(f"  {path.name} (v{blob.version} -> v{BLOB_VERSION})")
         print("\nRun without --dry-run to migrate")
         return
 
     count = glob.migrate_all()
-    print(f"Migrated {count} polyp(s) to v{BLOB_VERSION}")
+    print(f"Migrated {count} polip(s) to v{BLOB_VERSION}")
 
 
 def cmd_list(args):
     """Show reef health and diagnostics."""
-    from zoox.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION, KNOWN_SUBDIRS
+    from reef.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
 
-    # Collect all polyps with their paths
+    # Collect all polips with their paths
     all_blobs: list[tuple[Path, str, Blob]] = []
 
-    # Root level polyps
+    # Root level polips
     for name, blob in glob.list_blobs():
         path = glob.claude_dir / f"{name}.blob.xml"
         all_blobs.append((path, name, blob))
 
-    # Subdirectory polyps
+    # Subdirectory polips
     for subdir in KNOWN_SUBDIRS:
         for name, blob in glob.list_blobs(subdir):
             path = glob.claude_dir / subdir / f"{name}.blob.xml"
             all_blobs.append((path, name, blob))
 
     if not all_blobs:
-        print("No polyps found in reef (.claude/)")
-        print("Polyps are XML context files that persist across sessions.")
+        print("No polips found in reef (.claude/)")
+        print("Polips are XML context files that persist across sessions.")
         return
 
     # Aggregate stats
@@ -299,7 +299,7 @@ def cmd_list(args):
             status_counts[blob.status.value] += 1
         version_counts[blob.version] += 1
 
-        # Estimate tokens (~200 per polyp + content)
+        # Estimate tokens (~200 per polip + content)
         xml_len = len(blob.to_xml())
         tokens = max(200, xml_len // 4)  # Rough estimate
         total_tokens += tokens
@@ -333,7 +333,7 @@ def cmd_list(args):
     print()
 
     # Population summary
-    print(f"Population: {len(all_blobs)} polyp(s) (~{total_tokens:,} tokens)")
+    print(f"Population: {len(all_blobs)} polip(s) (~{total_tokens:,} tokens)")
 
     # Type breakdown
     type_str = "  "
@@ -366,21 +366,21 @@ def cmd_list(args):
 
     # Schema health
     if needs_migration:
-        print(f"Schema: ! {len(needs_migration)} polyp(s) need migration")
-        print(f"  Run: zoox migrate")
+        print(f"Schema: ! {len(needs_migration)} polip(s) need migration")
+        print(f"  Run: reef migrate")
     else:
         print(f"Schema: OK all v{BLOB_VERSION}")
     print()
 
     # Staleness
     if stale_sessions:
-        print(f"Staleness: ! {len(stale_sessions)} session polyp(s) >7 days old")
+        print(f"Staleness: ! {len(stale_sessions)} session polip(s) >7 days old")
         for name, blob in stale_sessions[:2]:
             print(f"  -> {name} (updated {blob.updated.strftime('%Y-%m-%d')})")
     else:
         session_count = scope_counts.get("session", 0)
         if session_count:
-            print(f"Staleness: OK {session_count} session polyp(s) all recent")
+            print(f"Staleness: OK {session_count} session polip(s) all recent")
     print()
 
     # File references
@@ -409,7 +409,7 @@ def cmd_list(args):
     suggestions = []
 
     if needs_migration:
-        suggestions.append(f"Run `zoox migrate` to update {len(needs_migration)} polyp(s)")
+        suggestions.append(f"Run `reef migrate` to update {len(needs_migration)} polip(s)")
 
     for name, blob in stale_sessions:
         suggestions.append(f"Sink stale session '{name}' (updated {blob.updated.strftime('%b %d')})")
@@ -437,7 +437,7 @@ def cmd_list(args):
 
 def cmd_cleanup(args):
     """Session-start cleanup with swarm-safe locking."""
-    from zoox.blob import Glob
+    from reef.blob import Glob
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -471,15 +471,15 @@ def cmd_cleanup(args):
     if results["archives_pruned"]:
         print(f"  Archives pruned: {results['archives_pruned']}")
     if results["migrated"]:
-        print(f"  Polyps migrated: {results['migrated']}")
+        print(f"  Polips migrated: {results['migrated']}")
 
     if args.dry_run:
         print("\nRun without --dry-run to apply")
 
 
 def cmd_status(args):
-    """View or change polyp status."""
-    from zoox.blob import Glob, BlobStatus, KNOWN_SUBDIRS
+    """View or change polip status."""
+    from reef.blob import Glob, BlobStatus, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -503,7 +503,7 @@ def cmd_status(args):
                 break
 
     if not blob:
-        print(f"Polyp '{name}' not found", file=sys.stderr)
+        print(f"Polip '{name}' not found", file=sys.stderr)
         sys.exit(1)
 
     # If no new status, show current
@@ -524,7 +524,7 @@ def cmd_status(args):
         sys.exit(1)
 
     if new_status == BlobStatus.ARCHIVED:
-        print("Use 'zoox decompose' to archive polyps", file=sys.stderr)
+        print("Use 'reef decompose' to archive polips", file=sys.stderr)
         sys.exit(1)
 
     # Update status
@@ -546,8 +546,8 @@ def cmd_status(args):
 
 
 def cmd_template(args):
-    """Manage and use polyp templates."""
-    from zoox.blob import Glob, BUILTIN_TEMPLATES
+    """Manage and use polip templates."""
+    from reef.blob import Glob, BUILTIN_TEMPLATES
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -566,11 +566,11 @@ def cmd_template(args):
             if desc:
                 print(f"    {desc}")
         print()
-        print("Usage: zoox template use <name> <title>")
+        print("Usage: reef template use <name> <title>")
 
     elif args.action == "use":
         if not args.template_name or not args.title:
-            print("Usage: zoox template use <template-name> <title>", file=sys.stderr)
+            print("Usage: reef template use <template-name> <title>", file=sys.stderr)
             sys.exit(1)
 
         path = glob.create_from_template(args.template_name, args.title)
@@ -583,7 +583,7 @@ def cmd_template(args):
 
     elif args.action == "show":
         if not args.template_name:
-            print("Usage: zoox template show <template-name>", file=sys.stderr)
+            print("Usage: reef template show <template-name>", file=sys.stderr)
             sys.exit(1)
 
         tmpl = glob.get_template(args.template_name)
@@ -603,10 +603,10 @@ def cmd_template(args):
             print(f"  Next steps: {len(tmpl['next_steps'])} items")
 
     elif args.action == "create":
-        from zoox.blob import PathTraversalError
+        from reef.blob import PathTraversalError
 
         if not args.template_name:
-            print("Usage: zoox template create <name> --type thread --summary 'Bug: {title}'", file=sys.stderr)
+            print("Usage: reef template create <name> --type thread --summary 'Bug: {title}'", file=sys.stderr)
             sys.exit(1)
 
         # Check for collision with built-in
@@ -636,10 +636,10 @@ def cmd_template(args):
             sys.exit(1)
 
     elif args.action == "delete":
-        from zoox.blob import PathTraversalError
+        from reef.blob import PathTraversalError
 
         if not args.template_name:
-            print("Usage: zoox template delete <name>", file=sys.stderr)
+            print("Usage: reef template delete <name>", file=sys.stderr)
             sys.exit(1)
 
         if args.template_name in BUILTIN_TEMPLATES:
@@ -658,8 +658,8 @@ def cmd_template(args):
 
 
 def cmd_graph(args):
-    """Visualize polyp relationships."""
-    from zoox.blob import Glob
+    """Visualize polip relationships."""
+    from reef.blob import Glob
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -676,10 +676,10 @@ def cmd_graph(args):
     edges = graph["edges"]
 
     if not nodes:
-        print("No polyps to graph")
+        print("No polips to graph")
         return
 
-    print(f"Reef Graph: {len(nodes)} polyps, {len(edges)} connections")
+    print(f"Reef Graph: {len(nodes)} polips, {len(edges)} connections")
     print()
 
     # Group by type
@@ -728,12 +728,12 @@ def cmd_graph(args):
 
     if args.dot:
         print()
-        print("Tip: zoox graph --dot | dot -Tpng -o reef.png")
+        print("Tip: reef graph --dot | dot -Tpng -o reef.png")
 
 
 def cmd_snapshot(args):
     """Manage reef snapshots."""
-    from zoox.blob import Glob
+    from reef.blob import Glob
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -743,7 +743,7 @@ def cmd_snapshot(args):
         rel_path = path.relative_to(project_dir)
         blob_count = len(glob.list_blobs()) + sum(len(glob.list_blobs(s)) for s in ["threads", "decisions", "constraints", "contexts", "facts"])
         print(f"Snapshot created: {rel_path}")
-        print(f"  {blob_count} polyp(s) captured")
+        print(f"  {blob_count} polip(s) captured")
 
     elif args.action == "list":
         snapshots = glob.list_snapshots()
@@ -756,11 +756,11 @@ def cmd_snapshot(args):
             name_str = f" ({meta['name']})" if meta.get("name") else ""
             created = meta.get("created", "unknown")[:19]  # Trim microseconds
             print(f"  {path.stem}{name_str}")
-            print(f"    {meta['blob_count']} polyps | {created}")
+            print(f"    {meta['blob_count']} polips | {created}")
 
     elif args.action == "diff":
         if not args.snapshot_id:
-            print("Usage: zoox snapshot diff <snapshot-id>", file=sys.stderr)
+            print("Usage: reef snapshot diff <snapshot-id>", file=sys.stderr)
             sys.exit(1)
 
         # Find snapshot by prefix match
@@ -807,14 +807,14 @@ def cmd_snapshot(args):
 
 def cmd_index(args):
     """Manage metadata index."""
-    from zoox.blob import Glob, INDEX_VERSION
+    from reef.blob import Glob, INDEX_VERSION
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
 
     if args.rebuild:
         count = glob.rebuild_index()
-        print(f"Index rebuilt: {count} polyp(s) indexed")
+        print(f"Index rebuilt: {count} polip(s) indexed")
         return
 
     if args.search or args.type or args.scope or args.status:
@@ -850,7 +850,7 @@ def cmd_index(args):
     blob_count = len(index.get("blobs", {}))
 
     print(f"Index v{INDEX_VERSION}")
-    print(f"  Polyps indexed: {blob_count}")
+    print(f"  Polips indexed: {blob_count}")
     print(f"  Last updated: {index.get('updated', 'unknown')}")
 
     if args.stats and blob_count > 0:
@@ -877,12 +877,12 @@ def cmd_hook(args):
     import json
     import subprocess
 
-    from zoox.blob import Glob, Blob, BlobType, BlobScope, KNOWN_SUBDIRS
+    from reef.blob import Glob, Blob, BlobType, BlobScope, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
 
     if args.action == "surface":
-        # UserPromptSubmit hook: surface relevant polyps as XML
+        # UserPromptSubmit hook: surface relevant polips as XML
         glob = Glob(project_dir)
 
         # Use drift-aware surfacing if --drift flag or by default
@@ -896,7 +896,7 @@ def cmd_hook(args):
             print(f"\n[GLOB]\n{xml_output}\n")
 
     elif args.action == "persist":
-        # Stop hook: create/update context polyp with session state
+        # Stop hook: create/update context polip with session state
         glob = Glob(project_dir)
 
         # Read transcript summary from stdin if provided (Claude Code may pipe it)
@@ -940,7 +940,7 @@ def cmd_hook(args):
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": "zoox hook surface"
+                                "command": "reef hook surface"
                             }
                         ]
                     }
@@ -950,7 +950,7 @@ def cmd_hook(args):
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": "zoox hook persist"
+                                "command": "reef hook persist"
                             }
                         ]
                     }
@@ -968,7 +968,7 @@ def cmd_hook(args):
             print("Or merge with existing hooks configuration.")
 
     elif args.action == "status":
-        # Check hook health - is zoox properly configured?
+        # Check hook health - is reef properly configured?
         settings_path = Path.home() / ".claude" / "settings.json"
 
         print("Hook Status:")
@@ -977,7 +977,7 @@ def cmd_hook(args):
         # Check if settings.json exists
         if not settings_path.exists():
             print("  settings.json: NOT FOUND")
-            print("  Run: zoox hook setup")
+            print("  Run: reef hook setup")
             return
 
         try:
@@ -987,7 +987,7 @@ def cmd_hook(args):
             # Check UserPromptSubmit
             upsub = hooks.get("UserPromptSubmit", [])
             has_surface = any(
-                "zoox hook surface" in str(h)
+                "reef hook surface" in str(h)
                 for h in upsub
             )
             print(f"  UserPromptSubmit (surface): {'✓' if has_surface else '✗'}")
@@ -995,7 +995,7 @@ def cmd_hook(args):
             # Check Stop
             stop = hooks.get("Stop", [])
             has_persist = any(
-                "zoox hook persist" in str(h)
+                "reef hook persist" in str(h)
                 for h in stop
             )
             print(f"  Stop (persist): {'✓' if has_persist else '✗'}")
@@ -1008,10 +1008,10 @@ def cmd_hook(args):
                     subpath = claude_dir / subdir
                     if subpath.exists():
                         blob_count += len(list(subpath.glob("*.blob.xml")))
-                print(f"  Reef: {blob_count} polyp(s)")
+                print(f"  Reef: {blob_count} polip(s)")
             else:
                 print("  Reef: NOT INITIALIZED")
-                print("  Run: zoox sprout thread 'Initial setup'")
+                print("  Run: reef sprout thread 'Initial setup'")
 
         except json.JSONDecodeError:
             print("  settings.json: INVALID JSON")
@@ -1019,8 +1019,8 @@ def cmd_hook(args):
 
 
 def cmd_drift(args):
-    """Cross-project polyp discovery and sharing."""
-    from zoox.blob import Glob, KNOWN_SUBDIRS
+    """Cross-project polip discovery and sharing."""
+    from reef.blob import Glob, KNOWN_SUBDIRS
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -1033,7 +1033,7 @@ def cmd_drift(args):
             print("No nearby reefs found.")
             print()
             print("Drift searches for:")
-            print("  - ~/.claude/ (global polyps)")
+            print("  - ~/.claude/ (global polips)")
             print("  - Sibling directories with .claude/")
             print("  - Paths in .claude/drift.json")
             return
@@ -1043,46 +1043,46 @@ def cmd_drift(args):
         for reef in reefs:
             source_tag = f"[{reef['source']}]"
             print(f"  {reef['name']} {source_tag}")
-            print(f"    {reef['polyp_count']} polyp(s)")
+            print(f"    {reef['polip_count']} polip(s)")
             print(f"    {reef['path']}")
             print()
 
     elif args.action == "list":
-        # List polyps available for drift
+        # List polips available for drift
         scope_filter = args.scope.split(",") if args.scope else None
-        polyps = glob.list_drift_polyps(scope_filter=scope_filter)
+        polips = glob.list_drift_polips(scope_filter=scope_filter)
 
-        if not polyps:
-            print("No drift polyps found.")
+        if not polips:
+            print("No drift polips found.")
             if not args.scope:
                 print("  (Only 'always' scope by default)")
                 print("  Use --scope project,always to include more")
             return
 
-        print(f"Drift Polyps ({len(polyps)}):")
+        print(f"Drift Polips ({len(polips)}):")
         print()
-        for p in polyps:
+        for p in polips:
             scope_tag = f"[{p['blob'].scope.value}]"
             type_tag = f"[{p['blob'].type.value}]"
             print(f"  {p['key']} {scope_tag} {type_tag}")
             print(f"    {p['blob'].summary[:60]}")
         print()
-        print("Pull with: zoox drift pull <key>")
+        print("Pull with: reef drift pull <key>")
 
     elif args.action == "pull":
-        # Copy a polyp from another reef
+        # Copy a polip from another reef
         if not args.key:
-            print("Usage: zoox drift pull <key>", file=sys.stderr)
-            print("  Get keys from: zoox drift list", file=sys.stderr)
+            print("Usage: reef drift pull <key>", file=sys.stderr)
+            print("  Get keys from: reef drift list", file=sys.stderr)
             sys.exit(1)
 
-        path = glob.pull_polyp(args.key)
+        path = glob.pull_polip(args.key)
         if path:
             rel_path = path.relative_to(project_dir)
             print(f"Pulled: {rel_path}")
         else:
-            print(f"Polyp not found: {args.key}", file=sys.stderr)
-            print("  Get keys from: zoox drift list --scope always,project", file=sys.stderr)
+            print(f"Polip not found: {args.key}", file=sys.stderr)
+            print("  Get keys from: reef drift list --scope always,project", file=sys.stderr)
             sys.exit(1)
 
     elif args.action == "config":
@@ -1127,7 +1127,7 @@ def cmd_drift(args):
 
 def cmd_sync(args):
     """Check reef integrity and fix issues."""
-    from zoox.blob import Glob
+    from reef.blob import Glob
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
@@ -1148,8 +1148,8 @@ def cmd_sync(args):
     # Missing files
     if issues["missing_files"]:
         print(f"Missing Files ({len(issues['missing_files'])}):")
-        for polyp_key, file_path in issues["missing_files"][:5]:
-            print(f"  {polyp_key}")
+        for polip_key, file_path in issues["missing_files"][:5]:
+            print(f"  {polip_key}")
             print(f"    -> {file_path}")
         if len(issues["missing_files"]) > 5:
             print(f"  ... and {len(issues['missing_files']) - 5} more")
@@ -1158,22 +1158,22 @@ def cmd_sync(args):
             print()
             fixed = 0
             seen_keys = set()
-            for polyp_key, _ in issues["missing_files"]:
-                if polyp_key not in seen_keys:
-                    if glob.fix_missing_files(polyp_key):
+            for polip_key, _ in issues["missing_files"]:
+                if polip_key not in seen_keys:
+                    if glob.fix_missing_files(polip_key):
                         fixed += 1
-                    seen_keys.add(polyp_key)
-            print(f"  Fixed {fixed} polyp(s) - removed missing file refs")
+                    seen_keys.add(polip_key)
+            print(f"  Fixed {fixed} polip(s) - removed missing file refs")
         print()
 
-    # Stale polyps
-    if issues["stale_polyps"]:
-        print(f"Stale Session Polyps ({len(issues['stale_polyps'])}):")
-        for polyp_key, days_old in issues["stale_polyps"][:5]:
-            print(f"  {polyp_key} ({days_old}d old)")
-        if len(issues["stale_polyps"]) > 5:
-            print(f"  ... and {len(issues['stale_polyps']) - 5} more")
-        print("  Tip: Run `zoox sink` to archive stale session polyps")
+    # Stale polips
+    if issues["stale_polips"]:
+        print(f"Stale Session Polips ({len(issues['stale_polips'])}):")
+        for polip_key, days_old in issues["stale_polips"][:5]:
+            print(f"  {polip_key} ({days_old}d old)")
+        if len(issues["stale_polips"]) > 5:
+            print(f"  ... and {len(issues['stale_polips']) - 5} more")
+        print("  Tip: Run `reef sink` to archive stale session polips")
         print()
 
     # Orphan index entries
@@ -1188,14 +1188,14 @@ def cmd_sync(args):
             glob.rebuild_index()
             print("  Fixed: Index rebuilt")
         else:
-            print("  Tip: Run `zoox index --rebuild` to fix")
+            print("  Tip: Run `reef index --rebuild` to fix")
         print()
 
     # Broken refs
     if issues["broken_refs"]:
         print(f"Broken Related Refs ({len(issues['broken_refs'])}):")
-        for polyp_key, ref in issues["broken_refs"][:5]:
-            print(f"  {polyp_key} -> {ref}")
+        for polip_key, ref in issues["broken_refs"][:5]:
+            print(f"  {polip_key} -> {ref}")
         if len(issues["broken_refs"]) > 5:
             print(f"  ... and {len(issues['broken_refs']) - 5} more")
         print()
@@ -1203,36 +1203,36 @@ def cmd_sync(args):
     # Schema outdated
     if issues["schema_outdated"]:
         print(f"Schema Outdated ({len(issues['schema_outdated'])}):")
-        for polyp_key in issues["schema_outdated"][:5]:
-            print(f"  {polyp_key}")
+        for polip_key in issues["schema_outdated"][:5]:
+            print(f"  {polip_key}")
         if len(issues["schema_outdated"]) > 5:
             print(f"  ... and {len(issues['schema_outdated']) - 5} more")
 
         if args.fix:
             count = glob.migrate_all()
-            print(f"  Fixed: Migrated {count} polyp(s)")
+            print(f"  Fixed: Migrated {count} polip(s)")
         else:
-            print("  Tip: Run `zoox migrate` to update")
+            print("  Tip: Run `reef migrate` to update")
         print()
 
     if not args.fix and total_issues > 0:
-        print("Run `zoox sync --fix` to auto-fix where possible")
+        print("Run `reef sync --fix` to auto-fix where possible")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="zoox",
+        prog="reef",
         description="Symbiotic memory for AI",
-        epilog="polyp = memory unit | reef = colony | current = active thread | bedrock = constraint"
+        epilog="polip = memory unit | reef = colony | current = active thread | bedrock = constraint"
     )
-    parser.add_argument("--version", "-V", action="version", version="zoox 0.1.0")
+    parser.add_argument("--version", "-V", action="version", version="reef 0.1.0")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # init
     init_parser = subparsers.add_parser(
         "init",
-        help="Initialize zoox in current project",
-        description="Set up zoox with .claude/ directory and optional .gitignore"
+        help="Initialize reef in current project",
+        description="Set up reef with .claude/ directory and optional .gitignore"
     )
     init_parser.add_argument("--gitignore", "-g", action="store_true",
                              help="Generate .gitignore for team workflows")
@@ -1245,13 +1245,13 @@ def main():
     # sprout (spawn)
     sprout_parser = subparsers.add_parser(
         "sprout",
-        help="Spawn a new polyp",
-        description="Spawn a new polyp into the reef (.claude/ directory)"
+        help="Spawn a new polip",
+        description="Spawn a new polip into the reef (.claude/ directory)"
     )
-    sprout_parser.add_argument("type", help="Polyp type: thread, decision, constraint, fact")
-    sprout_parser.add_argument("summary", help="Brief summary of the polyp")
+    sprout_parser.add_argument("type", help="Polip type: thread, decision, constraint, fact")
+    sprout_parser.add_argument("summary", help="Brief summary of the polip")
     sprout_parser.add_argument("--status", help="Status for currents: active, blocked, done, archived")
-    sprout_parser.add_argument("--name", "-n", help="Polyp filename (default: derived from summary)")
+    sprout_parser.add_argument("--name", "-n", help="Polip filename (default: derived from summary)")
     sprout_parser.add_argument("--dir", "-d", help="Subdirectory override (default: based on type)")
     sprout_parser.set_defaults(func=cmd_sprout)
 
@@ -1260,15 +1260,15 @@ def main():
         "list",
         help="Show reef health and diagnostics",
         aliases=["reef"],
-        description="Display population health and diagnostics for all polyps"
+        description="Display population health and diagnostics for all polips"
     )
     list_parser.set_defaults(func=cmd_list)
 
     # migrate
     migrate_parser = subparsers.add_parser(
         "migrate",
-        help="Migrate polyps to current schema",
-        description="Upgrade polyps to the current schema version"
+        help="Migrate polips to current schema",
+        description="Upgrade polips to the current schema version"
     )
     migrate_parser.add_argument("--dry-run", action="store_true", help="Preview migrations without applying")
     migrate_parser.set_defaults(func=cmd_migrate)
@@ -1276,9 +1276,9 @@ def main():
     # decompose (sink)
     decompose_parser = subparsers.add_parser(
         "decompose",
-        help="Sink stale session polyps",
+        help="Sink stale session polips",
         aliases=["sink"],
-        description="Find and sink session-scoped polyps older than threshold"
+        description="Find and sink session-scoped polips older than threshold"
     )
     decompose_parser.add_argument("--days", type=int, help="Age threshold in days (default: 7)")
     decompose_parser.add_argument("--dry-run", action="store_true", help="Preview without sinking")
@@ -1288,7 +1288,7 @@ def main():
     cleanup_parser = subparsers.add_parser(
         "cleanup",
         help="Session-start cleanup (swarm-safe)",
-        description="Prune stale sessions, old archives, and migrate polyps. Uses lock file for swarm safety."
+        description="Prune stale sessions, old archives, and migrate polips. Uses lock file for swarm safety."
     )
     cleanup_parser.add_argument("--archive-days", type=int, help="Days before pruning archives (default: 30)")
     cleanup_parser.add_argument("--dry-run", action="store_true", help="Preview without applying")
@@ -1298,9 +1298,9 @@ def main():
     index_parser = subparsers.add_parser(
         "index",
         help="Manage metadata index",
-        description="Search, rebuild, or inspect the polyp metadata index."
+        description="Search, rebuild, or inspect the polip metadata index."
     )
-    index_parser.add_argument("--search", "-s", metavar="QUERY", help="Search polyp summaries")
+    index_parser.add_argument("--search", "-s", metavar="QUERY", help="Search polip summaries")
     index_parser.add_argument("--type", "-t", help="Filter by type: thread, decision, constraint, fact, context")
     index_parser.add_argument("--scope", help="Filter by scope: always, project, session")
     index_parser.add_argument("--status", help="Filter by status: active, blocked, done, archived")
@@ -1312,10 +1312,10 @@ def main():
     # status
     status_parser = subparsers.add_parser(
         "status",
-        help="View or change polyp status",
-        description="View current status or transition a polyp to a new status (active, blocked, done)."
+        help="View or change polip status",
+        description="View current status or transition a polip to a new status (active, blocked, done)."
     )
-    status_parser.add_argument("name", help="Polyp name (without .blob.xml)")
+    status_parser.add_argument("name", help="Polip name (without .blob.xml)")
     status_parser.add_argument("new_status", nargs="?", help="New status: active, blocked, done")
     status_parser.add_argument("--blocked-by", "-b", help="Reason for blocking (with 'blocked' status)")
     status_parser.add_argument("--dir", "-d", help="Subdirectory to search (default: auto-detect)")
@@ -1335,8 +1335,8 @@ def main():
     # graph
     graph_parser = subparsers.add_parser(
         "graph",
-        help="Visualize polyp relationships",
-        description="Show polyp graph with connections. Use --dot for Graphviz export."
+        help="Visualize polip relationships",
+        description="Show polip graph with connections. Use --dot for Graphviz export."
     )
     graph_parser.add_argument("--dot", action="store_true", help="Output Graphviz DOT format")
     graph_parser.set_defaults(func=cmd_graph)
@@ -1344,13 +1344,13 @@ def main():
     # template
     template_parser = subparsers.add_parser(
         "template",
-        help="Manage and use polyp templates",
-        description="List, show, use, create, or delete templates for polyp creation."
+        help="Manage and use polip templates",
+        description="List, show, use, create, or delete templates for polip creation."
     )
     template_parser.add_argument("action", choices=["list", "use", "show", "create", "delete"], help="Action to perform")
     template_parser.add_argument("template_name", nargs="?", help="Template name")
-    template_parser.add_argument("title", nargs="?", help="Title for new polyp (with 'use')")
-    template_parser.add_argument("--type", "-t", help="Polyp type for create: thread, decision, constraint, fact")
+    template_parser.add_argument("title", nargs="?", help="Title for new polip (with 'use')")
+    template_parser.add_argument("--type", "-t", help="Polip type for create: thread, decision, constraint, fact")
     template_parser.add_argument("--summary", "-s", help="Summary template with {title} placeholder")
     template_parser.add_argument("--scope", help="Scope: project, session, always")
     template_parser.add_argument("--status", help="Status for threads: active, blocked, done")
@@ -1374,21 +1374,21 @@ def main():
     hook_parser.add_argument("--next", "-n", help="Pipe-separated next steps (for persist)")
     hook_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output (for persist)")
     hook_parser.add_argument("--json", action="store_true", help="Output raw JSON (for setup)")
-    hook_parser.add_argument("--drift", action="store_true", help="Include drift polyps (for surface)")
+    hook_parser.add_argument("--drift", action="store_true", help="Include drift polips (for surface)")
     hook_parser.set_defaults(func=cmd_hook)
 
     # drift (cross-project discovery)
     drift_parser = subparsers.add_parser(
         "drift",
-        help="Cross-project polyp discovery",
-        description="Discover and share polyps across projects (global, siblings, configured paths)."
+        help="Cross-project polip discovery",
+        description="Discover and share polips across projects (global, siblings, configured paths)."
     )
     drift_parser.add_argument(
         "action",
         choices=["discover", "list", "pull", "config"],
-        help="discover: find reefs | list: show drift polyps | pull: copy polyp | config: settings"
+        help="discover: find reefs | list: show drift polips | pull: copy polip | config: settings"
     )
-    drift_parser.add_argument("key", nargs="?", help="Polyp key for pull (from 'drift list')")
+    drift_parser.add_argument("key", nargs="?", help="Polip key for pull (from 'drift list')")
     drift_parser.add_argument("--scope", help="Scope filter: always,project,session (comma-separated)")
     drift_parser.add_argument("--add-path", help="Add path to drift config")
     drift_parser.add_argument("--remove-path", help="Remove path from drift config")
@@ -1398,7 +1398,7 @@ def main():
     sync_parser = subparsers.add_parser(
         "sync",
         help="Check reef integrity",
-        description="Scan for missing files, stale polyps, broken refs, and other integrity issues."
+        description="Scan for missing files, stale polips, broken refs, and other integrity issues."
     )
     sync_parser.add_argument("--fix", action="store_true", help="Auto-fix issues where possible")
     sync_parser.set_defaults(func=cmd_sync)

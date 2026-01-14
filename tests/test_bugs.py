@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta
 
-from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
+from reef.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
 
 
 class TestBugHunting:

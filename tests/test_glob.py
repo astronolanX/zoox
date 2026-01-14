@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 import shutil
 
-from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
+from reef.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
 
 
 class TestGlobBasics:
@@ -1056,7 +1056,7 @@ class TestRichTemplateVariables:
 
     def test_template_has_date(self):
         """Template variables include current date."""
-        from zoox.blob import get_template_variables
+        from reef.blob import get_template_variables
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1068,7 +1068,7 @@ class TestRichTemplateVariables:
 
     def test_template_has_timestamp(self):
         """Template variables include ISO timestamp."""
-        from zoox.blob import get_template_variables
+        from reef.blob import get_template_variables
 
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir)
@@ -1079,7 +1079,7 @@ class TestRichTemplateVariables:
 
     def test_template_has_project_name(self):
         """Template variables include project directory name."""
-        from zoox.blob import get_template_variables
+        from reef.blob import get_template_variables
 
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir)
@@ -1090,7 +1090,7 @@ class TestRichTemplateVariables:
 
     def test_template_git_vars_empty_without_git(self):
         """Git variables are empty strings in non-git directory."""
-        from zoox.blob import get_template_variables
+        from reef.blob import get_template_variables
 
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir)

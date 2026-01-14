@@ -10,13 +10,13 @@ import os
 from pathlib import Path
 from datetime import datetime, timedelta
 
-from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
+from reef.blob import Blob, BlobType, BlobScope, BlobStatus, Glob, BLOB_VERSION
 
 
 def run_cli(*args, cwd=None):
-    """Run zoox CLI and return result."""
+    """Run reef CLI and return result."""
     result = subprocess.run(
-        ["uv", "run", "zoox", *args],
+        ["uv", "run", "reef", *args],
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -148,7 +148,7 @@ class TestCliList:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("list", cwd=tmpdir)
             assert result.returncode == 0
-            assert "No polyps found" in result.stdout
+            assert "No polips found" in result.stdout
 
     def test_list_with_blobs(self):
         """List shows blob population."""
@@ -377,13 +377,13 @@ class TestCliTemplate:
             assert "not found" in result.stderr
 
     def test_template_use_bug(self):
-        """Create polyp from bug template."""
+        """Create polip from bug template."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("template", "use", "bug", "Login fails on Safari", cwd=tmpdir)
             assert result.returncode == 0
             assert "Created" in result.stdout
 
-            # Verify polyp created with template structure
+            # Verify polip created with template structure
             glob = Glob(Path(tmpdir))
             blob = glob.get("login-fails-on-safari", subdir="threads")
             assert blob is not None
@@ -392,7 +392,7 @@ class TestCliTemplate:
             assert len(blob.next_steps) > 0
 
     def test_template_use_feature(self):
-        """Create polyp from feature template."""
+        """Create polip from feature template."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("template", "use", "feature", "Dark mode", cwd=tmpdir)
             assert result.returncode == 0
@@ -403,7 +403,7 @@ class TestCliTemplate:
             assert "Feature:" in blob.summary
 
     def test_template_use_decision(self):
-        """Create polyp from decision template."""
+        """Create polip from decision template."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("template", "use", "decision", "Use PostgreSQL", cwd=tmpdir)
             assert result.returncode == 0
@@ -414,7 +414,7 @@ class TestCliTemplate:
             assert "ADR:" in blob.summary
 
     def test_template_use_constraint(self):
-        """Create polyp from constraint template."""
+        """Create polip from constraint template."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("template", "use", "constraint", "No pip allowed", cwd=tmpdir)
             assert result.returncode == 0
@@ -446,10 +446,10 @@ class TestCliGraph:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("graph", cwd=tmpdir)
             assert result.returncode == 0
-            assert "No polyps" in result.stdout
+            assert "No polips" in result.stdout
 
-    def test_graph_with_polyps(self):
-        """Graph shows polyps by type."""
+    def test_graph_with_polips(self):
+        """Graph shows polips by type."""
         with tempfile.TemporaryDirectory() as tmpdir:
             run_cli("sprout", "thread", "Test thread", cwd=tmpdir)
             run_cli("sprout", "constraint", "Test constraint", cwd=tmpdir)
@@ -457,7 +457,7 @@ class TestCliGraph:
 
             result = run_cli("graph", cwd=tmpdir)
             assert result.returncode == 0
-            assert "3 polyps" in result.stdout
+            assert "3 polips" in result.stdout
             assert "thread" in result.stdout
             assert "constraint" in result.stdout
             assert "fact" in result.stdout
@@ -473,7 +473,7 @@ class TestCliGraph:
             assert "threads/test-thread" in result.stdout
 
     def test_graph_shows_status(self):
-        """Graph shows polyp status."""
+        """Graph shows polip status."""
         with tempfile.TemporaryDirectory() as tmpdir:
             run_cli("sprout", "thread", "Blocked work", "--status", "blocked", cwd=tmpdir)
 
@@ -486,7 +486,7 @@ class TestCliGraph:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create polyps with related links
+            # Create polips with related links
             blob1 = Blob(type=BlobType.THREAD, summary="Thread 1", status=BlobStatus.ACTIVE, related=["facts/fact-1"])
             blob2 = Blob(type=BlobType.FACT, summary="Fact 1")
 
@@ -502,7 +502,7 @@ class TestCliGraph:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create polyps referencing same file
+            # Create polips referencing same file
             blob1 = Blob(type=BlobType.THREAD, summary="Thread 1", status=BlobStatus.ACTIVE, files=["shared.py"])
             blob2 = Blob(type=BlobType.FACT, summary="Fact 1", files=["shared.py"])
 
@@ -575,7 +575,7 @@ class TestCliSnapshot:
             assert "No changes" in result.stdout
 
     def test_snapshot_diff_with_additions(self):
-        """Diff detects added polyps."""
+        """Diff detects added polips."""
         with tempfile.TemporaryDirectory() as tmpdir:
             run_cli("sprout", "thread", "Thread 1", cwd=tmpdir)
             run_cli("snapshot", "create", "--name", "before", cwd=tmpdir)
@@ -586,7 +586,7 @@ class TestCliSnapshot:
             assert "Added" in result.stdout
 
     def test_snapshot_diff_with_removals(self):
-        """Diff detects removed polyps."""
+        """Diff detects removed polips."""
         with tempfile.TemporaryDirectory() as tmpdir:
             run_cli("sprout", "thread", "Thread 1", cwd=tmpdir)
             run_cli("sprout", "fact", "Fact 1", cwd=tmpdir)
@@ -623,7 +623,7 @@ class TestCliStatus:
     """CLI status command tests."""
 
     def test_status_show_current(self):
-        """Show current status of a polyp."""
+        """Show current status of a polip."""
         with tempfile.TemporaryDirectory() as tmpdir:
             run_cli("sprout", "thread", "Test thread", cwd=tmpdir)
 
@@ -679,7 +679,7 @@ class TestCliStatus:
             assert blob.blocked_by is None
 
     def test_status_not_found(self):
-        """Status on nonexistent polyp fails."""
+        """Status on nonexistent polip fails."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("status", "nonexistent", cwd=tmpdir)
             assert result.returncode != 0
@@ -754,17 +754,17 @@ class TestCliHook:
     """CLI hook command tests for Claude Code integration."""
 
     def test_hook_surface_empty_reef(self):
-        """Surface with no polyps produces no output."""
+        """Surface with no polips produces no output."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("hook", "surface", cwd=tmpdir)
             assert result.returncode == 0
             # Empty reef - no [GLOB] output
             assert "[GLOB]" not in result.stdout
 
-    def test_hook_surface_with_polyps(self):
-        """Surface outputs XML when polyps exist."""
+    def test_hook_surface_with_polips(self):
+        """Surface outputs XML when polips exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create a polyp first
+            # Create a polip first
             run_cli("sprout", "constraint", "Test constraint", cwd=tmpdir)
 
             result = run_cli("hook", "surface", cwd=tmpdir)
@@ -787,7 +787,7 @@ class TestCliHook:
             assert "Active work" in result.stdout
 
     def test_hook_persist_creates_context(self):
-        """Persist creates context polyp."""
+        """Persist creates context polip."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli(
                 "hook", "persist",
@@ -806,7 +806,7 @@ class TestCliHook:
             assert blob.summary == "Session completed"
 
     def test_hook_persist_updates_existing(self):
-        """Persist updates existing context polyp."""
+        """Persist updates existing context polip."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create initial context
             run_cli("hook", "persist", "--summary", "First session", "--quiet", cwd=tmpdir)
@@ -876,8 +876,8 @@ class TestCliHook:
             result = run_cli("hook", "setup", cwd=tmpdir)
             assert result.returncode == 0
             assert "settings.json" in result.stdout
-            assert "zoox hook surface" in result.stdout
-            assert "zoox hook persist" in result.stdout
+            assert "reef hook surface" in result.stdout
+            assert "reef hook persist" in result.stdout
 
     def test_hook_status_no_settings(self):
         """Status reports missing settings.json."""
@@ -889,16 +889,16 @@ class TestCliHook:
             assert "Hook Status" in result.stdout
 
     def test_hook_status_shows_reef_count(self):
-        """Status shows polyp count when reef exists."""
+        """Status shows polip count when reef exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create some polyps
+            # Create some polips
             run_cli("sprout", "constraint", "Rule 1", cwd=tmpdir)
             run_cli("sprout", "thread", "Work item", cwd=tmpdir)
 
             result = run_cli("hook", "status", cwd=tmpdir)
             assert result.returncode == 0
             assert "Reef" in result.stdout
-            assert "polyp" in result.stdout
+            assert "polip" in result.stdout
 
 
 class TestCliHookIntegration:
@@ -907,7 +907,7 @@ class TestCliHookIntegration:
     def test_full_session_lifecycle(self):
         """Simulate a complete session with surface -> work -> persist."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # 1. Initial state - create some polyps
+            # 1. Initial state - create some polips
             run_cli("sprout", "constraint", "Use type hints", cwd=tmpdir)
             run_cli("sprout", "thread", "Implement feature X", cwd=tmpdir)
 
@@ -937,7 +937,7 @@ class TestCliHookIntegration:
 
 
 class TestCliDrift:
-    """CLI drift command tests for cross-project polyp discovery."""
+    """CLI drift command tests for cross-project polip discovery."""
 
     def test_drift_discover_empty(self):
         """Discover with no nearby reefs."""
@@ -1006,8 +1006,8 @@ class TestCliDrift:
             assert "Global rule" in result.stdout
             assert "Local work" in result.stdout
 
-    def test_drift_pull_copies_polyp(self):
-        """Pull copies a polyp from another reef."""
+    def test_drift_pull_copies_polip(self):
+        """Pull copies a polip from another reef."""
         with tempfile.TemporaryDirectory() as tmpdir:
             proj_a = Path(tmpdir) / "project-a"
             proj_b = Path(tmpdir) / "project-b"
@@ -1022,13 +1022,13 @@ class TestCliDrift:
             assert result.returncode == 0
             assert "Pulled" in result.stdout
 
-            # Verify polyp exists locally
+            # Verify polip exists locally
             assert (Path(proj_a) / ".claude" / "constraints" / "shared-rule.blob.xml").exists()
 
     def test_drift_pull_not_found(self):
-        """Pull fails gracefully for missing polyp."""
+        """Pull fails gracefully for missing polip."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = run_cli("drift", "pull", "nonexistent/polyp", cwd=tmpdir)
+            result = run_cli("drift", "pull", "nonexistent/polip", cwd=tmpdir)
             assert result.returncode != 0
             assert "not found" in result.stderr.lower()
 
@@ -1068,7 +1068,7 @@ class TestCliDrift:
             assert "Removed" in result.stdout
 
     def test_hook_surface_with_drift(self):
-        """Hook surface includes drift polyps when --drift flag used."""
+        """Hook surface includes drift polips when --drift flag used."""
         with tempfile.TemporaryDirectory() as tmpdir:
             proj_a = Path(tmpdir) / "project-a"
             proj_b = Path(tmpdir) / "project-b"
@@ -1078,7 +1078,7 @@ class TestCliDrift:
             # Create constraint in project-b
             run_cli("sprout", "constraint", "Cross-project rule", cwd=str(proj_b))
 
-            # Create local polyp in project-a
+            # Create local polip in project-a
             run_cli("sprout", "thread", "Local work", cwd=str(proj_a))
 
             # Surface with drift should include both

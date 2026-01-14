@@ -1,10 +1,10 @@
 """
-zoox - Symbiotic memory for AI.
+reef - Symbiotic memory for AI.
 
-A reef is a colony of polyps.
+A reef is a colony of polips.
 
 Terminology:
-    polyp       = individual memory unit (was: blob)
+    polip       = individual memory unit (was: blob)
     reef        = project colony (was: glob)
     current     = active thread (flowing work)
     bedrock     = constraint (foundation)
@@ -13,12 +13,12 @@ Terminology:
     drift       = cross-project spread (coming soon)
     archipelago = global network (coming soon)
 
-    zooxanthellae = context that feeds memory (the invisible engine)
+    reefanthellae = context that feeds memory (the invisible engine)
 
 Like coral biology: memory without context starves. Memory with rich context thrives.
 """
 
-from zoox.blob import (
+from reef.blob import (
     Blob,
     BlobType,
     BlobScope,
@@ -27,24 +27,24 @@ from zoox.blob import (
     BLOB_VERSION,
     KNOWN_SUBDIRS,
 )
-from zoox import cli
+from reef import cli
 
 # Coral-branded type aliases (recommended API)
-Polyp = Blob            # Individual memory unit
+Polip = Blob            # Individual memory unit
 Reef = Glob             # Project colony
-PolypType = BlobType    # Type enum
-PolypScope = BlobScope  # Scope enum
-PolypStatus = BlobStatus  # Status enum
-POLYP_VERSION = BLOB_VERSION  # Schema version
+PolipType = BlobType    # Type enum
+PolipScope = BlobScope  # Scope enum
+PolipStatus = BlobStatus  # Status enum
+POLIP_VERSION = BLOB_VERSION  # Schema version
 
 __all__ = [
     # Coral API (recommended)
-    "Polyp",
+    "Polip",
     "Reef",
-    "PolypType",
-    "PolypScope",
-    "PolypStatus",
-    "POLYP_VERSION",
+    "PolipType",
+    "PolipScope",
+    "PolipStatus",
+    "POLIP_VERSION",
     # Legacy API (backward compatible)
     "Blob",
     "BlobType",

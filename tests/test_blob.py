@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
 
-from zoox.blob import Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION
+from reef.blob import Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION
 
 
 class TestBlobBasics:
@@ -451,7 +451,7 @@ class TestBlobFromXmlEdgeCases:
 
     def test_invalid_xml_raises(self):
         """Invalid XML raises parsing error."""
-        with pytest.raises(ET.ParseError):
+        with pytest.raises(ValueError):
             Blob.from_xml("not valid xml at all")
 
     def test_invalid_type_raises(self):

@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from zoox.blob import (
+from reef.blob import (
     Blob, BlobType, BlobScope, BlobStatus, Glob,
     _atomic_write, _validate_path_safe, PathTraversalError
 )

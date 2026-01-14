@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "zoox"
+name = "reef"
 version = "0.1.0"
 description = "Symbiotic memory for AI"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-keywords = ["ai", "claude", "session", "memory", "xml", "polyps", "reef"]
+keywords = ["ai", "claude", "session", "memory", "xml", "polips", "reef"]
 authors = [
     { name = "Nolan" }
 ]
@@ -27,10 +27,10 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
-zoox = "zoox.cli:main"
+reef = "reef.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/zoox"]
+packages = ["src/reef"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

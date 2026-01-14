@@ -1,67 +1,67 @@
-# zoox
+# reef
 
 Symbiotic memory for AI.
 
-A "reef" is a colony of polyps - lightweight XML context files that persist across sessions.
+A "reef" is a colony of polips - lightweight XML context files that persist across sessions.
 
 ## Installation
 
 ```bash
-pip install zoox
+pip install reef
 ```
 
 ## Usage
 
 ```bash
-# Spawn a new current (thread polyp)
-zoox sprout thread "Implement user authentication"
+# Spawn a new current (thread polip)
+reef sprout thread "Implement user authentication"
 
-# Spawn a deposit (decision polyp)
-zoox sprout decision "Use JWT for auth tokens"
+# Spawn a deposit (decision polip)
+reef sprout decision "Use JWT for auth tokens"
 
-# Spawn bedrock (constraint polyp)
-zoox sprout constraint "Use uv for package management"
+# Spawn bedrock (constraint polip)
+reef sprout constraint "Use uv for package management"
 
 # View reef health
-zoox reef
+reef reef
 
-# Migrate polyps to current schema
-zoox migrate
+# Migrate polips to current schema
+reef migrate
 
-# Sink stale session polyps
-zoox sink --days 7
+# Sink stale session polips
+reef sink --days 7
 
-# Change polyp status
-zoox status auth-thread blocked -b "Waiting for API approval"
-zoox status auth-thread done
+# Change polip status
+reef status auth-thread blocked -b "Waiting for API approval"
+reef status auth-thread done
 
 # Create snapshots for tracking changes
-zoox snapshot create --name milestone-1
-zoox snapshot list
-zoox snapshot diff milestone-1
+reef snapshot create --name milestone-1
+reef snapshot list
+reef snapshot diff milestone-1
 
 # Visualize reef relationships
-zoox graph
-zoox graph --dot | dot -Tpng -o reef.png
+reef graph
+reef graph --dot | dot -Tpng -o reef.png
 
-# Use templates for common polyp patterns
-zoox template list
-zoox template use bug "Login fails on Safari"
-zoox template use feature "Dark mode support"
-zoox template create my-bug --type thread --summary "Bug: {title}" --status active
-zoox template delete my-bug
+# Use templates for common polip patterns
+reef template list
+reef template use bug "Login fails on Safari"
+reef template use feature "Dark mode support"
+reef template create my-bug --type thread --summary "Bug: {title}" --status active
+reef template delete my-bug
 
-# Search polyps by content
-zoox index --search "authentication"
-zoox index --search "auth" --type thread --scope project
-zoox index --type decision  # list all decisions
+# Search polips by content
+reef index --search "authentication"
+reef index --search "auth" --type thread --scope project
+reef index --type decision  # list all decisions
 
 # Check reef integrity
-zoox sync
-zoox sync --fix  # auto-fix missing files, rebuild index, migrate
+reef sync
+reef sync --fix  # auto-fix missing files, rebuild index, migrate
 ```
 
-## Polyp Types
+## Polip Types
 
 - **context** - Session state (auto-created by persist hook)
 - **thread** (current) - Active work stream
@@ -69,7 +69,7 @@ zoox sync --fix  # auto-fix missing files, rebuild index, migrate
 - **constraint** (bedrock) - Always-on rules
 - **fact** (fossil) - Key information about project
 
-## Polyp Scopes
+## Polip Scopes
 
 - **session** - Only current session (ephemeral)
 - **project** - Anytime in this project (persistent)
@@ -78,39 +78,39 @@ zoox sync --fix  # auto-fix missing files, rebuild index, migrate
 ## Python API
 
 ```python
-from zoox import Polyp, Reef, PolypType, PolypScope
+from reef import Polip, Reef, PolipType, PolipScope
 from pathlib import Path
 
-# Create a reef (collection of polyps)
+# Create a reef (collection of polips)
 reef = Reef(Path.cwd())
 
-# Spawn a new polyp
-polyp = Polyp(
-    type=PolypType.THREAD,
+# Spawn a new polip
+polip = Polip(
+    type=PolipType.THREAD,
     summary="Implement user auth",
-    scope=PolypScope.PROJECT,
+    scope=PolipScope.PROJECT,
 )
-reef.sprout(polyp, "auth-thread", subdir="threads")
+reef.sprout(polip, "auth-thread", subdir="threads")
 
-# Surface relevant polyps
+# Surface relevant polips
 relevant = reef.surface_relevant(query="authentication")
 ```
 
 ## How It Works
 
-Polyps live in your project's `.claude/` directory as XML files. The surfacing hook brings relevant polyps at session start. The persist hook auto-creates context polyps at session end.
+Polips live in your project's `.claude/` directory as XML files. The surfacing hook brings relevant polips at session start. The persist hook auto-creates context polips at session end.
 
 ## Claude Code Integration
 
-zoox provides native hook commands for Claude Code integration:
+reef provides native hook commands for Claude Code integration:
 
 ```bash
 # Check hook status
-zoox hook status
+reef hook status
 
 # Generate settings.json configuration
-zoox hook setup
-zoox hook setup --json  # Raw JSON output
+reef hook setup
+reef hook setup --json  # Raw JSON output
 ```
 
 ### Quick Setup
@@ -123,14 +123,14 @@ Add to `~/.claude/settings.json`:
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "zoox hook surface" }
+          { "type": "command", "command": "reef hook surface" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "zoox hook persist" }
+          { "type": "command", "command": "reef hook persist" }
         ]
       }
     ]
@@ -142,30 +142,30 @@ Add to `~/.claude/settings.json`:
 
 | Command | Event | Purpose |
 |---------|-------|---------|
-| `zoox hook surface` | UserPromptSubmit | Inject relevant polyps into context |
-| `zoox hook persist` | Stop | Save session state as context polyp |
-| `zoox hook setup` | - | Generate settings.json config |
-| `zoox hook status` | - | Check hook health |
+| `reef hook surface` | UserPromptSubmit | Inject relevant polips into context |
+| `reef hook persist` | Stop | Save session state as context polip |
+| `reef hook setup` | - | Generate settings.json config |
+| `reef hook status` | - | Check hook health |
 
 ### Persist Options
 
 ```bash
 # Save session with custom summary
-zoox hook persist --summary "Completed auth feature"
+reef hook persist --summary "Completed auth feature"
 
 # Include files touched
-zoox hook persist --files "src/auth.py,src/users.py"
+reef hook persist --files "src/auth.py,src/users.py"
 
 # Add next steps for continuity
-zoox hook persist --next "Write tests|Update docs"
+reef hook persist --next "Write tests|Update docs"
 
 # Silent mode (for hooks)
-zoox hook persist --quiet
+reef hook persist --quiet
 ```
 
 ## Drift: Cross-Project Discovery
 
-Drift enables polyps to spread across projects. Global constraints, shared decisions, and common facts can be discovered from sibling projects and `~/.claude/`.
+Drift enables polips to spread across projects. Global constraints, shared decisions, and common facts can be discovered from sibling projects and `~/.claude/`.
 
 ### Discovery Sources
 
@@ -179,36 +179,36 @@ Drift enables polyps to spread across projects. Global constraints, shared decis
 
 ```bash
 # Discover nearby reefs
-zoox drift discover
+reef drift discover
 
-# List polyps available for drift (default: always scope only)
-zoox drift list
-zoox drift list --scope always,project  # include more scopes
+# List polips available for drift (default: always scope only)
+reef drift list
+reef drift list --scope always,project  # include more scopes
 
-# Copy a polyp into current reef
-zoox drift pull project-b/constraints/shared-rule
+# Copy a polip into current reef
+reef drift pull project-b/constraints/shared-rule
 
 # Configure drift paths
-zoox drift config
-zoox drift config --add-path ~/work/shared-project
-zoox drift config --remove-path ~/old-project
+reef drift config
+reef drift config --add-path ~/work/shared-project
+reef drift config --remove-path ~/old-project
 ```
 
 ### With Hook Integration
 
 ```bash
-# Surface includes drift polyps
-zoox hook surface --drift
+# Surface includes drift polips
+reef hook surface --drift
 ```
 
 Or update settings.json:
 ```json
-{ "type": "command", "command": "zoox hook surface --drift" }
+{ "type": "command", "command": "reef hook surface --drift" }
 ```
 
 ### Scope Filtering
 
-By default, only `always` scope polyps drift (constraints). This prevents noise from project-specific threads and decisions.
+By default, only `always` scope polips drift (constraints). This prevents noise from project-specific threads and decisions.
 
 | Scope | Drifts By Default | Use Case |
 |-------|-------------------|----------|
@@ -218,7 +218,7 @@ By default, only `always` scope polyps drift (constraints). This prevents noise 
 
 ## Templates
 
-Templates provide reusable polyp patterns. Built-in templates cover common workflows; custom templates let you define your own.
+Templates provide reusable polip patterns. Built-in templates cover common workflows; custom templates let you define your own.
 
 ### Built-in Templates
 
@@ -234,40 +234,40 @@ Templates provide reusable polyp patterns. Built-in templates cover common workf
 
 ```bash
 # Create a custom template
-zoox template create hotfix \
+reef template create hotfix \
   --type thread \
   --summary "Hotfix: {title}" \
   --status active \
   --description "Urgent fix for production issues"
 
 # List all templates
-zoox template list
+reef template list
 
 # Show template details
-zoox template show hotfix
+reef template show hotfix
 
 # Delete custom template
-zoox template delete hotfix
+reef template delete hotfix
 ```
 
 ## Index Search
 
-The metadata index enables fast polyp discovery without loading full XML.
+The metadata index enables fast polip discovery without loading full XML.
 
 ```bash
 # Search by summary text
-zoox index --search "authentication"
+reef index --search "authentication"
 
 # Filter by type, scope, or status
-zoox index --type thread --status active
-zoox index --scope always
-zoox index --search "api" --type decision
+reef index --type thread --status active
+reef index --scope always
+reef index --search "api" --type decision
 
 # Limit results
-zoox index --search "bug" --limit 5
+reef index --search "bug" --limit 5
 
 # View index statistics
-zoox index --stats
+reef index --stats
 ```
 
 ## Sync: Integrity Checker
@@ -276,39 +276,39 @@ The `sync` command detects reef health issues:
 
 ```bash
 # Check for issues
-zoox sync
+reef sync
 
 # Auto-fix where possible
-zoox sync --fix
+reef sync --fix
 ```
 
 ### What Sync Checks
 
 | Issue | Auto-Fix | Manual Fix |
 |-------|----------|------------|
-| Missing file refs | Yes (removes) | Edit polyp |
-| Stale session polyps | No | `zoox sink` |
-| Orphan index entries | Yes (rebuild) | `zoox index --rebuild` |
-| Broken related refs | No | Edit polyp |
-| Schema outdated | Yes (migrate) | `zoox migrate` |
+| Missing file refs | Yes (removes) | Edit polip |
+| Stale session polips | No | `reef sink` |
+| Orphan index entries | Yes (rebuild) | `reef index --rebuild` |
+| Broken related refs | No | Edit polip |
+| Schema outdated | Yes (migrate) | `reef migrate` |
 
 ## Team Workflows
 
-zoox uses **git as the sync mechanism** - no special server required.
+reef uses **git as the sync mechanism** - no special server required.
 
 ### Quick Setup
 
 ```bash
-# Initialize zoox with team-friendly .gitignore
-zoox init --gitignore
+# Initialize reef with team-friendly .gitignore
+reef init --gitignore
 
 # Or append to existing .gitignore
-zoox init --gitignore --append
+reef init --gitignore --append
 ```
 
 ### What to Commit
 
-| Polyp Type | Scope | Commit? | Reason |
+| Polip Type | Scope | Commit? | Reason |
 |------------|-------|---------|--------|
 | **constraints/** | always | Yes | Team-wide rules |
 | **decisions/** | project | Yes | Architectural records |
@@ -321,7 +321,7 @@ zoox init --gitignore --append
 ### Recommended .gitignore
 
 ```gitignore
-# zoox - Commit constraints and decisions, ignore ephemeral
+# reef - Commit constraints and decisions, ignore ephemeral
 .claude/context.blob.xml
 .claude/contexts/
 .claude/index.json
@@ -334,22 +334,22 @@ zoox init --gitignore --append
 **Shared Constraints (bedrock):**
 ```bash
 # Alice creates constraint
-zoox sprout constraint "Use TypeScript for all frontend"
+reef sprout constraint "Use TypeScript for all frontend"
 git add .claude/constraints/
 git commit -m "feat: add TypeScript constraint"
 git push
 
 # Bob pulls and surfaces it automatically
 git pull
-zoox reef  # Shows new constraint
+reef reef  # Shows new constraint
 ```
 
 **Architectural Decisions (ADR):**
 ```bash
 # Create ADR using template
-zoox template use decision "Use PostgreSQL for persistence"
+reef template use decision "Use PostgreSQL for persistence"
 
-# Edit the generated polyp to add context
+# Edit the generated polip to add context
 # Then commit
 git add .claude/decisions/
 git commit -m "docs: ADR for PostgreSQL"
@@ -358,33 +358,33 @@ git commit -m "docs: ADR for PostgreSQL"
 **Thread Handoff:**
 ```bash
 # Alice working on auth
-zoox sprout thread "Implement OAuth2 login"
+reef sprout thread "Implement OAuth2 login"
 # ... work in progress ...
 
 # Hand off to Bob
-zoox status oauth-login blocked -b "Needs Bob's API expertise"
+reef status oauth-login blocked -b "Needs Bob's API expertise"
 git add .claude/threads/
 git commit -m "wip: OAuth2 in progress, blocked on API"
 git push
 
 # Bob picks it up
 git pull
-zoox status oauth-login active
+reef status oauth-login active
 ```
 
 ### Cross-Project with Drift
 
-Share polyps between projects without committing to each repo:
+Share polips between projects without committing to each repo:
 
 ```bash
 # Discover nearby reefs
-zoox drift discover
+reef drift discover
 
 # Pull shared constraints from global reef
-zoox drift pull ~/.claude/constraints/security-rules
+reef drift pull ~/.claude/constraints/security-rules
 
 # Configure additional drift sources
-zoox drift config --add-path ~/work/shared-standards/.claude
+reef drift config --add-path ~/work/shared-standards/.claude
 ```
 
 ### Wiki-Style Linking
@@ -392,38 +392,38 @@ zoox drift config --add-path ~/work/shared-standards/.claude
 Create knowledge graphs with `[[wiki links]]`:
 
 ```bash
-# Reference other polyps in content
-zoox sprout thread "Implement [[oauth-login]] for [[user-dashboard]]"
+# Reference other polips in content
+reef sprout thread "Implement [[oauth-login]] for [[user-dashboard]]"
 
 # Related field auto-populates
-zoox index --search "oauth"
+reef index --search "oauth"
 ```
 
 ## Performance
 
-zoox is optimized for **human-scale** memory, not big data. Here's what to expect:
+reef is optimized for **human-scale** memory, not big data. Here's what to expect:
 
-| Polyp Count | Performance | Notes |
+| Polip Count | Performance | Notes |
 |-------------|-------------|-------|
 | 10-100 | Instant | Ideal for most projects |
 | 100-500 | Fast (~50ms) | Sweet spot for active development |
-| 500-1000 | Acceptable (~100ms) | Consider archiving old polyps |
-| 1000+ | Slower | Use `zoox cleanup` aggressively |
+| 500-1000 | Acceptable (~100ms) | Consider archiving old polips |
+| 1000+ | Slower | Use `reef cleanup` aggressively |
 
 **Why these limits?**
 
-- XML parsing: ~0.1ms per polyp (simple, no external deps)
-- File I/O: ~0.5ms per polyp (filesystem bound)
-- Surfacing loads ALL polyps to score relevance
+- XML parsing: ~0.1ms per polip (simple, no external deps)
+- File I/O: ~0.5ms per polip (filesystem bound)
+- Surfacing loads ALL polips to score relevance
 
 **Recommendations:**
 
-1. **Archive aggressively** - Use `zoox sink` to move stale session polyps to archive
-2. **Use cleanup** - Run `zoox cleanup` at session start (swarm-safe, once-per-day)
+1. **Archive aggressively** - Use `reef sink` to move stale session polips to archive
+2. **Use cleanup** - Run `reef cleanup` at session start (swarm-safe, once-per-day)
 3. **Scope wisely** - Only `always` scope for true global rules; prefer `project` scope
 4. **Prune threads** - Mark completed currents as `done`, let cleanup archive them
 
-**Token budget:** ~200-500 tokens per surfaced polyp. At 10 polyps surfaced, expect ~2-5K tokens in context.
+**Token budget:** ~200-500 tokens per surfaced polip. At 10 polips surfaced, expect ~2-5K tokens in context.
 
 ## Terminology
 
@@ -431,7 +431,7 @@ The naming is inspired by coral reef biology:
 
 | Term | Meaning |
 |------|---------|
-| **polyp** | Individual memory unit (was: blob) |
+| **polip** | Individual memory unit (was: blob) |
 | **reef** | Project colony (was: glob) |
 | **current** | Active work thread |
 | **bedrock** | Foundation constraints |
@@ -440,4 +440,4 @@ The naming is inspired by coral reef biology:
 
 *Zooxanthellae* are the symbiotic algae that live inside coral, producing 90% of the coral's energy. Without them, coral bleaches and dies. Memory without context starves. Memory with rich context thrives.
 
-**zoox: Symbiotic memory for AI.**
+**reef: Symbiotic memory for AI.**

@@ -9,9 +9,9 @@
   <what-worked>
     <item>TF-IDF using stdlib only (Counter + math.log) provides semantic search</item>
     <item>Wiki link parsing at serialization ensures related field always current</item>
-    <item>Logarithmic LRU boost prevents frequently-used polyps from dominating</item>
+    <item>Logarithmic LRU boost prevents frequently-used polips from dominating</item>
     <item>Git subprocess with 5s timeout handles non-git directories gracefully</item>
-    <item>Visionary audit validated architecture choices (XML, file-per-polyp, local-first)</item>
+    <item>Visionary audit validated architecture choices (XML, file-per-polip, local-first)</item>
   </what-worked>
 
   <what-didnt>
@@ -37,7 +37,7 @@
 
   <metrics>
     <metric name="tests">299 passing (up from 280)</metric>
-    <metric name="polyps">3</metric>
+    <metric name="polips">3</metric>
     <metric name="tokens">~614</metric>
     <metric name="integrity">OK</metric>
   </metrics>

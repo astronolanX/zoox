@@ -17,7 +17,7 @@
   </files-modified>
   <commits>
     <commit hash="ce263e0">feat: add Claude Code hook integration</commit>
-    <commit hash="c47fc1c">feat: add drift for cross-project polyp discovery</commit>
+    <commit hash="c47fc1c">feat: add drift for cross-project polip discovery</commit>
   </commits>
   <next-session>
     <step>Consider P6: custom templates, scheduled cleanup, index search</step>

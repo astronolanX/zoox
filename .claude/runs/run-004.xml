@@ -22,7 +22,7 @@
   </files-modified>
 
   <next-session>
-    <step>Rename internal terminology: blob→polyp, glob→reef, sprout→spawn throughout codebase</step>
+    <step>Rename internal terminology: blob→polip, glob→reef, sprout→spawn throughout codebase</step>
     <step>Rename package: zoox→reef in pyproject.toml, imports, CLI entry point</step>
     <step>Keep zoox as git remote alias until PyPI transfer approved</step>
     <step>Design .reef file format spec with reserved sections (decisions, next, context, files, related)</step>

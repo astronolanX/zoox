@@ -1,4 +1,4 @@
-# zoox
+# reef
 
 Symbiotic memory for AI.
 
@@ -7,10 +7,10 @@ Symbiotic memory for AI.
 ```bash
 uv run pytest              # Run tests
 uv run pytest -x           # Stop on first failure
-uv run python -m zoox.cli  # CLI entry point
-zoox reef                  # View reef health
-zoox sync                  # Check reef integrity
-zoox index --search "foo"  # Search polyps
+uv run python -m reef.cli  # CLI entry point
+reef reef                  # View reef health
+reef sync                  # Check reef integrity
+reef index --search "foo"  # Search polips
 ```
 
 ## Constraints
@@ -21,42 +21,42 @@ zoox index --search "foo"  # Search polyps
 
 ## Architecture
 
-- `src/zoox/blob.py` - Core Polyp/Reef classes (Blob/Glob aliases)
-- `src/zoox/cli.py` - CLI commands with coral terminology
-- `.claude/` directories store polyps as XML files
-- Polyp types: thread (current), decision (deposit), constraint (bedrock), context, fact (fossil)
-- Polyp scopes: always, project, session
+- `src/reef/blob.py` - Core Polip/Reef classes (Blob/Glob aliases)
+- `src/reef/cli.py` - CLI commands with coral terminology
+- `.claude/` directories store polips as XML files
+- Polip types: thread (current), decision (deposit), constraint (bedrock), context, fact (fossil)
+- Polip scopes: always, project, session
 
 ## Key Commands
 
 | Command | Purpose |
 |---------|---------|
-| `zoox init --gitignore` | Setup with team-friendly .gitignore |
-| `zoox sprout thread "summary"` | Create new current |
-| `zoox reef` | View reef health |
-| `zoox sync` | Check integrity |
-| `zoox sync --fix` | Auto-repair issues |
-| `zoox index --search "query"` | TF-IDF fuzzy search |
-| `zoox index --type thread` | Filter by type |
-| `zoox template list` | Show templates |
-| `zoox template create name` | Create custom template |
-| `zoox drift discover` | Find nearby reefs |
+| `reef init --gitignore` | Setup with team-friendly .gitignore |
+| `reef sprout thread "summary"` | Create new current |
+| `reef reef` | View reef health |
+| `reef sync` | Check integrity |
+| `reef sync --fix` | Auto-repair issues |
+| `reef index --search "query"` | TF-IDF fuzzy search |
+| `reef index --type thread` | Filter by type |
+| `reef template list` | Show templates |
+| `reef template create name` | Create custom template |
+| `reef drift discover` | Find nearby reefs |
 
 ## P7 Features
 
 - **TF-IDF search**: Fuzzy semantic search using term frequency-inverse document frequency
-- **Wiki linking**: Use `[[polyp-name]]` in content; auto-populates `related` field
-- **LRU tracking**: Access counts boost frequently-used polyps in surfacing
+- **Wiki linking**: Use `[[polip-name]]` in content; auto-populates `related` field
+- **LRU tracking**: Access counts boost frequently-used polips in surfacing
 - **Rich templates**: `{date}`, `{git_branch}`, `{project_name}` in template expansion
 
 ## Terminology
 
 | Coral | Legacy | Meaning |
 |-------|--------|---------|
-| polyp | blob | Individual memory unit |
+| polip | blob | Individual memory unit |
 | reef | glob | Project colony |
-| spawn | sprout | Create polyp |
-| surface | inject | Bring polyp to context |
+| spawn | sprout | Create polip |
+| surface | inject | Bring polip to context |
 | sink | decompose | Archive to deep reef |
 | current | thread | Active work stream |
 | bedrock | constraint | Foundation rules |
