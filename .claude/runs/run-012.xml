@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="012" date="2026-01-14">
+  <summary>
+    Made spark plugin agent-invocable by creating SKILL.md with proper third-person
+    trigger descriptions. Normalized all whatif→spark naming across plugin, scripts,
+    tests, and context files. Verified skill discovery and live invocation. Pushed
+    changes to both reef and claude-runtime repos.
+  </summary>
+
+  <what-worked>
+    - Skill file structure follows Claude Code conventions (skills/spark/SKILL.md)
+    - Third-person description with trigger phrases enables agent discovery
+    - Git detected renames cleanly when staging with -A
+    - Live spark invocation confirmed working (7s, 3 agents in rapid mode)
+    - Both repos (reef, claude-runtime) synced successfully
+  </what-worked>
+
+  <what-didnt>
+    - Session-cached skill content showed stale whatif-runner.sh path (expected - plugins load at startup)
+    - Initial grep missed some whatif references in global ~/.claude files
+  </what-didnt>
+
+  <files-created>
+    <file path="~/.claude/plugins/local/spark/skills/spark/SKILL.md" />
+    <file path=".claude/tests/spark-skill-tests.md" />
+  </files-created>
+
+  <files-modified>
+    <file path="~/.claude/plugins/local/spark/.claude-plugin/plugin.json" changes="Added skills array, bumped version to 3.0.0" />
+    <file path="~/.claude/plugins/local/spark/commands/spark.md" changes="Updated script path to spark-runner.sh" />
+    <file path="~/.claude/plugins/local/spark/scripts/spark-runner.sh" changes="Renamed from whatif-runner.sh, updated header and usage" />
+    <file path="~/.claude/spark-runner.sh" changes="Updated header and usage messages" />
+    <file path="~/.claude/skills/synthesizer.md" changes="Updated /whatif → /spark references" />
+    <file path="~/.claude/tests/spark/" changes="Renamed from tests/whatif/, updated all internal references" />
+    <file path=".claude/sparks/*/!SPARKS.md" changes="Updated wiki links to new filenames" />
+    <file path=".claude/sparks/*/*.md" changes="Renamed 5 files to remove what-if prefix from slugs" />
+    <file path=".claude/contexts/spark-evolution.blob.xml" changes="Renamed from whatif-evolution, updated content" />
+  </files-modified>
+
+  <next-session>
+    <item>Remove redundant ~/.claude/spark-runner.sh (plugin version is canonical)</item>
+    <item>Add --stats flag to spark-runner.sh to show database health and top lenses</item>
+    <item>Test spark skill invocation from fresh session (cache-free)</item>
+  </next-session>
+</run>
