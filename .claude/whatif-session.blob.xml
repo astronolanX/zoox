@@ -1,0 +1,84 @@
+<blob type="context" scope="project" updated="2026-01-13" v="1">
+  <summary>Built /whatif skill: multi-model creative exploration through juxtaposition with Groq/Ollama/Gemini spawning, lens libraries, confidence scoring, synthesis, and testing.</summary>
+  
+  <files>
+    <file>~/.claude/whatif.md</file>
+    <file>~/.claude/whatif-runner.sh</file>
+    <file>~/.claude/skills/synthesizer.md</file>
+    <file>~/.claude/lenses/objects.yaml</file>
+    <file>~/.claude/lenses/patterns.yaml</file>
+    <file>~/.claude/lenses/philosophies.yaml</file>
+    <file>~/.claude/lenses/constraints.yaml</file>
+    <file>~/.claude/tests/whatif/smoke.yaml</file>
+    <file>~/.claude/tests/whatif/run-tests.sh</file>
+  </files>
+  
+  <architecture>
+    <component name="whatif.md">Skill spec defining flow, output format, confidence indicators</component>
+    <component name="whatif-runner.sh">Bash runner spawning 9 agents across 3 providers with fallbacks</component>
+    <component name="synthesizer.md">Hot-loaded skill for combining insights into unified frames</component>
+    <component name="lenses/*.yaml">48 lenses across 4 categories (objects, patterns, philosophies, constraints)</component>
+    <component name="tests/">Smoke tests validating providers, config, and integration</component>
+  </architecture>
+  
+  <flow>
+    <step>User invokes /whatif "topic"</step>
+    <step>Runner picks random lens+skill per tier (near/mid/far)</step>
+    <step>Spawns 3 agents per tier: Groq (llama), Ollama (local), Gemini</step>
+    <step>Agents return one-liner insights ranked by confidence</step>
+    <step>Each tier synthesizes composite insight</step>
+    <step>Mother session loads synthesizer skill, compounds final "Path forward"</step>
+    <step>Optional: search for prior art</step>
+    <step>Cleanup: prune 9 agents</step>
+  </flow>
+  
+  <decisions>
+    <decision why="token economics">Multi-model spawning (Groq/Ollama/Gemini free) saves Claude tokens</decision>
+    <decision why="creative purity">No search during exploration—novel combination only</decision>
+    <decision why="visual clarity">Semantic bars (██ ▓▓ ░░) + percentage for instant confidence scan</decision>
+    <decision why="tension escalation">Three abstraction tiers (→ →→ →→→) with random lens+skill combos</decision>
+    <decision why="resilience">Fallback model pools per provider with error/fallback tracking</decision>
+    <decision why="synthesis quality">Hot-load synthesizer.md skill for consistent compound insights</decision>
+    <decision why="opt-in grounding">Post-synthesis search available but not automatic</decision>
+  </decisions>
+  
+  <output_format>
+    <example><![CDATA[
+Topic: **developer burnout**
+
+→ swiss army knife > visionary
+██ 84c │ gemini → Over-specialization causes burnout; cultivate diverse skillset
+
+▓▓ 76% being a swiss army knife burns you out from doing everything
+
+→→ immune response > engineer  
+██ 87c │ groq   → Overreacting to minor infections exhausts capacity
+
+██ 85% burnout is immune overreaction—treating every ticket like emergency
+
+→→→ wabi-sabi > visionary
+██ 82c │ gemini → Embrace burnout as impermanent cracks revealing resilience
+
+██ 83% imperfection isn't failure—it's the crack where recovery enters
+
+Path forward:
+
+██ 88% burnout comes from treating every task as emergency while refusing
+       imperfection; stop overreacting and let the cracks be cracks
+
+⊘ 9 agents pruned
+    ]]></example>
+  </output_format>
+  
+  <commands>
+    <command>~/.claude/whatif-runner.sh "topic"</command>
+    <command>~/.claude/tests/whatif/run-tests.sh</command>
+  </commands>
+  
+  <next>
+    <step>Wire /whatif as invocable plugin skill (currently manual runner)</step>
+    <step>Implement real confidence scoring beyond byte-count heuristic</step>
+    <step>Add post-synthesis search integration</step>
+    <step>Expand lens libraries based on usage patterns</step>
+  </next>
+</blob>
