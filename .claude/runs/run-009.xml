@@ -1,0 +1,42 @@
+<run id="009" date="2026-01-14">
+  <summary>Completed zoox→reef migration and polyp→polip rename; designed polip-native changelog system via vendor introspection</summary>
+
+  <what-worked>
+    <item>Migration script automated directory rename and import updates across 11 test files</item>
+    <item>Global find/replace for polyp→polip was safe due to internal Blob/Glob naming separation</item>
+    <item>Vendor introspection pattern: analyzed scriv/towncrier/git-cliff to cherry-pick best qualities</item>
+    <item>Design polip captures changelog research for future implementation without blocking current work</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Initial migration script missed some test assertions expecting ET.ParseError vs ValueError</item>
+    <item>Had to manually fix 4 test files for new error wrapping behavior</item>
+  </what-didnt>
+
+  <files-created>
+    <file>.claude/designs/changelog-system.blob.xml</file>
+    <file>~/.claude/plans/toasty-cuddling-dijkstra.md</file>
+  </files-created>
+
+  <files-modified>
+    <file>src/reef/__init__.py</file>
+    <file>src/reef/blob.py</file>
+    <file>src/reef/cli.py</file>
+    <file>tests/test_*.py (all 7 test files)</file>
+    <file>CLAUDE.md</file>
+    <file>README.md</file>
+    <file>pyproject.toml</file>
+  </files-modified>
+
+  <metrics>
+    <metric name="tests_passing">299</metric>
+    <metric name="polyp_renames">348</metric>
+    <metric name="files_renamed">3 (src/zoox/* → src/reef/*)</metric>
+  </metrics>
+
+  <next-session>
+    <step priority="1">Implement SessionStart hook for polip surfacing menu</step>
+    <step priority="2">Build PreToolUse constraint checker hook</step>
+    <step priority="3">When ready: implement changelog Phase 1 (CHANGELOG.md bootstrap)</step>
+  </next-session>
+</run>
