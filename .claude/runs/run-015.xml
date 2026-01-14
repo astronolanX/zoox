@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="015" date="2026-01-14">
+  <summary>
+    Completed Incubator Phase 5 (Surfacing): built promotion logic, session-start
+    hook, decay mechanism, and comprehensive test suite. Fixed phase test regressions.
+    Committed to both reef and claude-runtime repos.
+  </summary>
+
+  <what-worked>
+    <item>Promotion criteria (≥7.0 composite AND ≥0.7 confidence) correctly identified 8 high-signal insights</item>
+    <item>Session-start hook integrates cleanly with existing UserPromptSubmit hooks</item>
+    <item>Context-aware surfacing script matches insights to project keywords</item>
+    <item>Decay mechanism built into promoter with --decay flag</item>
+    <item>All 84 tests passing across 5 phases with proper regression coverage</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Phase 2 and Phase 3 tests initially failed after promotion - didn't account for promoted/ directory</item>
+    <item>Had to trace through Phase 4 → Phase 3 → Phase 2 to find root cause of test failures</item>
+  </what-didnt>
+
+  <files-created>
+    <file path="~/.claude/scripts/incubator-promote.py">Promotion and decay logic</file>
+    <file path="~/.claude/scripts/incubator-surface.py">Context-aware relevance queries</file>
+    <file path="~/.claude/hooks/incubator_inject.py">Session-start surfacing hook</file>
+    <file path="~/.claude/tests/incubator/run-phase5.sh">19 Phase 5 tests</file>
+  </files-created>
+
+  <files-modified>
+    <file path="~/.claude/tests/incubator/run-phase2.sh">Added promoted/ to file counts</file>
+    <file path="~/.claude/tests/incubator/run-phase3.sh">Added promoted/ to file counts and status checks</file>
+    <file path="~/.claude/commands/incubator.md">Added surfacing script reference</file>
+    <file path="~/.claude/settings.json">Added incubator_inject.py to UserPromptSubmit hooks</file>
+    <file path=".claude/contexts/incubator-build.blob.xml">Marked Phase 5 complete</file>
+  </files-modified>
+
+  <incubator-stats>
+    <insights total="74" promoted="8" scored="38" archived="28"/>
+    <clusters count="3"/>
+    <tests total="84" passing="84"/>
+  </incubator-stats>
+
+  <commits>
+    <commit repo="reef" hash="93ed70d">chore: session housekeeping (run-014)</commit>
+    <commit repo="reef" hash="22856ad">feat: complete Incubator Phase 5 (Surfacing)</commit>
+    <commit repo="claude-runtime" hash="d245145">feat: add global Incubator insight processing system</commit>
+  </commits>
+
+  <next-session>
+    <step>Monitor promoted insights for decay over time</step>
+    <step>Add reinforcement mechanism (track insight usage to prevent decay)</step>
+    <step>Build /incubator stats analytics dashboard</step>
+    <step>Consider Apple Notes integration for external insight ingestion</step>
+  </next-session>
+</run>
