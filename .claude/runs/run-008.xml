@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="008" timestamp="2026-01-14T10:00:00Z">
+  <summary>Critical pivot: diagnosed reef drift from syntax-first vision to format-first implementation; documented the distinction and prepared exploration of AI-native syntax feasibility.</summary>
+
+  <diagnosis>
+    <original-vision>
+      <principle>Reef is a syntax, not a format</principle>
+      <principle>Universal AI language for memory exchange</principle>
+      <principle>Unifying memory natively at the syntax level</principle>
+      <principle>"reef as a file name or suffix is simply the vessel"</principle>
+      <source>run-004: "Syntax-over-format reframe crystallized reef's value proposition"</source>
+    </original-vision>
+
+    <current-state>
+      <symptom>XML file management with 20+ CLI commands</symptom>
+      <symptom>File-centric: polips live in directories, not conversation</symptom>
+      <symptom>Feature accumulation: TF-IDF, graphs, snapshots, wiki links</symptom>
+      <symptom>Claude uses reef tooling, doesn't speak reef syntax</symptom>
+      <symptom>README describes "lightweight XML context files" - format language</symptom>
+    </current-state>
+
+    <key-distinction>
+      <syntax>
+        <property>AI emits naturally in responses</property>
+        <property>Any AI parses without tooling</property>
+        <property>Cross-system portable</property>
+        <property>Communication concern, not storage</property>
+        <property>"AI speaks memory"</property>
+      </syntax>
+      <format>
+        <property>Requires parser/CLI</property>
+        <property>System-specific tooling</property>
+        <property>Storage concern</property>
+        <property>"Reef manages memory"</property>
+      </format>
+    </key-distinction>
+  </diagnosis>
+
+  <syntax-candidates>
+    <candidate name="inline-emoji">
+      <example>⚓ Zero dependencies (bedrock:project-rules)</example>
+      <example>📌 Use JWT tokens (deposit:auth-tokens)</example>
+      <example>🧭 Implement auth → blocked (current:auth-thread)</example>
+      <pros>Visual scanning, human-readable, memorable</pros>
+      <cons>Emoji rendering inconsistent, not grep-friendly</cons>
+    </candidate>
+
+    <candidate name="sigil-prefix">
+      <example>@bedrock never-force-push: Protect main branch</example>
+      <example>@deposit auth-tokens: JWT approved for API auth</example>
+      <example>@current auth-thread: Implement OAuth2 [blocked]</example>
+      <pros>grep-friendly, markdown-safe, familiar (@ mentions)</pros>
+      <cons>Less visual distinction between types</cons>
+    </candidate>
+
+    <candidate name="bracket-notation">
+      <example>[[bedrock:project-rules | Zero dependencies]]</example>
+      <example>[[deposit:auth-tokens | Use JWT]]</example>
+      <example>[[current:auth-thread | Implement auth | blocked]]</example>
+      <pros>Wiki-link familiar, structured, parseable</pros>
+      <cons>Verbose, clashes with obsidian/roam syntax</cons>
+    </candidate>
+
+    <candidate name="minimal-markers">
+      <example>≡ zero-deps: No external packages</example>
+      <example>◆ jwt-auth: Approved for tokens</example>
+      <example>→ oauth-impl: In progress, blocked</example>
+      <pros>Minimal visual noise, unique symbols</pros>
+      <cons>Symbols hard to type, meaning not self-evident</cons>
+    </candidate>
+  </syntax-candidates>
+
+  <open-questions>
+    <question category="feasibility">Can LLMs reliably emit structured syntax without fine-tuning?</question>
+    <question category="adoption">Will other AI systems (GPT, Gemini, local) recognize reef syntax?</question>
+    <question category="drift">How do we prevent syntax drift across models/versions?</question>
+    <question category="compute">What's the token overhead of inline syntax vs file loading?</question>
+    <question category="accuracy">Can LLMs parse syntax with 99%+ accuracy in zero-shot?</question>
+    <question category="speed">Inline syntax vs hook-based injection: latency comparison?</question>
+    <question category="human">Is syntax readable enough for humans to edit directly?</question>
+    <question category="innovation">Is this solving a real problem or inventing one?</question>
+  </open-questions>
+
+  <exploration-axes>
+    <axis name="speed">Hook injection latency vs inline parsing vs file I/O</axis>
+    <axis name="accuracy">Zero-shot parsing success rate across models</axis>
+    <axis name="compute">Token cost: syntax in context vs external files</axis>
+    <axis name="drift">Syntax stability across Claude/GPT/Gemini/Llama versions</axis>
+    <axis name="adoption">Friction to teach new AI systems the syntax</axis>
+  </exploration-axes>
+
+  <next-session>
+    <step priority="1">Run /whatif exploration on AI-native syntax feasibility</step>
+    <step priority="2">Prototype syntax candidates with parsing tests</step>
+    <step priority="3">Benchmark: syntax-in-context vs hook-injection</step>
+    <step priority="4">Cross-model test: same syntax to Claude/GPT/Gemini</step>
+    <step priority="5">Decision: pivot to syntax-first or validate current approach</step>
+  </next-session>
+</run>
