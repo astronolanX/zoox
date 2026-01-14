@@ -22,8 +22,8 @@ The brittleness warning[^1] counters naive optimism about self-evolving schemas.
 
 ## Sparks
 
-- [[2026-01-14-1015-what-if-ai-memory-systems]] — Schema evolution risks brittleness but enables self-healing
-- [[2026-01-14-1020-what-if-our-sparks-made]] — Spark→task pipeline needs tentative status to avoid calcification
+- [[2026-01-14-1015-memory-schema-evolution]] — Schema evolution risks brittleness but enables self-healing
+- [[2026-01-14-1020-sparks-generating-tasks]] — Spark→task pipeline needs tentative status to avoid calcification
 
 ## References
 

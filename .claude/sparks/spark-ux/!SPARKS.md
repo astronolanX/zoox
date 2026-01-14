@@ -27,8 +27,8 @@ The token reduction spark adds a new tension: compression vs clarity[^4]. The ap
 
 ## Sparks
 
-- [[2026-01-14-1025-what-if-spark-logging-created]] — Decouple from chat, auto-open in editor, thread-based organization
-- [[2026-01-14-1045-what-if-we-found-better]] — Token reduction paths: rapid mode, single-model, structured output
+- [[2026-01-14-1025-spark-logging-to-canvas]] — Decouple from chat, auto-open in editor, thread-based organization
+- [[2026-01-14-1045-token-efficient-sparks]] — Token reduction paths: rapid mode, single-model, structured output
 
 ## References
 

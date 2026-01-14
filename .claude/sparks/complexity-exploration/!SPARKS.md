@@ -19,4 +19,4 @@ Open questions:
 
 ## Sparks
 
-- [[2026-01-14-1130-what-if-complexity-was]] — Complexity as gift; emergent: simplicity is the real catalyst
+- [[2026-01-14-1130-complexity-as-gift]] — Complexity as gift; emergent: simplicity is the real catalyst
