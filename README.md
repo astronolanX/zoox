@@ -1,5 +1,10 @@
 # reef
 
+![Status](https://img.shields.io/badge/status-beta-yellow)
+![Python](https://img.shields.io/badge/python-3.10+-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
+
 Symbiotic memory for AI.
 
 A "reef" is a colony of polips - lightweight XML context files that persist across sessions.
