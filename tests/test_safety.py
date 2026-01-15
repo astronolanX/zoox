@@ -1,7 +1,7 @@
 """
 Tests for reef safety infrastructure.
 
-Phase 1 will implement:
+Phase 1 implementation complete:
 - test_deletion_rate_halt
 - test_protected_scope_immunity
 - test_dry_run_accuracy
@@ -111,32 +111,252 @@ class TestUndoBuffer:
             assert items == []
 
 
-# Phase 1 TODO tests - will be implemented when safety infrastructure is complete
-
 class TestSafetyIntegration:
     """Integration tests for safety infrastructure."""
 
-    @pytest.mark.skip(reason="Requires Phase 1 implementation")
     def test_deletion_rate_halt(self):
         """Full test of deletion rate halting."""
-        pass
+        guards = PruningSafeguards()
 
-    @pytest.mark.skip(reason="Requires Phase 1 implementation")
+        # Create mock polips (simple objects with id attribute)
+        class MockPolip:
+            def __init__(self, id, scope="session", type="context"):
+                self.id = id
+                self.scope = scope
+                self.type = type
+
+        # 5 polips total, trying to delete 3 = 60% > 25%
+        candidates = [MockPolip(f"polip-{i}") for i in range(3)]
+        total = 5
+
+        safe, msg = guards.check_deletion_rate(candidates, total)
+        assert safe is False
+        assert "HALT" in msg
+        assert "60%" in msg or "60.0%" in msg
+
+        # Now with safe rate: 1 out of 5 = 20%
+        candidates = [MockPolip("polip-0")]
+        safe, msg = guards.check_deletion_rate(candidates, total)
+        assert safe is True
+
     def test_protected_scope_immunity(self):
         """Full test of protected scope immunity."""
-        pass
+        guards = PruningSafeguards()
 
-    @pytest.mark.skip(reason="Requires Phase 1 implementation")
+        class MockPolip:
+            def __init__(self, id, scope="session", type="context"):
+                self.id = id
+                self.scope = scope
+                self.type = type
+
+        # Protected scope 'always' should be immune
+        always_polip = MockPolip("protected-1", scope="always")
+        is_protected, reason = guards.is_protected(always_polip)
+        assert is_protected is True
+        assert "scope" in reason.lower()
+
+        # Protected type 'constraint' should be immune
+        constraint_polip = MockPolip("protected-2", type="constraint")
+        is_protected, reason = guards.is_protected(constraint_polip)
+        assert is_protected is True
+        assert "type" in reason.lower()
+
+        # Regular polip should not be protected
+        regular_polip = MockPolip("regular-1", scope="session", type="context")
+        is_protected, reason = guards.is_protected(regular_polip)
+        assert is_protected is False
+        assert reason is None
+
     def test_dry_run_accuracy(self):
         """Full test of dry run accuracy."""
-        pass
+        guards = PruningSafeguards()
 
-    @pytest.mark.skip(reason="Requires Phase 1 implementation")
+        class MockPolip:
+            def __init__(self, id, scope="session", type="context"):
+                self.id = id
+                self.scope = scope
+                self.type = type
+
+        # Mix of protected and prunable
+        candidates = [
+            MockPolip("prunable-1"),
+            MockPolip("prunable-2"),
+            MockPolip("protected-1", scope="always"),
+            MockPolip("protected-2", type="constraint"),
+        ]
+        total = 10
+
+        report = guards.dry_run("prune", candidates, total)
+
+        # Should have 2 prunable, 2 protected
+        assert report.summary["would_delete"] == 2
+        assert report.summary["protected"] == 2
+        assert report.summary["total"] == 10
+
+        # Should have warnings about protected polips
+        assert len(report.warnings) == 2
+
+        # Should not exceed threshold (2/10 = 20% < 25%)
+        assert report.would_exceed_threshold is False
+
+        # Items should only include prunable
+        assert len(report.items) == 2
+
+    def test_audit_logging(self):
+        """Full test of audit logging."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            audit = AuditLog(Path(tmpdir))
+
+            # Log some operations
+            audit.log_operation("prune", "polip-1", "Stale session polip", agent="sync")
+            audit.log_operation("calcify", "polip-2", "High consensus score", agent="calcification")
+            audit.log_operation("prune", "polip-3", "Orphan polip")
+
+            # Query all
+            entries = audit.query()
+            assert len(entries) == 3
+
+            # Query by type
+            prune_entries = audit.query(op_type="prune")
+            assert len(prune_entries) == 2
+
+            # Query by time (all recent)
+            recent = audit.query(since="1h")
+            assert len(recent) == 3
+
+            # Summary
+            summary = audit.summarize()
+            assert summary["total"] == 3
+            assert summary["by_type"]["prune"] == 2
+            assert summary["by_type"]["calcify"] == 1
+            assert "sync" in summary["by_agent"]
+
     def test_quarantine_restore(self):
         """Full test of quarantine and restore."""
-        pass
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            undo = UndoBuffer(project_dir)
 
-    @pytest.mark.skip(reason="Requires Phase 1 implementation")
+            # Create a mock polip file
+            polip_dir = project_dir / ".claude" / "contexts"
+            polip_dir.mkdir(parents=True)
+            polip_file = polip_dir / "test-polip.blob.xml"
+            polip_file.write_text("<blob>test content</blob>")
+
+            # Quarantine it
+            meta = undo.quarantine(
+                polip_path=polip_file,
+                polip_id="test-polip",
+                reason="Test quarantine",
+                agent="test",
+            )
+
+            # Original should be gone
+            assert not polip_file.exists()
+
+            # Should be in quarantine
+            items = undo.list_quarantined()
+            assert len(items) == 1
+            assert items[0].polip_id == "test-polip"
+            assert items[0].reason == "Test quarantine"
+
+            # Restore it
+            success, message = undo.restore("test-polip")
+            assert success is True
+
+            # Original should be back
+            assert polip_file.exists()
+            assert polip_file.read_text() == "<blob>test content</blob>"
+
+            # Quarantine should be empty
+            items = undo.list_quarantined()
+            assert len(items) == 0
+
     def test_quarantine_expiry(self):
         """Full test of quarantine expiry."""
-        pass
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            undo = UndoBuffer(project_dir)
+
+            # Create and quarantine a polip
+            polip_dir = project_dir / ".claude" / "contexts"
+            polip_dir.mkdir(parents=True)
+            polip_file = polip_dir / "old-polip.blob.xml"
+            polip_file.write_text("<blob>old content</blob>")
+
+            meta = undo.quarantine(
+                polip_path=polip_file,
+                polip_id="old-polip",
+                reason="Test expiry",
+            )
+
+            # Manually set expiry to past
+            metadata = undo._load_metadata()
+            metadata["old-polip"].expires = datetime.now() - timedelta(days=1)
+            undo._save_metadata(metadata)
+
+            # Run expiry
+            expired = undo.expire_old()
+            assert "old-polip" in expired
+
+            # Should be permanently gone
+            items = undo.list_quarantined()
+            assert len(items) == 0
+
+            # Restore should fail
+            success, message = undo.restore("old-polip")
+            assert success is False
+
+
+class TestDryRunReport:
+    """Tests for DryRunReport functionality."""
+
+    def test_to_dict(self):
+        """Verify DryRunReport serialization."""
+        from reef.safety.guards import DryRunItem
+
+        report = DryRunReport(
+            operation="prune",
+            timestamp=datetime.now(),
+            items=[
+                DryRunItem(
+                    polip_id="test-1",
+                    action="delete",
+                    reason="Stale",
+                    confidence=0.9,
+                )
+            ],
+            summary={"would_delete": 1, "protected": 0, "total": 5},
+            warnings=["Test warning"],
+            would_exceed_threshold=False,
+        )
+
+        data = report.to_dict()
+        assert data["operation"] == "prune"
+        assert len(data["items"]) == 1
+        assert data["items"][0]["polip_id"] == "test-1"
+        assert data["summary"]["would_delete"] == 1
+        assert "Test warning" in data["warnings"]
+
+    def test_approve_operation(self):
+        """Test operation approval logic."""
+        guards = PruningSafeguards()
+
+        # Report that would exceed threshold
+        report = DryRunReport(
+            operation="prune",
+            timestamp=datetime.now(),
+            items=[],
+            summary={"would_delete": 5, "protected": 0, "total": 10},
+            warnings=["HALT: Deletion rate exceeds threshold"],
+            would_exceed_threshold=True,
+        )
+
+        # Should not approve without force
+        approved, msg = guards.approve_operation(report)
+        assert approved is False
+        assert "threshold" in msg.lower()
+
+        # Should approve with force
+        approved, msg = guards.approve_operation(report, force=True)
+        assert approved is True

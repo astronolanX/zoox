@@ -1128,9 +1128,16 @@ def cmd_drift(args):
 def cmd_sync(args):
     """Check reef integrity and fix issues."""
     from reef.blob import Glob
+    from reef.safety import PruningSafeguards, AuditLog
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
+    guards = PruningSafeguards(project_dir)
+    audit = AuditLog(project_dir)
+
+    # Handle dry-run mode
+    dry_run = getattr(args, 'dry_run', False)
+    fix = args.fix and not dry_run
 
     issues = glob.check_integrity()
 
@@ -1142,7 +1149,10 @@ def cmd_sync(args):
         print("  No issues found")
         return
 
-    print(f"Reef integrity: {total_issues} issue(s) found")
+    if dry_run:
+        print(f"Reef integrity: {total_issues} issue(s) found [DRY RUN]")
+    else:
+        print(f"Reef integrity: {total_issues} issue(s) found")
     print()
 
     # Missing files
@@ -1154,16 +1164,20 @@ def cmd_sync(args):
         if len(issues["missing_files"]) > 5:
             print(f"  ... and {len(issues['missing_files']) - 5} more")
 
-        if args.fix:
+        if fix:
             print()
             fixed = 0
             seen_keys = set()
             for polip_key, _ in issues["missing_files"]:
                 if polip_key not in seen_keys:
                     if glob.fix_missing_files(polip_key):
+                        audit.log_operation("fix", polip_key, "Removed missing file refs", agent="sync")
                         fixed += 1
                     seen_keys.add(polip_key)
             print(f"  Fixed {fixed} polip(s) - removed missing file refs")
+        elif dry_run and args.fix:
+            seen_keys = set(pk for pk, _ in issues["missing_files"])
+            print(f"  [DRY RUN] Would fix {len(seen_keys)} polip(s)")
         print()
 
     # Stale polips
@@ -1184,9 +1198,12 @@ def cmd_sync(args):
         if len(issues["orphan_files"]) > 5:
             print(f"  ... and {len(issues['orphan_files']) - 5} more")
 
-        if args.fix:
+        if fix:
             glob.rebuild_index()
+            audit.log_operation("fix", "index", "Rebuilt index", agent="sync")
             print("  Fixed: Index rebuilt")
+        elif dry_run and args.fix:
+            print("  [DRY RUN] Would rebuild index")
         else:
             print("  Tip: Run `reef index --rebuild` to fix")
         print()
@@ -1208,15 +1225,124 @@ def cmd_sync(args):
         if len(issues["schema_outdated"]) > 5:
             print(f"  ... and {len(issues['schema_outdated']) - 5} more")
 
-        if args.fix:
+        if fix:
             count = glob.migrate_all()
+            audit.log_operation("migrate", "all", f"Migrated {count} polips", agent="sync")
             print(f"  Fixed: Migrated {count} polip(s)")
+        elif dry_run and args.fix:
+            print(f"  [DRY RUN] Would migrate {len(issues['schema_outdated'])} polip(s)")
         else:
             print("  Tip: Run `reef migrate` to update")
         print()
 
-    if not args.fix and total_issues > 0:
+    if dry_run:
+        print("Run without --dry-run to apply fixes")
+    elif not args.fix and total_issues > 0:
         print("Run `reef sync --fix` to auto-fix where possible")
+        print("Run `reef sync --fix --dry-run` to preview fixes")
+
+
+def cmd_audit(args):
+    """View automatic operation history."""
+    from reef.safety import AuditLog
+
+    project_dir = Path.cwd()
+    audit = AuditLog(project_dir)
+
+    if args.summary:
+        summary = audit.summarize(since=args.since)
+        print(f"Audit Summary ({summary['period']})")
+        print(f"  Total operations: {summary['total']}")
+
+        if summary['by_type']:
+            print("\n  By Type:")
+            for op_type, count in sorted(summary['by_type'].items()):
+                print(f"    {op_type}: {count}")
+
+        if summary['by_agent']:
+            print("\n  By Agent:")
+            for agent, count in sorted(summary['by_agent'].items()):
+                print(f"    {agent}: {count}")
+        return
+
+    entries = audit.query(
+        since=args.since,
+        op_type=args.op_type,
+        limit=args.limit,
+    )
+
+    if not entries:
+        print("No audit entries found")
+        if args.since:
+            print(f"  (filtered by: since={args.since})")
+        if args.op_type:
+            print(f"  (filtered by: type={args.op_type})")
+        return
+
+    print(f"Audit Log ({len(entries)} entries)")
+    print()
+
+    for entry in entries:
+        timestamp = entry.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        agent_str = f" [{entry.agent}]" if entry.agent else ""
+        print(f"  {timestamp} {entry.op_type}: {entry.polip_id}{agent_str}")
+        print(f"    {entry.reason}")
+        if entry.details:
+            for key, value in entry.details.items():
+                print(f"    {key}: {value}")
+        print()
+
+
+def cmd_undo(args):
+    """Restore quarantined polips."""
+    from reef.safety import UndoBuffer
+
+    project_dir = Path.cwd()
+    undo = UndoBuffer(project_dir)
+
+    # List quarantined polips
+    if args.list or (not args.polip_id and not args.expire):
+        items = undo.list_quarantined()
+
+        if not items:
+            print("No polips in quarantine")
+            return
+
+        print(f"Quarantined Polips ({len(items)})")
+        print()
+
+        for item in items:
+            timestamp = item.quarantine_time.strftime("%Y-%m-%d %H:%M")
+            expires = item.expires.strftime("%Y-%m-%d") if item.expires else "never"
+            agent_str = f" [{item.agent}]" if item.agent else ""
+            print(f"  {item.polip_id}{agent_str}")
+            print(f"    Quarantined: {timestamp}")
+            print(f"    Expires: {expires}")
+            print(f"    Reason: {item.reason}")
+            print()
+
+        print("Use `reef undo <polip-id>` to restore")
+        return
+
+    # Expire old polips
+    if args.expire:
+        expired = undo.expire_old()
+        if expired:
+            print(f"Permanently deleted {len(expired)} expired polip(s):")
+            for polip_id in expired:
+                print(f"  {polip_id}")
+        else:
+            print("No expired polips to delete")
+        return
+
+    # Restore specific polip
+    if args.polip_id:
+        success, message = undo.restore(args.polip_id)
+        if success:
+            print(f"Restored: {message}")
+        else:
+            print(f"Error: {message}")
+            return
 
 
 def main():
@@ -1401,7 +1527,31 @@ def main():
         description="Scan for missing files, stale polips, broken refs, and other integrity issues."
     )
     sync_parser.add_argument("--fix", action="store_true", help="Auto-fix issues where possible")
+    sync_parser.add_argument("--dry-run", action="store_true", help="Preview what would be fixed without applying")
     sync_parser.set_defaults(func=cmd_sync)
+
+    # audit (view operation history)
+    audit_parser = subparsers.add_parser(
+        "audit",
+        help="View automatic operation history",
+        description="Query the audit log for automatic operations (prune, calcify, merge, decay)."
+    )
+    audit_parser.add_argument("--since", help="Time filter (e.g., 7d, 24h, 30m)")
+    audit_parser.add_argument("--type", dest="op_type", help="Filter by operation type")
+    audit_parser.add_argument("--limit", type=int, default=20, help="Maximum entries to show (default: 20)")
+    audit_parser.add_argument("--summary", action="store_true", help="Show summary statistics instead of entries")
+    audit_parser.set_defaults(func=cmd_audit)
+
+    # undo (restore quarantined polips)
+    undo_parser = subparsers.add_parser(
+        "undo",
+        help="Restore quarantined polips",
+        description="List or restore polips from quarantine. Polips are quarantined for 7 days before permanent deletion."
+    )
+    undo_parser.add_argument("polip_id", nargs="?", help="ID of polip to restore")
+    undo_parser.add_argument("--list", action="store_true", help="List all quarantined polips")
+    undo_parser.add_argument("--expire", action="store_true", help="Permanently delete expired polips")
+    undo_parser.set_defaults(func=cmd_undo)
 
     args = parser.parse_args()
     args.func(args)
