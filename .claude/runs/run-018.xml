@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="018" date="2026-01-14">
+  <summary>
+    Completed memory-evolution thread (21 sparks), prototyped and reverted --flip flag for dialectical spark mode,
+    affirmed spark's value through apophatic essence-revealing, questioned reef's ongoing utility, globalized spark
+    as plugin and skill, and committed all changes to both reef and claude-runtime repositories.
+  </summary>
+
+  <what-worked>
+    <item>Spark's apophatic pattern - revealing essence through negation across 21 sparks</item>
+    <item>Proper spark workflow enforcement (file → index → incubator chain)</item>
+    <item>--flip prototype validated concept even though output framing was reverted</item>
+    <item>Honest evaluation of reef's value vs overhead after extensive spark testing</item>
+    <item>Globalizing spark as both plugin and skill in plugin-registry.json</item>
+    <item>SQLite memory surfacing related past sparks effectively</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>--flip Hegelian synthesis framing felt prescriptive and hallucinatory</item>
+    <item>Bypassed spark documentation chain when testing manually (fixed)</item>
+    <item>Reef XML schema appears to be ceremonial overhead vs markdown simplicity</item>
+  </what-didnt>
+
+  <files-created>
+    <file>.claude/sparks/memory-evolution/2026-01-14-1939-reef-forgetting-priority.md</file>
+    <file>.claude/sparks/memory-evolution/2026-01-14-1739-reef-claude-infrastructure.md</file>
+    <file>.claude/sparks/memory-evolution/2026-01-14-1742-reef-context-cleanup.md</file>
+    <file>.claude/sparks/memory-evolution/2026-01-14-1744-reef-pollution-catalyst.md</file>
+    <file>.claude/sparks/memory-evolution/2026-01-14-1749-reef-pollution-cure.md</file>
+    <file>.claude/sparks/memory-evolution/2026-01-14-1754-reef-decay-product.md</file>
+    <file>.claude/sparks/memory-evolution/2026-01-14-1758-tokens-as-polips.md</file>
+    <file>.claude/sparks/memory-evolution/2026-01-14-1804-resurrection-triggers.md</file>
+    <file>.claude/sparks/spark-ux/2026-01-14-1808-loop-in-spark.md</file>
+    <file>.claude/sparks/spark-ux/2026-01-14-1812-thread-of-sparks.md</file>
+    <file>.claude/ideas/threads-as-silence.md</file>
+    <file>.claude/ideas/sparks-without-loops.md</file>
+    <file>.claude/ideas/decay-as-illusion.md</file>
+    <file>.claude/ideas/reef-decay-as-true-form.md</file>
+    <file>.claude/ideas/reef-evolution-not-damage.md</file>
+    <file>.claude/ideas/reef-pollution-catalyst.md</file>
+    <file>.claude/ideas/ai-first-reef.md</file>
+  </files-created>
+
+  <files-modified>
+    <file>.claude/sparks/memory-evolution/!SPARKS.md</file>
+    <file>.claude/sparks/spark-ux/!SPARKS.md</file>
+    <file>.claude/ideas/!IDEAS.md</file>
+    <file>~/.claude/spark-runner.sh (--flip added then reverted)</file>
+    <file>~/.claude/plugin-registry.json (spark registered)</file>
+    <file>~/.claude/incubator/!INDEX.yaml</file>
+  </files-modified>
+
+  <key-decisions>
+    <decision>Reef's core value is structured forgetting via selection pressure, not memory preservation</decision>
+    <decision>Spark methodology (5D combinatorics, swarm consensus, apophatic negation) is essential</decision>
+    <decision>--flip concept valid but synthesis framing was too heavy-handed</decision>
+    <decision>Spark documentation chain must be enforced (no raw output dumps to chat)</decision>
+    <decision>Reef XML schema may be ceremonial overhead; consider simplifying to markdown + hooks</decision>
+    <decision>Decay = not surfacing; glob attention window is selection pressure</decision>
+  </key-decisions>
+
+  <next-session>
+    <item priority="high">Decide: archive reef XML schema or simplify to markdown + SessionStart hook</item>
+    <item priority="medium">Prototype decay mechanism with attention tracking in glob surfacing</item>
+    <item priority="medium">Evaluate spark as primary memory tool; reef as optional persistence layer</item>
+    <item priority="low">Revisit --flip with lighter touch (tier inversion only, no synthesis framing)</item>
+  </next-session>
+</run>
