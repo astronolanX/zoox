@@ -1,0 +1,15 @@
+<blob type="context" scope="session" updated="2026-01-14" v="2">
+  <summary>Deep research on AI infrastructure landscape (memory as first-class primitive, MCP protocols, OS integration models) followed by biological exploration of reef: calcification triggers (time, usage, ceremony, consensus, genome), polip budding under pressure, layered geology (active/skeletal/fossil/sediment), digital ecology, and federated validation for reef entry.</summary>
+  <decisions>
+    <decision why="Combinatorial triggers enable multiple calcification pathways per polip type">Genome encodes which calcification triggers apply; polips can bud and mutate under pressure</decision>
+    <decision why="Coral reef analog: dead matter becomes foundation">Death model: staleness→fossil, supersession→nutrient cycling, contradiction→skeleton, explicit pruning→deletion</decision>
+    <decision why="Polips drift toward symbiotic relationships">Attachment via affinity (semantic similarity) + need (demand signals)</decision>
+    <decision why="Protects reef integrity against malware and parasites">Reef is protected zone with immune response, not open membrane</decision>
+    <decision why="Prevents single points of failure in validation">Consensus required for entry; quarantine for disputes with escalation option</decision>
+  </decisions>
+  <next>
+    <step>Explore quarantine mechanics and dispute escalation procedures</step>
+    <step>Move to (C) cross-system portability: minimum viable `.reef` primitive for macOS, Linux, Windows, containers, cloud</step>
+    <step>Gap analysis (B): where does AI currently live in existing infrastructure and where are gaps</step>
+  </next>
+</blob>
