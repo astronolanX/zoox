@@ -5,7 +5,7 @@ Routes tasks to strategist, dispatches to workers, aggregates results,
 validates output.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 

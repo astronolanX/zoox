@@ -876,7 +876,6 @@ def cmd_index(args):
 def cmd_hook(args):
     """Claude Code hook integration."""
     import json
-    import subprocess
 
     from reef.blob import Glob, Blob, BlobType, BlobScope, KNOWN_SUBDIRS
 
@@ -1702,7 +1701,7 @@ def cmd_decay(args):
 
 def cmd_trench(args):
     """Manage parallel Claude sessions in git worktrees."""
-    from reef.trench import TrenchHarness, TrenchStatus, TrenchComplexity
+    from reef.trench import TrenchHarness, TrenchStatus
 
     project_dir = Path.cwd()
     harness = TrenchHarness(project_dir)

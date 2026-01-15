@@ -4,7 +4,7 @@ Pruning safeguards - prevent catastrophic data loss from automated pruning.
 P0 CRITICAL: These guards must be implemented before any auto-pruning.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any

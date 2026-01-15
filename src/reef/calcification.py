@@ -6,8 +6,8 @@ Polips crystallize through Time × Usage × Ceremony × Consensus.
 Selection pressure through adversarial decay keeps the reef healthy.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
