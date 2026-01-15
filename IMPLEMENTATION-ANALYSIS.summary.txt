@@ -1,0 +1,244 @@
+================================================================================
+IMPLEMENTATION ANALYSIS: EXECUTIVE SUMMARY
+================================================================================
+
+PROJECT: Reef (Symbiotic Memory for AI)
+DATE: 2026-01-15
+ROLE: IMPLEMENTER - Builder's Perspective
+STATUS: 4,500 LOC existing + architecture review complete
+
+================================================================================
+THE ASK
+================================================================================
+
+What can be built THIS WEEK that delivers value?
+What's the migration risk?
+Where are the hidden dependencies?
+What's the MVP vs the full vision?
+
+================================================================================
+THE ANSWER (SHORT VERSION)
+================================================================================
+
+BUILD THIS WEEK (MVP):
+1. Mediator Skill (reef mediator <scenario>) - 150 LOC wrapper
+2. Evidence Search Phase 0 (reef evidence-search --init/search) - bash validation
+3. Tests + Documentation
+
+TIME: 10-12 hours (Wed-Thu, with Fri buffer)
+RISK: LOW (no breaking changes)
+BLOCKERS: None
+
+DO NOT BUILD THIS WEEK:
+- Trenches system (executor framework too big)
+- Full directory consolidation (breaks 32 projects)
+- Evidence MCP (Phase 0 validates first)
+- VoltAgent adoption (new ecosystem, no blocker)
+- claude-flow integration (unclear what needs orchestrating)
+
+================================================================================
+KEY INSIGHTS
+================================================================================
+
+1. EXISTING INFRASTRUCTURE IS SUBSTANTIAL
+   - 4,500 LOC reef core (stable)
+   - 38 skills + 10 agents + 12 hooks in ~/.claude/ (working)
+   - Mediator skill already written in custody-mediation (just needs wrapping)
+   - Incubator pipeline 5-phase complete (84 tests passing)
+
+2. YOUR PROPOSAL WAS 5 PROBLEMS, NOT 1
+   Directory consolidation + Trenches + claude-flow + VoltAgent + Evidence MCP
+   → This is "boil the ocean" when "make mediator callable" is the real goal
+
+3. HIDDEN DEPENDENCIES WILL BREAK YOU
+   - Path resolution in 32 .claude/ directories
+   - Mediator identity confusion (skill vs SDK vs plugin)
+   - Evidence MCP premature (prove need with bash first)
+   - Trenches requires executor agents (not scoring agents)
+   - Schema collision (polips are trees, cases are graphs)
+
+4. MVP UNBLOCKS EVERYTHING ELSE
+   Once mediator + evidence work end-to-end:
+   → You know what orchestration you need (Week 2)
+   → You know if MCP saves enough time (Week 2 metrics)
+   → You know what skill organization works (Week 1 tests validate)
+
+================================================================================
+WEEK 1 ROADMAP
+================================================================================
+
+WEDNESDAY (4 hours):
+  Morning:  Mediator skill schema + skeleton (150 LOC)
+  Afternoon: Evidence search Phase 0 bash script (50 LOC)
+  Commit: "feat: mediator skill skeleton + evidence search Phase 0"
+
+THURSDAY (4 hours):
+  Morning:  Mediator tests (200 LOC, 16 tests)
+  Afternoon: CLI commands + documentation (100 LOC)
+  Commit: "feat: mediator skill tests + CLI + docs"
+
+FRIDAY (2 hours):
+  Buffer/Polish/Final commit
+  Commit: "chore: Week 1 MVP complete + ready for Week 2"
+
+TOTAL: ~10-12 hours, 3-4 commits, ZERO breaking changes
+
+================================================================================
+RISK MATRIX
+================================================================================
+
+RISK                              PROBABILITY  IMPACT  MITIGATION
+Path breakage (consolidation)     HIGH         CRIT   Use symlinks, defer moves
+Mediator scope creep              MEDIUM       MAJOR  Bound as skill-only
+Evidence MCP investment wasted    MEDIUM       MINOR  Phase 0 validates first
+Trenches blocked on executor      LOW          MAJOR  Skip this week entirely
+Schema collision (polips/cases)   LOW          MAJOR  Hybrid schema approach
+
+TOTAL RISK IF ALL IGNORED: ~70 hours rework
+TOTAL PREVENTION COST NOW: ~24 hours (what you're doing)
+
+================================================================================
+SUCCESS CRITERIA (FRIDAY EOD)
+================================================================================
+
+TIER 1 (MUST HAVE):
+✓ reef mediator bactrack_clause returns valid JSON
+✓ reef evidence-search --init builds index
+✓ reef evidence-search --search "query" works in < 1s
+✓ mediator_skill.py tests pass (>80% coverage)
+✓ metrics.json exists with perf data
+
+TIER 2 (SHOULD HAVE):
+✓ Documentation (user guides + roadmap)
+✓ No broken paths in .claude/ structure
+✓ CLI integration smooth (no friction)
+✓ Git log shows 3-4 clean commits
+
+TIER 3 (NICE TO HAVE):
+✓ Evidence MCP decision documented
+✓ Week 2 plan detailed
+✓ Executor POC sketch
+
+================================================================================
+GO/NO-GO GATE
+================================================================================
+
+Before you start WEEK-1-SPRINT.md, confirm:
+
+[ ] Constraints clear (zero-deps? local-only? library not app?)
+[ ] Scope bounded (NOT building trenches/MCP/VoltAgent Week 1)
+[ ] Time available (really have 10+ hours?)
+[ ] API ready (Claude credentials for Week 2?)
+[ ] Risks accepted (placeholder mediator is OK this week?)
+
+If all boxes checked: START WEEK-1-SPRINT.md NOW
+If any box missing: Fix it first, it's a blocker
+
+================================================================================
+FILES CREATED FOR YOU
+================================================================================
+
+1. START-HERE.md (2 min read)
+   - Navigation guide
+   - TL;DR summary
+   - Next actions
+
+2. IMPLEMENTATION-ANALYSIS.md (10 min read)
+   - MVP breakdown
+   - What CAN be built
+   - Risk matrix
+   - Week 1 roadmap
+
+3. HIDDEN-DEPENDENCIES.md (15 min read)
+   - Technical deep-dive
+   - Why 5 things will break
+   - 3 integration architectures for mediator
+   - 3 phasing strategies for evidence search
+
+4. WEEK-1-SPRINT.md (ACTIONABLE)
+   - Day-by-day tactical plan
+   - Code snippets ready to use
+   - Commands to run
+   - Expected output
+
+5. DECISION-CHECKLIST.md (GATE)
+   - 35 questions to answer
+   - Go/No-go decision
+   - Risk acceptance framework
+
+6. This file (executive summary)
+
+================================================================================
+NEXT STEPS (RIGHT NOW)
+================================================================================
+
+1. Read START-HERE.md (2 min) - Get oriented
+2. Read IMPLEMENTATION-ANALYSIS.md (10 min) - Understand scope
+3. Skim HIDDEN-DEPENDENCIES.md (5 min) - Identify risks
+4. Answer DECISION-CHECKLIST.md (15 min) - Lock decisions
+5. Start WEEK-1-SPRINT.md Step 1 (mediator schema)
+6. Code for 2-3 hours, then commit
+7. Repeat Wed-Thu-Fri
+
+Total prep time: ~30 min
+Total coding time: ~12 hours
+Total time to MVP: ~13 hours
+
+================================================================================
+THE PHILOSOPHY
+================================================================================
+
+Don't buy new infrastructure. Integrate what exists.
+
+You have:
+- 4,500 LOC reef (stable, tested)
+- 38 skills + 10 agents (proven patterns)
+- Mediator skill (just needs wrapping)
+- Evidence files (just needs searching)
+
+You need:
+- Mediator callable from reef
+- Evidence searchable end-to-end
+- Clear integration points
+
+You DON'T need:
+- New directory structure (symlinks work)
+- New agent types (wrap existing skills)
+- New protocols (MCP can wait)
+- New ecosystems (VoltAgent can wait)
+
+Week 1: Make existing pieces work together.
+Week 2-4: Decide what else is actually needed.
+
+================================================================================
+AUTHOR NOTES
+================================================================================
+
+This analysis is based on:
+- 4,500 LOC existing reef code (reviewed)
+- 38 existing skills in ~/.claude/ (counted)
+- 32 directories in custody-mediation (audited)
+- Mediator skill already written (read it)
+- 2-week context from your recent sessions (synthesized)
+
+Confidence level: 85%
+(15% risk = unknown unknowns: permissions, symlink edges, API changes)
+
+If something doesn't match your model: Correct it in DECISION-CHECKLIST.md
+
+================================================================================
+ONE MORE THING
+================================================================================
+
+"Don't over-engineer. Placeholder is fine for Week 1. Tests first. Commit frequently. 
+Measure everything. Stop Friday EOD. Rest."
+
+This is not a 4-week architecture. It's a 1-week MVP that unblocks the next 3 weeks.
+
+You will know what you need after Week 2. You won't know until then.
+
+Build incrementally. Ship weekly. Decide iteratively.
+
+================================================================================
+Ready? Start with START-HERE.md
+================================================================================

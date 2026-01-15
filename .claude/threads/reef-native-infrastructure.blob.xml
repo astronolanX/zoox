@@ -1,7 +1,9 @@
-<blob type="thread" scope="project" status="active" updated="2026-01-15" v="2">
-  <summary>Reef as Native AI Infrastructure - Design Thread</summary>
+<blob type="thread" scope="project" status="active" updated="2026-01-15" v="3">
+  <summary>Reef as Native AI Infrastructure - Design Thread + Agent SDK Plan</summary>
   <files>
     <file>docs/plans/2026-01-15-reef-native-infrastructure-design.md</file>
+    <file>docs/plans/2026-01-15-agent-sdk-implementation-plan.md</file>
+    <file>docs/plans/2026-01-15-plan-validation.md</file>
     <file>.claude/sparks/graph-native-polips/2026-01-15-graph-native-polip-structure.md</file>
   </files>
   <decisions>
@@ -10,13 +12,20 @@
     <decision why="Visionary insight: organic/authored is temporal">Promotion pathway: organic → crystallized → human-promoted to config</decision>
     <decision why="Karen: bidirectional sync is a tar pit">Reef reads config, cannot modify it; human remains gatekeeper</decision>
     <decision why="Architect: content-as-truth eliminates sync">Links stored in polip content via [[wiki]] and @directives</decision>
+    <decision why="7-agent team validation: safety-first before automation">P0 safety guards (dry-run, deletion limits, undo) must ship before any auto-pruning</decision>
+    <decision why="Market research: MCP is now standard protocol">Implement reef MCP server exposing polip operations as tools</decision>
+    <decision why="Cost optimization: free workers for grunt work">Route external-ok tasks to Groq/Ollama/Gemini, reserve Claude for judgment</decision>
+    <decision why="Academic validation: A-MEM proves self-organizing works">Calcification engine with time × usage × consensus triggers</decision>
+    <decision why="Developer sentiment: transparency + control required">Audit trail, dry-run mode, and validator checks for all automatic operations</decision>
   </decisions>
   <next>
-    <step>Gap 3: Implement calcification triggers (time, usage, consensus combinations)</step>
-    <step>Add @supersedes/@blocks directive parsing to blob.py</step>
-    <step>Build incoming link cache for structural pressure tracking</step>
-    <step>Add `reef suggest` command for promotion pathway</step>
-    <step>Gap 1: Verify zero-dependency operation remains intact</step>
+    <step>Phase 0: Create directory structure for agent SDK</step>
+    <step>Phase 1: Implement P0 safety guards (dry-run, deletion limits, undo buffer)</step>
+    <step>Phase 2: Worker infrastructure (Groq/Ollama/Gemini dispatch)</step>
+    <step>Phase 3: MCP server implementation</step>
+    <step>Phase 4: Agent orchestrator, strategist, validator</step>
+    <step>Phase 5: Skill hotloading (global + project-local)</step>
+    <step>Phase 6: Calcification engine + adversarial decay</step>
   </next>
   <related>
     <ref>constraints-project-rules</ref>
@@ -57,9 +66,44 @@ Reef: AI usage → Polips spawn → Structure emerges → Calcification creates 
 
 The schema isn't designed — it's grown.
 
+## Session 2: Agent SDK Deep Dive (2026-01-15 afternoon)
+
+### Team Research (7 Agents)
+Spawned 7 agents in parallel to validate organic schema growth:
+- **Researcher**: Found AutoSchemaKG (92% alignment), A-MEM (NeurIPS 2025)
+- **ML Theorist**: Resolved probability vs structure tension (they're complementary)
+- **Signal Analyst**: Framework for inflection point detection
+- **Systems Architect**: Stigmergic coordination vision
+- **Devil's Advocate**: Identified safety gaps (pruning, sync, emergent behavior)
+- **Competitive Intel**: Reef's coral metaphor is unique differentiator
+- **Technical Validator**: P0 safeguards are critical path
+
+### Comprehensive Implementation Plan
+Created 7-phase plan at `docs/plans/2026-01-15-agent-sdk-implementation-plan.md`:
+- Phase 0: Foundation restructure
+- Phase 1: Safety infrastructure (P0 critical)
+- Phase 2: Worker distribution (Groq/Ollama/Gemini)
+- Phase 3: MCP server
+- Phase 4: Agent infrastructure (orchestrator, strategist, validator)
+- Phase 5: Skill hotloading
+- Phase 6: Calcification engine
+- Phase 7: Integration and polish
+
+### Key Validations
+- Academic research confirms organic growth works at scale
+- Market moving toward MCP as standard protocol
+- Developer sentiment requires transparency + control
+- Funding flowing to memory infrastructure ($24M to Mem0)
+
+### Biological Metaphor Refined
+User insight: "The biological metaphor isn't decoration—it's blueprint. Nature already solved coordination through 4B years of evolution."
+- Garden model: humans plant seeds, context is soil, inference feeds growth, pruning is maintenance
+- The schema isn't designed—it's cultivated
+
 ## To Resume
-1. Read design doc: `docs/plans/2026-01-15-reef-native-infrastructure-design.md`
-2. Review spark: `.claude/sparks/graph-native-polips/`
-3. Continue with Gap 3 (calcification triggers) or directive parsing
+1. Read full plan: `docs/plans/2026-01-15-agent-sdk-implementation-plan.md`
+2. Read validation: `docs/plans/2026-01-15-plan-validation.md`
+3. Begin Phase 0: Create directory structure
+4. Phase 1 is critical path: Safety guards before any automation
   </context>
 </blob>
