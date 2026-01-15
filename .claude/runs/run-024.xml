@@ -1,0 +1,18 @@
+<run id="024" date="2026-01-15">
+  <summary>MCP configuration management - toggled fetcher and context7 MCPs off then back on at user request</summary>
+  <what-worked>
+    <item>Quick identification of MCP config locations (~/.claude.json for fetcher, ~/.claude/settings.json for context7 plugin)</item>
+    <item>Clean edits to both config files</item>
+    <item>Rapid reversal when user changed mind</item>
+  </what-worked>
+  <what-didnt>
+    <item>Initial assumption MCPs were failing when user said so, but both showed connected - should have asked for clarification</item>
+  </what-didnt>
+  <files-modified>
+    <file>~/.claude.json (mcpServers section)</file>
+    <file>~/.claude/settings.json (enabledPlugins.context7)</file>
+  </files-modified>
+  <next-session>
+    <step>Continue with Agent SDK implementation plan from run-023</step>
+  </next-session>
+</run>
