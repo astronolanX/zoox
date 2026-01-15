@@ -1,4 +1,4 @@
-<blob type="thread" scope="project" status="active" updated="2026-01-15" v="3">
+<blob type="thread" scope="project" status="active" updated="2026-01-15" v="4">
   <summary>Reef as Native AI Infrastructure - Design Thread + Agent SDK Plan</summary>
   <files>
     <file>docs/plans/2026-01-15-reef-native-infrastructure-design.md</file>
@@ -32,7 +32,7 @@
     <step status="done">Phase 4: Agent orchestrator, strategist, validator</step>
     <step status="done">Phase 5: Skill hotloading (global + project-local)</step>
     <step status="done">Phase 6: Calcification engine + adversarial decay</step>
-    <step status="pending">Phase 7: Worktree harness - parallel Claude agents with test-before-merge</step>
+    <step status="done">Phase 7: Worktree harness - parallel Claude agents with model routing</step>
     <step status="pending">Phase 8: Integration polish + documentation</step>
   </next>
   <spec-phase-7>
@@ -170,13 +170,40 @@ Created 7-phase plan at `docs/plans/2026-01-15-agent-sdk-implementation-plan.md`
   - Tests must pass before merging upstream
   - Enables true parallel development without conflicts
 
+## Session 4: Phase 7 Implementation (2026-01-15)
+
+### Completed
+- **Phase 7**: Worktree harness with model routing
+  - `src/reef/trench.py`: TrenchHarness class
+  - Auto-spawn: `reef trench spawn <name> --task "..." [--model haiku|sonnet|opus]`
+  - Complexity detection: simple→haiku, moderate→sonnet, complex→opus
+  - Aggressive pruning: 3-day default (was 7)
+  - PID tracking for background sessions
+  - Log viewing: `reef trench logs <name> [--follow]`
+  - 35 new tests, 536 total passing
+
+### CLI Commands Added
+```bash
+reef trench spawn <name> [--task "..." --model ...]  # Create worktree + optional auto-launch
+reef trench status [name] [--json]                   # Check trench status
+reef trench test <name>                              # Run tests in trench
+reef trench merge <name>                             # Merge if tests pass
+reef trench abort <name> [--force]                   # Kill and cleanup
+reef trench prune [--days N --execute]               # Remove stale trenches
+reef trench logs <name> [--follow]                   # View session output
+```
+
 ## To Resume
 1. Surface this thread: `/surface threads-reef-native-infrastructure`
-2. Next: Phase 7 - Worktree harness implementation
-3. Phase 7 components:
-   - `reef trench spawn <branch>` - create worktree + launch Claude
-   - `reef trench status` - check child session progress
-   - `reef trench merge <branch>` - run tests + merge if green
-4. Then Phase 8: Integration polish
+2. Next: **Phase 8 - Integration polish + documentation**
+3. Phase 8 tasks:
+   - Connect orchestrator to MCP server
+   - Connect workers to skill loader
+   - Connect calcification to safety guards
+   - Connect health metrics to CLI
+   - Update CLAUDE.md with new capabilities
+   - Create AGENT-SDK.md guide
+   - Create WORKERS.md configuration guide
+4. Run test gates: `uv run pytest -v`
   </context>
 </blob>
