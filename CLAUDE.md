@@ -42,6 +42,31 @@ reef index --search "foo"  # Search polips
 | `reef template create name` | Create custom template |
 | `reef drift discover` | Find nearby reefs |
 
+## Progressive Loading (L1/L2/L3)
+
+Polips use token-efficient progressive disclosure:
+
+| Level | Content | When |
+|-------|---------|------|
+| **L1** | Metadata index (id, type, summary, tokens) | Always at session start |
+| **L2** | Full polip content | On-demand via `/surface <id>` |
+| **L3** | Related files, linked polips | Explicit request |
+
+**Example L1 index:**
+```xml
+<polip-index updated="2026-01-14" count="3" mode="L1">
+  <polip id="constraints-project-rules" type="constraint" priority="100">
+    <summary>reef project constraints</summary>
+    <tokens>152</tokens>
+  </polip>
+</polip-index>
+```
+
+**Load full content:**
+```bash
+/surface constraints-project-rules  # L2 activation
+```
+
 ## P7 Features
 
 - **TF-IDF search**: Fuzzy semantic search using term frequency-inverse document frequency

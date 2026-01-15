@@ -30,6 +30,7 @@ Captured explorations ranked by FII (Feasibility + Importance + Innovation).
 | 7 | [[reef-decay-as-true-form]] | captured | architecture, decay, philosophy |
 | 7 | [[decay-as-illusion]] | captured | architecture, decay, resurrection |
 | 7 | [[sparks-without-loops]] | captured | spark, architecture, iteration |
+| 7 | [[destruction-as-health]] | captured | architecture, decay, philosophy |
 
 ## By Status
 
@@ -48,6 +49,7 @@ Ideas worth exploring, not yet started.
 - [[reef-decay-as-true-form]] (FII 7) — reef isn't structure that decays; decay IS the structure; process not noun
 - [[decay-as-illusion]] (FII 7) — nothing persists; polips resurrected not remembered; transformation without endpoint
 - [[sparks-without-loops]] (FII 7) — sparks are intentionally one-shot; threads are the loop abstraction
+- [[destruction-as-health]] (FII 7) — active destruction is peak function; systems succeed by becoming unnecessary
 
 ### Prototyping
 Active development or testing.
