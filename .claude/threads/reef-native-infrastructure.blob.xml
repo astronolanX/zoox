@@ -1,4 +1,4 @@
-<blob type="thread" scope="project" status="active" updated="2026-01-15" v="4">
+<blob type="thread" scope="project" status="active" updated="2026-01-15" v="5">
   <summary>Reef as Native AI Infrastructure - Design Thread + Agent SDK Plan</summary>
   <files>
     <file>docs/plans/2026-01-15-reef-native-infrastructure-design.md</file>
@@ -33,7 +33,7 @@
     <step status="done">Phase 5: Skill hotloading (global + project-local)</step>
     <step status="done">Phase 6: Calcification engine + adversarial decay</step>
     <step status="done">Phase 7: Worktree harness - parallel Claude agents with model routing</step>
-    <step status="pending">Phase 8: Integration polish + documentation</step>
+    <step status="done">Phase 8: Integration polish + documentation</step>
   </next>
   <spec-phase-7>
 ## Phase 7: Worktree Harness - Parallel Claude Development
@@ -193,17 +193,64 @@ reef trench prune [--days N --execute]               # Remove stale trenches
 reef trench logs <name> [--follow]                   # View session output
 ```
 
+## Session 5: Phase 8 Completion (2026-01-15)
+
+### Completed
+- All 8 phases done and pushed to main
+- Fixed `--session` → `--task` flag typo in docs
+- docs/AGENT-SDK.md: Agent orchestration guide
+- docs/WORKERS.md: External worker configuration
+- 536 tests passing
+
+### Trench Harness Discovery
+- `claude -p` is print mode (outputs text, doesn't execute)
+- For autonomous work: need interactive mode or Agent SDK
+- Worktree isolation + model routing infrastructure ready
+
 ## To Resume
-1. Surface this thread: `/surface threads-reef-native-infrastructure`
-2. Next: **Phase 8 - Integration polish + documentation**
-3. Phase 8 tasks:
-   - Connect orchestrator to MCP server
-   - Connect workers to skill loader
-   - Connect calcification to safety guards
-   - Connect health metrics to CLI
-   - Update CLAUDE.md with new capabilities
-   - Create AGENT-SDK.md guide
-   - Create WORKERS.md configuration guide
-4. Run test gates: `uv run pytest -v`
+```bash
+/surface threads-reef-native-infrastructure
+```
+
+## Next: Cleanup & Hardening Phase
+
+### 1. Code Cleanup
+- [ ] Remove dead code / unused imports
+- [ ] Consolidate duplicate patterns
+- [ ] Verify all modules have proper `__all__` exports
+- [ ] Check for TODO/FIXME comments
+
+### 2. Test Coverage
+- [ ] `uv run pytest --cov=reef --cov-report=html`
+- [ ] Identify coverage gaps
+- [ ] Add integration tests for trench harness
+- [ ] Add edge case tests for calcification
+
+### 3. Organized Logging
+- [ ] Audit all print statements → proper logging
+- [ ] Configure log levels (DEBUG/INFO/WARN/ERROR)
+- [ ] Add structured logging for agent operations
+- [ ] Create `.claude/logs/` for session logs
+
+### 4. CLI Polish
+- [ ] Consistent exit codes
+- [ ] Help text review
+- [ ] Error message clarity
+- [ ] Tab completion setup
+
+### Test Gates
+```bash
+uv run pytest -v                    # All tests pass
+uv run pytest --cov=reef            # Coverage report
+reef sync                           # Reef integrity
+reef health                         # Ecosystem health
+```
+
+### Success Criteria
+- 536+ tests passing
+- 80%+ code coverage
+- Zero TODO/FIXME in core modules
+- Clean `reef sync` output
+- Vitality score > 70%
   </context>
 </blob>

@@ -307,6 +307,7 @@ class TrenchHarness:
         model: Optional[str] = None,
         complexity: Optional[TrenchComplexity] = None,
         base_branch: Optional[str] = None,
+        skip_permissions: bool = True,
     ) -> TrenchResult:
         """
         Spawn a trench AND launch a Claude session in it.
@@ -315,7 +316,7 @@ class TrenchHarness:
         1. Create isolated worktree
         2. Detect complexity (or use provided)
         3. Select model based on complexity (or use provided)
-        4. Launch `claude -p "<task>"` in background
+        4. Launch `claude -p "<task>" --dangerously-skip-permissions` in background
         5. Track PID for monitoring
 
         Args:
@@ -324,6 +325,7 @@ class TrenchHarness:
             model: Override model selection (haiku, sonnet, opus)
             complexity: Override complexity detection
             base_branch: Branch to base the worktree on
+            skip_permissions: Bypass permission prompts for autonomous execution (default: True)
 
         Returns:
             TrenchResult with session info including PID
@@ -349,13 +351,13 @@ class TrenchHarness:
         info.complexity = complexity.value
 
         # Build the claude command
-        # Use -p for print mode (non-interactive, runs task and exits)
+        # Use -p for print mode (non-interactive, executes and exits)
+        # Use --dangerously-skip-permissions to bypass permission prompts
         # Use --model to select the model
-        claude_cmd = [
-            "claude",
-            "-p", task,
-            "--model", model,
-        ]
+        # Note: Only safe because worktree is isolated + we trust the task
+        claude_cmd = ["claude", "-p", task, "--model", model]
+        if skip_permissions:
+            claude_cmd.append("--dangerously-skip-permissions")
 
         # Launch in background
         try:
@@ -701,13 +703,16 @@ class TrenchHarness:
             message=f"Cleaned up trench '{name}'",
         )
 
-    def get_claude_command(self, name: str, task: Optional[str] = None) -> Optional[str]:
+    def get_claude_command(
+        self, name: str, task: Optional[str] = None, skip_permissions: bool = False
+    ) -> Optional[str]:
         """
         Get the command to launch Claude in a trench.
 
         Args:
             name: Trench name
             task: Optional task description for the Claude session
+            skip_permissions: Include --dangerously-skip-permissions flag
 
         Returns:
             Command string to launch Claude, or None if trench not found
@@ -720,6 +725,8 @@ class TrenchHarness:
         cmd_parts = ["cd", str(info.worktree_path), "&&", "claude"]
         if task:
             cmd_parts.extend(["-p", f'"{task}"'])
+            if skip_permissions:
+                cmd_parts.append("--dangerously-skip-permissions")
 
         return " ".join(cmd_parts)
 
