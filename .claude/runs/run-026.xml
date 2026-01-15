@@ -1,0 +1,42 @@
+<run id="026" date="2026-01-15" duration="~45min">
+  <summary>Completed Phase 5-6 of reef native infrastructure; added Phase 7 worktree harness spec</summary>
+
+  <what-worked>
+    <item>Phase 5 skill hotloading implemented cleanly with SkillLoader + SkillRegistry</item>
+    <item>Phase 6 calcification engine captures core thesis: Time × Usage × Ceremony × Consensus</item>
+    <item>Test isolation bug fix (property descriptor vs evaluated value) was good debugging</item>
+    <item>Adding `related` field to index enabled consensus scoring</item>
+    <item>501 tests pass - good coverage maintained</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Groq API 403'd - key expired or rate limited</item>
+    <item>Ollama worker output too generic without reef context - not useful for domain code</item>
+    <item>Worker trench pattern needs full Claude context, not lightweight LLMs</item>
+  </what-didnt>
+
+  <files-created>
+    <file>src/reef/calcification.py</file>
+    <file>tests/test_calcification.py</file>
+  </files-created>
+
+  <files-modified>
+    <file>src/reef/cli.py</file>
+    <file>src/reef/blob.py</file>
+    <file>src/reef/skills/loader.py</file>
+    <file>tests/test_skills.py</file>
+    <file>.claude/threads/reef-native-infrastructure.blob.xml</file>
+  </files-modified>
+
+  <commits>
+    <commit>feat: Phase 5 - Skill infrastructure with hotloading</commit>
+    <commit>feat: Phase 6 - Calcification engine with organic growth mechanics</commit>
+  </commits>
+
+  <next-session>
+    <item priority="high">Implement Phase 7: Worktree harness (src/reef/trench.py)</item>
+    <item priority="high">CLI: reef trench spawn/status/merge/abort</item>
+    <item priority="medium">Test parallel Claude sessions in isolated worktrees</item>
+    <item priority="low">Fix Groq API key for worker dispatch</item>
+  </next-session>
+</run>

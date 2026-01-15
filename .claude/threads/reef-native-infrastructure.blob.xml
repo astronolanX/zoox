@@ -4,7 +4,12 @@
     <file>docs/plans/2026-01-15-reef-native-infrastructure-design.md</file>
     <file>docs/plans/2026-01-15-agent-sdk-implementation-plan.md</file>
     <file>docs/plans/2026-01-15-plan-validation.md</file>
-    <file>.claude/sparks/graph-native-polips/2026-01-15-graph-native-polip-structure.md</file>
+    <file>src/reef/calcification.py</file>
+    <file>src/reef/skills/loader.py</file>
+    <file>src/reef/agents/</file>
+    <file>src/reef/workers/</file>
+    <file>src/reef/mcp/</file>
+    <file>src/reef/safety/</file>
   </files>
   <decisions>
     <decision why="Spark challenged explicit structure; Karen validated hybrid">Graph relationships: content-embedded intent + computed similarity (no separate links.xml)</decision>
@@ -17,16 +22,72 @@
     <decision why="Cost optimization: free workers for grunt work">Route external-ok tasks to Groq/Ollama/Gemini, reserve Claude for judgment</decision>
     <decision why="Academic validation: A-MEM proves self-organizing works">Calcification engine with time × usage × consensus triggers</decision>
     <decision why="Developer sentiment: transparency + control required">Audit trail, dry-run mode, and validator checks for all automatic operations</decision>
+    <decision why="Parallel development needs isolation">Worktree harness: spawn child Claude agents in git worktrees, test before merge</decision>
   </decisions>
   <next>
-    <step>Phase 0: Create directory structure for agent SDK</step>
-    <step>Phase 1: Implement P0 safety guards (dry-run, deletion limits, undo buffer)</step>
-    <step>Phase 2: Worker infrastructure (Groq/Ollama/Gemini dispatch)</step>
-    <step>Phase 3: MCP server implementation</step>
-    <step>Phase 4: Agent orchestrator, strategist, validator</step>
-    <step>Phase 5: Skill hotloading (global + project-local)</step>
-    <step>Phase 6: Calcification engine + adversarial decay</step>
+    <step status="done">Phase 0: Create directory structure for agent SDK</step>
+    <step status="done">Phase 1: Implement P0 safety guards (dry-run, deletion limits, undo buffer)</step>
+    <step status="done">Phase 2: Worker infrastructure (Groq/Ollama/Gemini dispatch)</step>
+    <step status="done">Phase 3: MCP server implementation</step>
+    <step status="done">Phase 4: Agent orchestrator, strategist, validator</step>
+    <step status="done">Phase 5: Skill hotloading (global + project-local)</step>
+    <step status="done">Phase 6: Calcification engine + adversarial decay</step>
+    <step status="pending">Phase 7: Worktree harness - parallel Claude agents with test-before-merge</step>
+    <step status="pending">Phase 8: Integration polish + documentation</step>
   </next>
+  <spec-phase-7>
+## Phase 7: Worktree Harness - Parallel Claude Development
+
+Enable multiple Claude agents to work on isolated features simultaneously, each in its own git worktree with independent testing before upstream merge.
+
+### Architecture
+```
+Main worktree (orchestrator)
+├── git worktree create reef-phase7-feature-x
+│   └── Claude session A (feature-x implementation)
+│       └── Tests run locally before signaling merge
+├── git worktree create reef-phase7-feature-y
+│   └── Claude session B (feature-y implementation)
+│       └── Tests run locally before signaling merge
+└── Orchestrator merges when both report green
+```
+
+### Components
+1. **TrenchHarness** (src/reef/trench.py)
+   - `spawn(branch_name)` → create worktree + return path
+   - `status()` → check all active child sessions
+   - `merge(branch_name)` → run tests in worktree, merge if green
+
+2. **ChildSession Protocol**
+   - Each child logs progress to `.reef-child-session.log`
+   - Child runs tests before signaling ready
+   - Parent orchestrator reads status file, merges on success
+
+3. **CLI Commands**
+   - `reef trench spawn <feature>` → Launch child Claude
+   - `reef trench status` → See all active branches
+   - `reef trench merge <feature>` → Merge if tests pass
+   - `reef trench abort <feature>` → Kill child, clean worktree
+
+### Test Protocol
+- Child session runs `uv run pytest` in isolated worktree
+- All 501+ tests must pass locally before merge
+- Parent verifies test log, performs merge
+- On failure, child session persists for debugging
+
+### Child Context
+Each spawned Claude inherits:
+- Full reef codebase in worktree
+- `.claude/` polips (scoped to project + session)
+- This thread as context (resume capability)
+- Instructions to test before signaling ready
+
+### Success Criteria
+✓ Spawn 2+ parallel child worktrees without conflicts
+✓ Each runs independent tests (no shared state pollution)
+✓ Orchestrator merges successfully when both report green
+✓ Resume next session: child can continue work, parent can continue orchestration
+  </spec-phase-7>
   <related>
     <ref>constraints-project-rules</ref>
   </related>
@@ -79,31 +140,43 @@ Spawned 7 agents in parallel to validate organic schema growth:
 - **Technical Validator**: P0 safeguards are critical path
 
 ### Comprehensive Implementation Plan
-Created 7-phase plan at `docs/plans/2026-01-15-agent-sdk-implementation-plan.md`:
-- Phase 0: Foundation restructure
-- Phase 1: Safety infrastructure (P0 critical)
-- Phase 2: Worker distribution (Groq/Ollama/Gemini)
-- Phase 3: MCP server
-- Phase 4: Agent infrastructure (orchestrator, strategist, validator)
-- Phase 5: Skill hotloading
-- Phase 6: Calcification engine
-- Phase 7: Integration and polish
+Created 7-phase plan at `docs/plans/2026-01-15-agent-sdk-implementation-plan.md`
 
-### Key Validations
-- Academic research confirms organic growth works at scale
-- Market moving toward MCP as standard protocol
-- Developer sentiment requires transparency + control
-- Funding flowing to memory infrastructure ($24M to Mem0)
+## Session 3: Phase 5-6 Implementation (2026-01-15 evening)
 
-### Biological Metaphor Refined
-User insight: "The biological metaphor isn't decoration—it's blueprint. Nature already solved coordination through 4B years of evolution."
-- Garden model: humans plant seeds, context is soil, inference feeds growth, pruning is maintenance
-- The schema isn't designed—it's cultivated
+### Completed
+- **Phase 5**: Skill hotloading with SkillLoader, SkillRegistry
+  - Discovery from local (.claude/skills/) and global (~/.claude/skills/)
+  - Hotload tracking via mtime, reload callbacks
+  - CLI: `reef skills list/show/create/check`
+  - Fixed test isolation bug (property descriptor vs evaluated value)
+
+- **Phase 6**: Calcification engine (the core thesis)
+  - `CalcificationEngine`: Time × Usage × Ceremony × Consensus scoring
+  - `AdversarialDecay`: Challenge stale/orphan polips (SURVIVE/MERGE/DECOMPOSE)
+  - `ReefHealth`: Vitality scoring, lifecycle stages, recommendations
+  - CLI: `reef health`, `reef calcify`, `reef decay`
+  - Added `related` field to index for consensus scoring
+
+### Worker Trench Test
+- Attempted parallel worker dispatch (Groq + Ollama)
+- Groq: 403 Forbidden (API key issue)
+- Ollama: Worked but output too generic without reef context
+- Insight: Domain-specific code needs full context; workers better for grunt tasks
+
+### New Phase Added
+- **Phase 7**: Worktree harness for parallel Claude agents
+  - Each child session works in isolated git worktree
+  - Tests must pass before merging upstream
+  - Enables true parallel development without conflicts
 
 ## To Resume
-1. Read full plan: `docs/plans/2026-01-15-agent-sdk-implementation-plan.md`
-2. Read validation: `docs/plans/2026-01-15-plan-validation.md`
-3. Begin Phase 0: Create directory structure
-4. Phase 1 is critical path: Safety guards before any automation
+1. Surface this thread: `/surface threads-reef-native-infrastructure`
+2. Next: Phase 7 - Worktree harness implementation
+3. Phase 7 components:
+   - `reef trench spawn <branch>` - create worktree + launch Claude
+   - `reef trench status` - check child session progress
+   - `reef trench merge <branch>` - run tests + merge if green
+4. Then Phase 8: Integration polish
   </context>
 </blob>
