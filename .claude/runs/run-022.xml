@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<run id="022" date="2026-01-15" duration="~120min">
+  <summary>
+    Deep brainstorming session exploring reef as native AI infrastructure. Defined complete polip lifecycle
+    (spawn → drift → attach → grow → bud → calcify), death/decay mechanics, reef geology layers, and
+    digital ecology with immune system. Resolved Gap 4 (graph-native relationships) through spark exploration
+    + team synthesis. Established coexistence model between reef (AI memory) and config (human rules) with
+    promotion pathway. Created comprehensive design document and session continuity polip.
+  </summary>
+
+  <what-worked>
+    <item>Brainstorming skill structured exploration through 4 phases (D→A→C→B)</item>
+    <item>Spark exploration (90% emergent) challenged explicit structure assumption</item>
+    <item>Team synthesis (architect + visionary + karen) validated hybrid graph approach</item>
+    <item>Content-embedded links eliminate separate links.xml sync complexity</item>
+    <item>Paradigm crystallized: "schema isn't designed — it's grown"</item>
+    <item>Session continuity polip captures decisions for future pickup</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Initial Link object design was over-engineered (spark caught this)</item>
+    <item>Thread file needed git add --force due to gitignore patterns</item>
+  </what-didnt>
+
+  <files-created>
+    <file>docs/plans/2026-01-15-reef-native-infrastructure-design.md</file>
+    <file>.claude/threads/reef-native-infrastructure.blob.xml</file>
+    <file>.claude/sparks/graph-native-polips/2026-01-15-graph-native-polip-structure.md</file>
+  </files-created>
+
+  <files-modified>
+    <file>docs/plans/2026-01-15-reef-native-infrastructure-design.md (updated with Gap 4 + coexistence)</file>
+  </files-modified>
+
+  <key-decisions>
+    <decision reason="Spark challenged explicit structure; Karen validated hybrid">
+      Graph relationships: content-embedded intent + computed similarity (no separate links.xml)
+    </decision>
+    <decision reason="Team consensus: different concerns, proven pattern">
+      Reef and config coexist with clear authority boundaries
+    </decision>
+    <decision reason="Visionary insight: organic/authored is temporal">
+      Promotion pathway: organic → crystallized → human-promoted to config
+    </decision>
+    <decision reason="Karen: bidirectional sync is a tar pit">
+      Reef reads config, cannot modify it; human remains gatekeeper
+    </decision>
+    <decision reason="Architect: content-as-truth eliminates sync">
+      Links stored in polip content via [[wiki]] and @directives
+    </decision>
+  </key-decisions>
+
+  <research-signals>
+    <signal source="arXiv">"Memory is becoming the state layer for agentic systems"</signal>
+    <signal source="arXiv">"Everything is Context" - file system as universal semantic interface</signal>
+    <signal source="EverMemOS">4-layer brain-inspired architecture (Agentic → Memory → Index → API)</signal>
+    <signal source="industry">Apple Intelligence (system-level, on-device) vs Microsoft Copilot (hybrid, cloud-heavy)</signal>
+  </research-signals>
+
+  <concepts-defined>
+    <concept name="Polip Lifecycle">spawn → drift → attach → grow → bud → calcify</concept>
+    <concept name="Calcification Triggers">Time × Usage × Ceremony × Consensus × Genome (combinatorial)</concept>
+    <concept name="Reef Geology">Active → Skeletal → Fossil → Sediment layers</concept>
+    <concept name="Digital Ecology">Protected zone with federated consensus entry validation</concept>
+    <concept name="Content-Embedded Links">[[wiki-links]], @supersedes, @blocks directives</concept>
+    <concept name="Paradigm Shift">Human architect → Schema → Data conforms → BECOMES → AI usage → Polips spawn → Structure emerges</concept>
+  </concepts-defined>
+
+  <next-session>
+    <step priority="high">Gap 3: Implement calcification triggers (time, usage, consensus combinations)</step>
+    <step priority="high">Add @supersedes/@blocks directive parsing to blob.py</step>
+    <step priority="medium">Build incoming link cache for structural pressure tracking</step>
+    <step priority="medium">Add `reef suggest` command for promotion pathway</step>
+    <step priority="low">Gap 1: Verify zero-dependency operation remains intact</step>
+    <step priority="low">Gap 5: Build validator/lineage chain</step>
+    <step priority="low">Gap 2: MCP bridge implementation</step>
+  </next-session>
+
+  <open-questions>
+    <question>Exact calcification threshold values?</question>
+    <question>Federation mechanics for multi-machine reefs?</question>
+    <question>How do reefs discover each other? (reef drift discover)</question>
+    <question>Garbage collection for orphaned drifting polips?</question>
+    <question>How to handle directive conflicts (@supersedes vs @blocks)?</question>
+    <question>Should reef suggest auto-detect or require explicit marking?</question>
+  </open-questions>
+
+  <thread-ref>.claude/threads/reef-native-infrastructure.blob.xml</thread-ref>
+</run>
