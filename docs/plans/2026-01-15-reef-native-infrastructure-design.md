@@ -290,4 +290,160 @@ Build order (inside-out architecture):
 
 ---
 
+## Gap 4 Resolution: Graph-Native Relationships
+
+*Added 2026-01-15 after spark exploration + team synthesis*
+
+### The Challenge
+
+Spark exploration (90% confidence) asked: *"What if polips don't need structure to self-organize?"*
+
+This challenged our initial design of explicit Link objects with bidirectional tracking.
+
+### Team Analysis
+
+| Agent | Verdict |
+|-------|---------|
+| **Karen** | Stored structure = LEGIT; Pure computation = BS; Hybrid = uncertain |
+| **Architect** | Hybrid recommended — store intent in content, compute similarity on demand |
+| **Visionary** | The organic/authored distinction is temporal, not categorical |
+
+### Resolution: Content-Embedded Links
+
+**Store intent, compute similarity:**
+
+```xml
+<polip id="auth-decision">
+  <content>
+    Decided JWT for session management.
+
+    @supersedes auth-exploration-thread
+    Related: [[security-constraints]] [[user-model]]
+
+    This blocks [[oauth-integration]] until token refresh solid.
+  </content>
+</polip>
+```
+
+**Link types:**
+| Syntax | Type | Storage |
+|--------|------|---------|
+| `[[polip-name]]` | Wiki reference | Stored in content |
+| `@supersedes X` | Structural directive | Stored in content |
+| `@blocks X` | Dependency | Stored in content |
+| Semantic similarity | Implicit | Computed on-demand |
+| File co-reference | Implicit | Computed on-demand |
+
+**No separate links.xml file.** Links live in polip content. Graph is parsed/computed, not maintained.
+
+### Implementation Phases
+
+1. Parse `[[wiki-links]]` from content (already exists)
+2. Add `@supersedes`/`@blocks` directive parsing
+3. Add incoming link query (O(n) scan, cacheable)
+4. Compute implicit similarity on explicit L3 request
+
+---
+
+## Coexistence Model: Reef vs Config
+
+### The Paradigm
+
+Reef is the *organic* version of how databases form. Traditional databases:
+
+```
+Human architect → Schema design → Data conforms to schema
+```
+
+Reef:
+
+```
+AI usage → Polips spawn → Structure emerges → Calcification creates schema
+```
+
+**The schema isn't designed — it's grown.**
+
+### Authority Model
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  HUMAN DOMAIN          │  AI DOMAIN                      │
+│  ─────────────         │  ─────────                      │
+│  CLAUDE.md             │  threads/                       │
+│  core.md               │  deposits/                      │
+│  config.json           │  fossils/                       │
+│                        │  patterns/                      │
+│                        │                                 │
+│  Authority: Override   │  Authority: Advisory            │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key principles:**
+1. **Separation is real** — Config = instructions TO AI; Reef = memory OF AI
+2. **Authority flows down** — CLAUDE.md > bedrock polips > organic polips
+3. **Promotion flows up** — Crystallized patterns *suggest* config additions
+4. **Human remains gatekeeper** — Promotion requires human commit
+
+### Promotion Pathway
+
+```
+organic polips (threads, drifting)
+        ↓ calcification (time + usage + consensus)
+crystallized polips (proven, referenced)
+        ↓ promotion (human reviews, commits)
+CLAUDE.md (human-authored, authoritative)
+```
+
+**Commands:**
+```bash
+reef suggest              # Show crystallized patterns worth promoting
+reef cite CLAUDE.md#section  # Polips can reference config sections
+reef conflicts            # Surface contradictions for human review
+```
+
+---
+
+## Session Reference
+
+**Conversation:** 2026-01-15 brainstorming session
+**Starting commit:** `5198443 feat: reef as native AI infrastructure - vision design`
+**Thread:** `.claude/sparks/graph-native-polips/`
+
+### Key Decisions Made
+
+1. **Graph structure** — Hybrid (content-embedded intent + computed similarity)
+2. **Coexistence** — Reef and config are separate domains with clear authority
+3. **Promotion pathway** — Organic → crystallized → human-promoted to config
+4. **No bidirectional sync** — Reef reads config, cannot modify it
+5. **Emergence validated** — But pure computation = BS; store intent explicitly
+
+---
+
+## Updated Next Steps
+
+1. ~~**Gap 4 (Relationships)**: Design graph-native polip structure~~ ✓ RESOLVED
+2. **Gap 3 (Evolution)**: Implement calcification triggers
+3. **Gap 1 (Local-first)**: Ensure zero-dependency operation
+4. **Gap 5 (Provenance)**: Build validator/lineage chain
+5. **Gap 2 (Protocol)**: MCP bridge implementation
+6. **NEW**: Implement `@supersedes`/`@blocks` directive parsing
+7. **NEW**: Add `reef suggest` command for promotion pathway
+8. **NEW**: Build incoming link cache for structural pressure tracking
+
+---
+
+## Open Questions (Updated)
+
+- ~~Binary vs text encoding for `.polip` files?~~ → Text (content-embedded links)
+- Exact calcification threshold values?
+- Federation mechanics for multi-machine reefs?
+- How do reefs discover each other? (`reef drift discover`)
+- Garbage collection for orphaned drifting polips?
+- **NEW**: How to handle directive conflicts (`A @supersedes B` but `B @blocks A`)?
+- **NEW**: Should `reef suggest` auto-detect promotable patterns or require explicit marking?
+
+---
+
 *This design crystallizes from brainstorming. It will evolve.*
+
+*Last updated: 2026-01-15 (Gap 4 resolution + coexistence model)*

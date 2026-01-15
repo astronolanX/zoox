@@ -1,0 +1,65 @@
+<blob type="thread" scope="project" status="active" updated="2026-01-15" v="2">
+  <summary>Reef as Native AI Infrastructure - Design Thread</summary>
+  <files>
+    <file>docs/plans/2026-01-15-reef-native-infrastructure-design.md</file>
+    <file>.claude/sparks/graph-native-polips/2026-01-15-graph-native-polip-structure.md</file>
+  </files>
+  <decisions>
+    <decision why="Spark challenged explicit structure; Karen validated hybrid">Graph relationships: content-embedded intent + computed similarity (no separate links.xml)</decision>
+    <decision why="Team consensus: different concerns, proven pattern">Reef and config coexist with clear authority boundaries</decision>
+    <decision why="Visionary insight: organic/authored is temporal">Promotion pathway: organic → crystallized → human-promoted to config</decision>
+    <decision why="Karen: bidirectional sync is a tar pit">Reef reads config, cannot modify it; human remains gatekeeper</decision>
+    <decision why="Architect: content-as-truth eliminates sync">Links stored in polip content via [[wiki]] and @directives</decision>
+  </decisions>
+  <next>
+    <step>Gap 3: Implement calcification triggers (time, usage, consensus combinations)</step>
+    <step>Add @supersedes/@blocks directive parsing to blob.py</step>
+    <step>Build incoming link cache for structural pressure tracking</step>
+    <step>Add `reef suggest` command for promotion pathway</step>
+    <step>Gap 1: Verify zero-dependency operation remains intact</step>
+  </next>
+  <related>
+    <ref>constraints-project-rules</ref>
+  </related>
+  <context>
+## Session Summary (2026-01-15)
+
+Deep brainstorming session exploring reef as native AI infrastructure. Key insight: reef enables AI to grow its own databases organically, rather than conforming to human-designed schemas.
+
+### Research Phase (D)
+- Surveyed AI infrastructure landscape (EverMemOS, MCP, Apple Intelligence vs Copilot)
+- Found: "Memory is becoming the state layer for agentic systems"
+- Key paper: "Everything is Context" - file system as universal semantic interface
+
+### Biology Phase (A)
+- Defined polip lifecycle: spawn → drift → attach → grow → bud → calcify
+- Calcification triggers: Time × Usage × Ceremony × Consensus × Genome (combinatorial)
+- Death/decay: staleness→fossil, supersession→absorbed, contradiction→skeleton
+- Reef geology: active → skeletal → fossil → sediment layers
+
+### Portability Phase (C)
+- Start at L0 (plain files), calcify toward L3/L4
+- Content embedding: lifecycle-based (drifting=ref, calcified=embed)
+- Activation layers: SDK → middleware → daemon
+
+### Gap Analysis (B)
+- 5 gaps identified; build order: relationships → evolution → sovereignty → provenance → protocol
+- Gap 4 resolved: hybrid graph (content-embedded links + computed similarity)
+
+### Coexistence Resolution
+- Config = instructions TO AI (human domain, override authority)
+- Reef = memory OF AI (AI domain, advisory authority)
+- Promotion pathway from organic → crystallized → human-committed
+
+### Paradigm Crystallized
+Traditional: Human architect → Schema design → Data conforms
+Reef: AI usage → Polips spawn → Structure emerges → Calcification creates schema
+
+The schema isn't designed — it's grown.
+
+## To Resume
+1. Read design doc: `docs/plans/2026-01-15-reef-native-infrastructure-design.md`
+2. Review spark: `.claude/sparks/graph-native-polips/`
+3. Continue with Gap 3 (calcification triggers) or directive parsing
+  </context>
+</blob>
