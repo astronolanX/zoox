@@ -651,6 +651,7 @@ class Glob:
             "status": blob.status.value if blob.status else None,
             "summary": blob.summary[:200],  # Truncate for index
             "files": blob.files[:10],  # Limit files in index
+            "related": blob.related[:10],  # Limit related in index
             "updated": blob.updated.strftime("%Y-%m-%d"),
             "access_count": access_count,
         }
@@ -719,6 +720,7 @@ class Glob:
                         "status": blob.status.value if blob.status else None,
                         "summary": blob.summary[:200],
                         "files": blob.files[:10],
+                        "related": blob.related[:10],
                         "updated": blob.updated.strftime("%Y-%m-%d"),
                         "access_count": access_count,
                     }

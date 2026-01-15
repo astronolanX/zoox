@@ -11,6 +11,7 @@ Terminology:
 """
 
 import argparse
+import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -1579,6 +1580,126 @@ def cmd_skills(args):
         return
 
 
+def cmd_health(args):
+    """Show reef health metrics."""
+    from reef.calcification import ReefHealth
+    from reef.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+    health = ReefHealth(glob)
+    report = health.calculate()
+
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2))
+        return
+
+    print("Reef Health Report")
+    print("=" * 40)
+    print()
+    print(f"Vitality Score: {report.vitality_score:.1%}")
+    print(f"Total Polips:   {report.total_polips}")
+    print(f"Active Ratio:   {report.active_ratio:.1%}")
+    print(f"Ref Density:    {report.reference_density:.2f} refs/polip")
+    print(f"Type Diversity: {report.type_diversity:.1%}")
+    print()
+
+    print("Lifecycle Distribution:")
+    for stage, count in report.lifecycle_stages.items():
+        bar = "█" * min(count, 20)
+        print(f"  {stage:12} {count:3} {bar}")
+    print()
+
+    print("Age Distribution:")
+    for bracket, count in report.age_distribution.items():
+        bar = "█" * min(count, 20)
+        print(f"  {bracket:8} {count:3} {bar}")
+    print()
+
+    print("Recommendations:")
+    for rec in report.recommendations:
+        print(f"  • {rec}")
+
+
+def cmd_calcify(args):
+    """View calcification candidates or execute calcification."""
+    from reef.calcification import CalcificationEngine
+    from reef.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+    engine = CalcificationEngine(glob)
+
+    if args.all:
+        scores = engine.get_all_scores()
+    else:
+        scores = engine.get_candidates()
+
+    if args.json:
+        print(json.dumps([s.to_dict() for s in scores], indent=2))
+        return
+
+    if not scores:
+        print("No calcification candidates found.")
+        print("Polips need: time (30d), usage (10 accesses), ceremony, or consensus (3 refs)")
+        return
+
+    title = "All Polip Scores" if args.all else "Calcification Candidates"
+    print(f"{title} ({len(scores)} polips)")
+    print("=" * 60)
+    print()
+    print(f"{'Polip':<35} {'Score':>8} {'Time':>6} {'Use':>6} {'Cer':>6} {'Con':>6}")
+    print("-" * 60)
+
+    for s in scores:
+        name = s.polip_key[:33] + ".." if len(s.polip_key) > 35 else s.polip_key
+        marker = "✓" if s.should_calcify else " "
+        print(f"{name:<35} {s.total:>7.2f}{marker} {s.time_score:>6.2f} {s.usage_score:>6.2f} {s.ceremony_score:>6.2f} {s.consensus_score:>6.2f}")
+
+    print()
+    print(f"Threshold: {engine.CALCIFICATION_THRESHOLD} (✓ = ready to calcify)")
+
+
+def cmd_decay(args):
+    """Run adversarial decay challenges."""
+    from reef.calcification import AdversarialDecay, ChallengeResult
+    from reef.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+    decay = AdversarialDecay(glob)
+
+    dry_run = not args.execute
+    reports = decay.run_challenges(dry_run=dry_run)
+
+    if args.json:
+        print(json.dumps([r.to_dict() for r in reports], indent=2))
+        return
+
+    if not reports:
+        print("No polips challenged.")
+        print("Challengers: stale (60d + <3 access), orphan (30d + no refs)")
+        return
+
+    mode = "DRY RUN" if dry_run else "EXECUTED"
+    print(f"Adversarial Decay [{mode}] ({len(reports)} challenged)")
+    print("=" * 60)
+    print()
+
+    for r in reports:
+        icon = {"survive": "✓", "merge": "→", "decompose": "✗"}[r.result.value]
+        print(f"{icon} {r.polip_key}")
+        print(f"  Trigger: {r.trigger}")
+        print(f"  Result:  {r.result.value.upper()}")
+        print(f"  Reason:  {r.reason}")
+        print()
+
+    if dry_run:
+        decompose_count = sum(1 for r in reports if r.result == ChallengeResult.DECOMPOSE)
+        if decompose_count > 0:
+            print(f"Run 'reef decay --execute' to decompose {decompose_count} polips")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="reef",
@@ -1837,6 +1958,35 @@ def main():
     skills_check = skills_subparsers.add_parser("check", help="Check for modified skills")
 
     skills_parser.set_defaults(func=cmd_skills, skills_cmd=None, name=None, agents=None, task_types=None, local=False, global_=False)
+
+    # health - Reef health metrics
+    health_parser = subparsers.add_parser(
+        "health",
+        help="Show reef ecosystem health metrics",
+        description="Calculate vitality score, lifecycle distribution, and recommendations",
+    )
+    health_parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
+    health_parser.set_defaults(func=cmd_health)
+
+    # calcify - Calcification candidates
+    calcify_parser = subparsers.add_parser(
+        "calcify",
+        help="View/execute polip calcification",
+        description="Show polips ready to crystallize into bedrock based on time, usage, ceremony, consensus",
+    )
+    calcify_parser.add_argument("--all", "-a", action="store_true", help="Show all polips, not just candidates")
+    calcify_parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
+    calcify_parser.set_defaults(func=cmd_calcify)
+
+    # decay - Adversarial decay
+    decay_parser = subparsers.add_parser(
+        "decay",
+        help="Run adversarial decay challenges",
+        description="Challenge stale/orphan polips to defend their existence",
+    )
+    decay_parser.add_argument("--execute", "-x", action="store_true", help="Execute decomposition (default: dry-run)")
+    decay_parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
+    decay_parser.set_defaults(func=cmd_decay)
 
     args = parser.parse_args()
     args.func(args)
