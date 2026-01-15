@@ -4,11 +4,17 @@ Skill loader - discovers and loads skills from multiple locations.
 Search order (highest priority first):
 1. Project-local: .claude/skills/
 2. Global: ~/.claude/skills/
+
+Supports:
+- Hot reloading via file modification time tracking
+- Variable substitution in skill content
+- Multi-location skill discovery with local override
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 import json
 
 
@@ -22,6 +28,7 @@ class SkillInfo:
     agents: list[str]
     task_types: list[str]
     description: str | None = None
+    mtime: float | None = None  # Last modification time
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -32,7 +39,14 @@ class SkillInfo:
             "agents": self.agents,
             "task_types": self.task_types,
             "description": self.description,
+            "mtime": self.mtime,
         }
+
+    def is_stale(self) -> bool:
+        """Check if skill file has been modified since loading."""
+        if self.mtime is None or not self.path.exists():
+            return True
+        return self.path.stat().st_mtime > self.mtime
 
 
 class SkillLoader:
@@ -47,6 +61,8 @@ class SkillLoader:
         """
         self.project_dir = project_dir or Path.cwd()
         self._cache: dict[str, str] = {}
+        self._skill_info_cache: dict[str, SkillInfo] = {}
+        self._watchers: list[Callable[[str], None]] = []
 
     @property
     def search_paths(self) -> list[tuple[Path, str]]:
@@ -189,3 +205,165 @@ class SkillLoader:
     def clear_cache(self) -> None:
         """Clear skill cache."""
         self._cache.clear()
+        self._skill_info_cache.clear()
+
+    def watch(self, callback: Callable[[str], None]) -> None:
+        """
+        Register callback for skill changes.
+
+        Args:
+            callback: Function called with skill name when it changes
+        """
+        self._watchers.append(callback)
+
+    def check_for_changes(self) -> list[str]:
+        """
+        Check for modified skills since last load.
+
+        Returns:
+            List of skill names that have changed
+        """
+        changed = []
+
+        for name, info in self._skill_info_cache.items():
+            if info.is_stale():
+                changed.append(name)
+
+        return changed
+
+    def reload_changed(self) -> list[str]:
+        """
+        Reload any skills that have changed.
+
+        Returns:
+            List of skill names that were reloaded
+        """
+        changed = self.check_for_changes()
+
+        for name in changed:
+            # Clear from caches
+            self._cache.pop(name, None)
+            self._skill_info_cache.pop(name, None)
+
+            # Reload
+            self.load(name)
+
+            # Notify watchers
+            for callback in self._watchers:
+                try:
+                    callback(name)
+                except Exception:
+                    pass
+
+        return changed
+
+    def load_with_tracking(self, skill_name: str) -> str | None:
+        """
+        Load skill content with modification tracking.
+
+        Args:
+            skill_name: Name of skill to load
+
+        Returns:
+            Skill content or None if not found
+        """
+        content = self.load(skill_name)
+
+        if content is not None:
+            # Track skill info for hotloading
+            for search_path, source in self.search_paths:
+                skill_path = search_path / f"{skill_name}.md"
+                if skill_path.exists():
+                    self._skill_info_cache[skill_name] = SkillInfo(
+                        name=skill_name,
+                        path=skill_path,
+                        source=source,
+                        agents=[],
+                        task_types=[],
+                        mtime=skill_path.stat().st_mtime,
+                    )
+                    break
+
+        return content
+
+    def get_skill_path(self, skill_name: str) -> Path | None:
+        """
+        Get path to skill file.
+
+        Args:
+            skill_name: Name of skill
+
+        Returns:
+            Path to skill file or None
+        """
+        for search_path, _source in self.search_paths:
+            skill_path = search_path / f"{skill_name}.md"
+            if skill_path.exists():
+                return skill_path
+        return None
+
+    def list_skills(self) -> list[str]:
+        """
+        List all available skill names.
+
+        Returns:
+            List of skill names
+        """
+        return [s.name for s in self.discover()]
+
+    def create_skill(
+        self,
+        name: str,
+        content: str,
+        agents: list[str] | None = None,
+        task_types: list[str] | None = None,
+        local: bool = True,
+    ) -> Path:
+        """
+        Create a new skill file.
+
+        Args:
+            name: Skill name (will become filename)
+            content: Skill content
+            agents: List of agents this skill applies to
+            task_types: List of task types this skill applies to
+            local: If True, create in project-local skills
+
+        Returns:
+            Path to created skill file
+        """
+        if local:
+            skill_dir = self.project_dir / ".claude/skills"
+        else:
+            skill_dir = Path.home() / ".claude/skills"
+
+        skill_dir.mkdir(parents=True, exist_ok=True)
+
+        # Write skill file
+        skill_path = skill_dir / f"{name}.md"
+        skill_path.write_text(content, encoding="utf-8")
+
+        # Update index if it exists
+        index_path = skill_dir / "index.json"
+        if index_path.exists():
+            try:
+                with open(index_path, "r", encoding="utf-8") as f:
+                    index = json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                index = {"version": 1, "skills": {}}
+        else:
+            index = {"version": 1, "skills": {}}
+
+        index["skills"][name] = {
+            "path": f"{name}.md",
+            "agents": agents or [],
+            "task_types": task_types or [],
+        }
+
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump(index, f, indent=2)
+
+        # Clear cache so new skill is picked up
+        self.clear_cache()
+
+        return skill_path

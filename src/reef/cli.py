@@ -1455,6 +1455,130 @@ def cmd_workers(args):
         return
 
 
+def cmd_skills(args):
+    """Manage skill hotloading."""
+    from reef.skills import SkillLoader, SkillRegistry
+
+    project_dir = Path.cwd()
+    loader = SkillLoader(project_dir)
+    registry = SkillRegistry(project_dir)
+
+    # Default to list
+    if not args.skills_cmd or args.skills_cmd == "list":
+        skills = loader.discover()
+
+        if args.local:
+            skills = [s for s in skills if s.source == "local"]
+        if args.global_:
+            skills = [s for s in skills if s.source == "global"]
+
+        if not skills:
+            print("No skills found")
+            return
+
+        print(f"Skills ({len(skills)} total)")
+        print()
+
+        # Group by source
+        local_skills = [s for s in skills if s.source == "local"]
+        global_skills = [s for s in skills if s.source == "global"]
+
+        if local_skills:
+            print("Local (.claude/skills/):")
+            for skill in local_skills:
+                agents = ", ".join(skill.agents) if skill.agents else "any"
+                types = ", ".join(skill.task_types) if skill.task_types else "any"
+                print(f"  {skill.name}")
+                if skill.agents or skill.task_types:
+                    print(f"    agents: {agents} | types: {types}")
+            print()
+
+        if global_skills:
+            print("Global (~/.claude/skills/):")
+            for skill in global_skills:
+                agents = ", ".join(skill.agents) if skill.agents else "any"
+                print(f"  {skill.name}")
+            print()
+
+        return
+
+    # Show subcommand
+    if args.skills_cmd == "show":
+        skill_name = args.name
+        content = loader.load(skill_name)
+
+        if content is None:
+            print(f"Skill not found: {skill_name}")
+            sys.exit(1)
+
+        info = loader.get_skill_info(skill_name)
+        if info:
+            print(f"# {skill_name}")
+            print(f"# Source: {info.source}")
+            if info.agents:
+                print(f"# Agents: {', '.join(info.agents)}")
+            if info.task_types:
+                print(f"# Task types: {', '.join(info.task_types)}")
+            print()
+
+        print(content)
+        return
+
+    # Create subcommand
+    if args.skills_cmd == "create":
+        skill_name = args.name
+        agents = args.agents or []
+        task_types = args.task_types or []
+        local = not args.global_
+
+        # Create placeholder content
+        content = f"""# {skill_name}
+
+## Overview
+
+[Describe what this skill does]
+
+## Usage
+
+[When to use this skill]
+
+## Instructions
+
+[Step-by-step instructions]
+"""
+
+        path = loader.create_skill(
+            name=skill_name,
+            content=content,
+            agents=agents,
+            task_types=task_types,
+            local=local,
+        )
+
+        print(f"Created skill: {path.relative_to(project_dir)}")
+        print(f"Edit the file to add skill content.")
+        return
+
+    # Check subcommand
+    if args.skills_cmd == "check":
+        # Load all skills with tracking
+        for skill in loader.discover():
+            loader.load_with_tracking(skill.name)
+
+        changed = loader.check_for_changes()
+
+        if not changed:
+            print("No skills have been modified")
+        else:
+            print(f"Modified skills ({len(changed)}):")
+            for name in changed:
+                print(f"  {name}")
+            print()
+            print("Run 'reef skills reload' to reload changed skills")
+
+        return
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="reef",
@@ -1685,6 +1809,34 @@ def main():
     workers_run.add_argument("--type", "-t", dest="task_type", help="Task type: search, summarize, extract")
 
     workers_parser.set_defaults(func=cmd_workers, workers_cmd=None, worker_name=None, prompt=None, task_type=None)
+
+    # skills - Skill management
+    skills_parser = subparsers.add_parser(
+        "skills",
+        help="Manage skill hotloading",
+    )
+    skills_subparsers = skills_parser.add_subparsers(dest="skills_cmd")
+
+    # skills list
+    skills_list = skills_subparsers.add_parser("list", help="List available skills")
+    skills_list.add_argument("--local", action="store_true", help="Show only local skills")
+    skills_list.add_argument("--global", dest="global_", action="store_true", help="Show only global skills")
+
+    # skills show
+    skills_show = skills_subparsers.add_parser("show", help="Show skill content")
+    skills_show.add_argument("name", help="Skill name to show")
+
+    # skills create
+    skills_create = skills_subparsers.add_parser("create", help="Create a new skill")
+    skills_create.add_argument("name", help="Skill name")
+    skills_create.add_argument("--agent", "-a", action="append", dest="agents", help="Agent this skill applies to")
+    skills_create.add_argument("--type", "-t", action="append", dest="task_types", help="Task type this skill applies to")
+    skills_create.add_argument("--global", dest="global_", action="store_true", help="Create in global skills")
+
+    # skills check
+    skills_check = skills_subparsers.add_parser("check", help="Check for modified skills")
+
+    skills_parser.set_defaults(func=cmd_skills, skills_cmd=None, name=None, agents=None, task_types=None, local=False, global_=False)
 
     args = parser.parse_args()
     args.func(args)
