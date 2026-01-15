@@ -1700,6 +1700,282 @@ def cmd_decay(args):
             print(f"Run 'reef decay --execute' to decompose {decompose_count} polips")
 
 
+def cmd_trench(args):
+    """Manage parallel Claude sessions in git worktrees."""
+    from reef.trench import TrenchHarness, TrenchStatus, TrenchComplexity
+
+    project_dir = Path.cwd()
+    harness = TrenchHarness(project_dir)
+
+    # Default to status
+    if not args.trench_cmd or args.trench_cmd == "status":
+        name = getattr(args, "name", None)
+        json_output = getattr(args, "json", False)
+
+        trenches = harness.status(name)
+
+        if json_output:
+            print(json.dumps([t.to_dict() for t in trenches], indent=2))
+            return
+
+        if not trenches:
+            if name:
+                print(f"Trench '{name}' not found")
+            else:
+                print("No active trenches")
+                print()
+                print("Spawn one with: reef trench spawn <name>")
+            return
+
+        print(f"Trenches ({len(trenches)} active)")
+        print("=" * 60)
+        print()
+
+        for t in trenches:
+            status_icon = {
+                TrenchStatus.SPAWNING: "⏳",
+                TrenchStatus.RUNNING: "🔄",
+                TrenchStatus.TESTING: "🧪",
+                TrenchStatus.READY: "✅",
+                TrenchStatus.FAILED: "❌",
+                TrenchStatus.MERGED: "✓",
+                TrenchStatus.ABORTED: "⊘",
+            }.get(t.status, "?")
+
+            age = datetime.now() - t.created
+            age_str = f"{age.days}d" if age.days > 0 else f"{age.seconds // 3600}h"
+
+            print(f"{status_icon} {t.name} [{t.status.value}]")
+            print(f"  Branch: {t.branch}")
+            print(f"  Path:   {t.worktree_path}")
+            print(f"  Age:    {age_str}")
+            if t.error:
+                print(f"  Error:  {t.error}")
+            print()
+
+        return
+
+    # spawn
+    if args.trench_cmd == "spawn":
+        base = getattr(args, "base", None)
+        task = getattr(args, "task", None)
+        model = getattr(args, "model", None)
+
+        if task:
+            # Auto-launch Claude session with task
+            result = harness.spawn_session(
+                name=args.name,
+                task=task,
+                model=model,
+                base_branch=base,
+            )
+
+            if result.success:
+                info = result.trench
+                complexity = info.complexity or "moderate"
+                print(f"✓ {result.message}")
+                print()
+                print(f"  Task:       {info.task}")
+                print(f"  Complexity: {complexity} → {info.model}")
+                print(f"  Worktree:   {info.worktree_path}")
+                print(f"  PID:        {info.pid}")
+                print()
+                print("Monitor with:")
+                print(f"  reef trench status {args.name}")
+                print(f"  reef trench logs {args.name}")
+            else:
+                print(f"✗ {result.message}")
+                if result.error:
+                    print(f"  {result.error}")
+                sys.exit(1)
+        else:
+            # Just create worktree (manual session)
+            result = harness.spawn(args.name, base_branch=base)
+
+            if result.success:
+                print(f"✓ {result.message}")
+                print()
+                print("Next steps:")
+                print(f"  1. cd {result.trench.worktree_path}")
+                print(f"  2. claude  # Start Claude session in trench")
+                print(f"  3. Make changes, commit to branch '{result.trench.branch}'")
+                print(f"  4. reef trench test {args.name}  # Run tests")
+                print(f"  5. reef trench merge {args.name}  # Merge if tests pass")
+                print()
+                print("Or auto-launch with:")
+                print(f"  reef trench spawn {args.name} --task 'your task here'")
+            else:
+                print(f"✗ {result.message}")
+                if result.error:
+                    print(f"  {result.error}")
+                sys.exit(1)
+
+        return
+
+    # test
+    if args.trench_cmd == "test":
+        cmd = getattr(args, "cmd", "uv run pytest")
+        print(f"Running tests in trench '{args.name}'...")
+        print(f"Command: {cmd}")
+        print()
+
+        result = harness.run_tests(args.name, test_command=cmd)
+
+        if result.success:
+            print(f"✓ {result.message}")
+            print()
+            print(f"Ready to merge: reef trench merge {args.name}")
+        else:
+            print(f"✗ {result.message}")
+            if result.error:
+                print(f"  {result.error}")
+            if result.trench and result.trench.test_output:
+                print()
+                print("Test output (last 50 lines):")
+                print("-" * 40)
+                lines = result.trench.test_output.strip().split("\n")
+                for line in lines[-50:]:
+                    print(line)
+            sys.exit(1)
+
+        return
+
+    # merge
+    if args.trench_cmd == "merge":
+        delete_branch = not getattr(args, "no_delete", False)
+        result = harness.merge(args.name, delete_branch=delete_branch)
+
+        if result.success:
+            print(f"✓ {result.message}")
+        else:
+            print(f"✗ {result.message}")
+            if result.error:
+                print(f"  {result.error}")
+            sys.exit(1)
+
+        return
+
+    # abort
+    if args.trench_cmd == "abort":
+        force = getattr(args, "force", False)
+        result = harness.abort(args.name, force=force)
+
+        if result.success:
+            print(f"✓ {result.message}")
+        else:
+            print(f"✗ {result.message}")
+            if result.error:
+                print(f"  {result.error}")
+            sys.exit(1)
+
+        return
+
+    # prune
+    if args.trench_cmd == "prune":
+        days = getattr(args, "days", 7)
+        dry_run = not getattr(args, "execute", False)
+
+        results = harness.prune_stale(max_age_days=days, dry_run=dry_run)
+
+        if not results:
+            print(f"No stale trenches (older than {days} days)")
+            return
+
+        mode = "DRY RUN" if dry_run else "EXECUTED"
+        print(f"Stale Trench Pruning [{mode}]")
+        print("=" * 60)
+        print()
+
+        for r in results:
+            icon = "✓" if r.success else "✗"
+            print(f"{icon} {r.message}")
+            if r.error:
+                print(f"  Error: {r.error}")
+
+        if dry_run:
+            print()
+            print(f"Run 'reef trench prune --execute' to prune these trenches")
+
+        return
+
+    # cleanup
+    if args.trench_cmd == "cleanup":
+        force = getattr(args, "force", False)
+        results = harness.cleanup_all(force=force)
+
+        if not results:
+            print("No trenches to clean up")
+            return
+
+        print("Trench Cleanup")
+        print("=" * 60)
+        print()
+
+        for r in results:
+            icon = "✓" if r.success else "✗"
+            print(f"{icon} {r.message}")
+            if r.error:
+                print(f"  Error: {r.error}")
+
+        return
+
+    # logs
+    if args.trench_cmd == "logs":
+        lines = getattr(args, "lines", 50)
+        follow = getattr(args, "follow", False)
+
+        output = harness.get_session_output(args.name, tail_lines=lines)
+
+        if output is None:
+            print(f"No logs found for trench '{args.name}'")
+            print("  (Session may not have been started with --task)")
+            sys.exit(1)
+
+        if follow:
+            # Follow mode - use tail -f on the log file
+            import time
+            info = harness._read_trench_status(args.name)
+            if info:
+                log_file = info.worktree_path / ".claude-session.log"
+                print(f"Following {log_file}... (Ctrl+C to stop)")
+                print()
+                print(output)
+
+                # Simple follow loop
+                try:
+                    last_size = log_file.stat().st_size
+                    while True:
+                        time.sleep(1)
+                        current_size = log_file.stat().st_size
+                        if current_size > last_size:
+                            with open(log_file, "r") as f:
+                                f.seek(last_size)
+                                new_content = f.read()
+                                print(new_content, end="")
+                            last_size = current_size
+
+                        # Check if session is still alive
+                        if not harness.is_session_alive(args.name):
+                            print("\n[Session ended]")
+                            break
+                except KeyboardInterrupt:
+                    print("\n[Stopped following]")
+        else:
+            print(f"Logs for trench '{args.name}':")
+            print("=" * 60)
+            print(output)
+
+            # Show session status
+            if harness.is_session_alive(args.name):
+                print()
+                print("[Session still running]")
+            else:
+                print()
+                print("[Session ended]")
+
+        return
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="reef",
@@ -1987,6 +2263,58 @@ def main():
     decay_parser.add_argument("--execute", "-x", action="store_true", help="Execute decomposition (default: dry-run)")
     decay_parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
     decay_parser.set_defaults(func=cmd_decay)
+
+    # trench - Parallel Claude agents in git worktrees
+    trench_parser = subparsers.add_parser(
+        "trench",
+        help="Manage parallel Claude sessions in git worktrees",
+        description="Spawn isolated worktrees for parallel Claude development, test before merge",
+    )
+    trench_subparsers = trench_parser.add_subparsers(dest="trench_cmd")
+
+    # trench spawn
+    trench_spawn = trench_subparsers.add_parser("spawn", help="Spawn a new trench worktree")
+    trench_spawn.add_argument("name", help="Unique name for this trench (e.g., 'feature-auth')")
+    trench_spawn.add_argument("--task", "-t", help="Task for Claude to work on (auto-launches session)")
+    trench_spawn.add_argument("--model", "-m", choices=["haiku", "sonnet", "opus"], help="Model override (default: auto-detected from task)")
+    trench_spawn.add_argument("--base", "-b", help="Base branch (default: current branch)")
+
+    # trench status
+    trench_status = trench_subparsers.add_parser("status", help="Check trench status")
+    trench_status.add_argument("name", nargs="?", help="Specific trench name (default: all)")
+    trench_status.add_argument("--json", "-j", action="store_true", help="Output as JSON")
+
+    # trench test
+    trench_test = trench_subparsers.add_parser("test", help="Run tests in a trench")
+    trench_test.add_argument("name", help="Trench name")
+    trench_test.add_argument("--cmd", "-c", default="uv run pytest", help="Test command (default: uv run pytest)")
+
+    # trench merge
+    trench_merge = trench_subparsers.add_parser("merge", help="Merge a trench if tests pass")
+    trench_merge.add_argument("name", help="Trench name")
+    trench_merge.add_argument("--no-delete", action="store_true", help="Keep branch after merge")
+
+    # trench abort
+    trench_abort = trench_subparsers.add_parser("abort", help="Abort and clean up a trench")
+    trench_abort.add_argument("name", help="Trench name")
+    trench_abort.add_argument("--force", "-f", action="store_true", help="Force removal (discard uncommitted changes)")
+
+    # trench prune
+    trench_prune = trench_subparsers.add_parser("prune", help="Prune stale trenches")
+    trench_prune.add_argument("--days", "-d", type=int, default=3, help="Max age in days (default: 3)")
+    trench_prune.add_argument("--execute", "-x", action="store_true", help="Actually prune (default: dry-run)")
+
+    # trench cleanup
+    trench_cleanup = trench_subparsers.add_parser("cleanup", help="Clean up all trenches")
+    trench_cleanup.add_argument("--force", "-f", action="store_true", help="Force removal")
+
+    # trench logs
+    trench_logs = trench_subparsers.add_parser("logs", help="View Claude session output")
+    trench_logs.add_argument("name", help="Trench name")
+    trench_logs.add_argument("--lines", "-n", type=int, default=50, help="Number of lines to show (default: 50)")
+    trench_logs.add_argument("--follow", "-f", action="store_true", help="Follow output (like tail -f)")
+
+    trench_parser.set_defaults(func=cmd_trench, trench_cmd=None, name=None, json_output=False)
 
     args = parser.parse_args()
     args.func(args)
