@@ -74,6 +74,35 @@ Polips use token-efficient progressive disclosure:
 - **LRU tracking**: Access counts boost frequently-used polips in surfacing
 - **Rich templates**: `{date}`, `{git_branch}`, `{project_name}` in template expansion
 
+## Reef Trenches (Parallel Agents)
+
+Spawn isolated git worktrees for parallel development:
+
+| Command | Purpose |
+|---------|---------|
+| `reef trench spawn <name>` | Create isolated worktree |
+| `reef trench spawn <name> --task "..."` | Create worktree + auto-launch Claude |
+| `reef trench status` | View all active trenches |
+| `reef trench test <name>` | Run tests in trench |
+| `reef trench merge <name>` | Merge if tests pass |
+| `reef trench abort <name>` | Cancel and cleanup |
+| `reef trench prune` | Remove stale (3d default) |
+| `reef trench logs <name>` | View session output |
+
+**Model routing:** Auto-selects model based on task complexity:
+- Simple (typos, fixes) → haiku
+- Moderate (features) → sonnet
+- Complex (refactors) → opus
+
+**Example:**
+```bash
+reef trench spawn feature-x --task "implement user auth"
+reef trench status
+reef trench logs feature-x
+reef trench test feature-x
+reef trench merge feature-x
+```
+
 ## Terminology
 
 | Coral | Legacy | Meaning |
@@ -87,3 +116,4 @@ Polips use token-efficient progressive disclosure:
 | bedrock | constraint | Foundation rules |
 | deposit | decision | Strategic choice |
 | fossil | fact | Preserved knowledge |
+| trench | - | Isolated worktree for parallel agent |
