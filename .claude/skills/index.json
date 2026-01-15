@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "skills": {
+    "polip-ops": {
+      "path": "polip-ops.md",
+      "agents": ["reef-orchestrator"],
+      "task_types": ["polip", "reef", "memory"],
+      "description": "Core polip operations for reef management"
+    },
+    "validation": {
+      "path": "validation.md",
+      "agents": ["reef-validator"],
+      "task_types": ["validate", "check", "verify"],
+      "description": "Two-tier validation protocols"
+    }
+  },
+  "inheritance": {
+    "from_global": true,
+    "override_policy": "local-wins"
+  }
+}

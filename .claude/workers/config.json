@@ -1,0 +1,33 @@
+{
+  "workers": {
+    "groq": {
+      "enabled": true,
+      "api_key_env": "GROQ_API_KEY",
+      "default_model": "llama-3.3-70b-versatile",
+      "rate_limit": "30/min"
+    },
+    "ollama": {
+      "enabled": true,
+      "host": "http://localhost:11434",
+      "default_model": "llama3.2"
+    },
+    "gemini": {
+      "enabled": true,
+      "api_key_env": "GEMINI_API_KEY",
+      "default_model": "gemini-2.0-flash",
+      "rate_limit": "60/min"
+    }
+  },
+  "sensitivity_routing": {
+    "pii": ["claude"],
+    "legal": ["claude"],
+    "external-ok": ["groq", "ollama", "gemini"]
+  },
+  "task_routing": {
+    "search": ["groq", "gemini"],
+    "summarize": ["ollama", "groq"],
+    "extract": ["groq", "gemini"],
+    "validate": ["claude"],
+    "synthesize": ["claude"]
+  }
+}
