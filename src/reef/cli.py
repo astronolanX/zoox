@@ -1345,6 +1345,116 @@ def cmd_undo(args):
             return
 
 
+def cmd_workers(args):
+    """Manage external worker infrastructure."""
+    from reef.workers import WorkerDispatcher
+
+    project_dir = Path.cwd()
+    dispatcher = WorkerDispatcher(project_dir)
+
+    # Status subcommand (default)
+    if args.workers_cmd == "status" or args.workers_cmd is None:
+        status = dispatcher.get_worker_status()
+        available = dispatcher.get_available_workers()
+
+        print(f"Worker Status ({len(available)}/{len(status)} available)")
+        print()
+
+        for worker_name, info in status.items():
+            avail_str = "OK" if info["available"] else "unavailable"
+            print(f"  {worker_name}: {avail_str}")
+
+            if worker_name == "ollama" and info.get("available"):
+                models = info.get("models", [])
+                if models:
+                    print(f"    models: {', '.join(models[:3])}")
+                    if len(models) > 3:
+                        print(f"            +{len(models) - 3} more")
+                print(f"    host: {info.get('host', 'unknown')}")
+
+            if worker_name in ("groq", "gemini"):
+                key_status = "configured" if info.get("has_api_key") else "missing API key"
+                print(f"    api_key: {key_status}")
+
+            if info.get("error"):
+                print(f"    error: {info['error']}")
+
+            print()
+
+        return
+
+    # Test subcommand
+    if args.workers_cmd == "test":
+        worker_name = args.worker_name
+        if not worker_name:
+            print("Usage: reef workers test <worker>")
+            print("  Workers: groq, ollama, gemini")
+            return
+
+        print(f"Testing {worker_name}...")
+
+        # Get worker class
+        worker_classes = dispatcher._get_worker_classes()
+        if worker_name not in worker_classes:
+            print(f"Unknown worker: {worker_name}")
+            return
+
+        try:
+            worker = worker_classes[worker_name]()
+
+            if not worker.is_available():
+                print(f"  {worker_name} is not available")
+                if worker_name in ("groq", "gemini"):
+                    env_var = "GROQ_API_KEY" if worker_name == "groq" else "GEMINI_API_KEY"
+                    print(f"  Set {env_var} environment variable")
+                elif worker_name == "ollama":
+                    print("  Ensure Ollama is running (ollama serve)")
+                return
+
+            # Send test prompt
+            print("  Sending test prompt...")
+            response = worker.complete("Say 'Hello from reef!' in exactly 5 words.")
+            print(f"  Response: {response.content[:100]}")
+            print(f"  Model: {response.model}")
+            print(f"  Latency: {response.latency_ms}ms")
+            print()
+            print(f"  {worker_name}: OK")
+
+        except Exception as e:
+            print(f"  Error: {e}")
+
+        return
+
+    # Run subcommand
+    if args.workers_cmd == "run":
+        prompt = args.prompt
+        if not prompt:
+            print("Usage: reef workers run \"<prompt>\" [--worker <name>] [--type <task_type>]")
+            return
+
+        worker_name = args.worker_name
+        task_type = args.task_type or "summarize"
+
+        if worker_name:
+            # Dispatch to specific worker
+            result = dispatcher._dispatch_to_worker(worker_name, prompt)
+        else:
+            # Auto-route based on task type
+            result = dispatcher.dispatch(task_type, prompt)
+
+        if result.success:
+            print(f"Worker: {result.worker_name}")
+            print(f"Model: {result.model_used}")
+            print(f"Latency: {result.latency_ms}ms")
+            print()
+            print("Response:")
+            print(result.output)
+        else:
+            print(f"Error: {result.error}")
+
+        return
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="reef",

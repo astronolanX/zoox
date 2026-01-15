@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="025" date="2026-01-15" duration="~90min">
+  <summary>Deep dive into agentic architecture: defined harness vs agent distinction, designed unified harness system with trenches (free agents), learning loops, and dev SDK layer. Created comprehensive execution plan.</summary>
+
+  <what-worked>
+    <item>Harness/agent conceptual framing landed well - mech + meta layer</item>
+    <item>5-agent parallel review (Karen, Architect, Visionary, Pragmatist, Implementer) provided diverse perspectives</item>
+    <item>Research on SDK patterns (claude-flow, VoltAgent, SWE-agent, Devin) was comprehensive</item>
+    <item>User correction about reef independence was important - adjusted architecture</item>
+    <item>Final synthesis captured in executable plan file</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Initially kept tying everything to reef when user said it's parallel development</item>
+    <item>Had to be corrected multiple times to stop reef integration assumptions</item>
+    <item>Kept redrawing architecture instead of synthesizing earlier work</item>
+  </what-didnt>
+
+  <decisions>
+    <decision>Harness works standalone without reef dependency</decision>
+    <decision>Mediator is a SKILL (behavioral mode), not an agent</decision>
+    <decision>Trenches system: Ollama (local) → Groq (free) → Gemini (free) → Claude (premium)</decision>
+    <decision>Learning loop: run notes → pattern analysis → config updates</decision>
+    <decision>VoltAgent adoption: selective (4-6 agents), not full 100</decision>
+    <decision>Evidence MCP: prove need with bash script first</decision>
+  </decisions>
+
+  <files-created>
+    <file>~/.claude/plans/harness-architecture-2026-01-15.md</file>
+  </files-created>
+
+  <files-modified>
+    <file>src/reef/workers/dispatcher.py</file>
+  </files-modified>
+
+  <next-session>
+    <item priority="high">Execute Phase 0 from harness-architecture-2026-01-15.md</item>
+    <item priority="high">Create ~/.claude/routing/config.yaml</item>
+    <item priority="high">Create ~/.claude/runs/ directory structure</item>
+    <item priority="high">Create evidence-search.sh bash script</item>
+    <item priority="medium">Create mediator-mode/SKILL.md</item>
+    <item priority="medium">Test with one custody-mediation session</item>
+  </next-session>
+</run>
