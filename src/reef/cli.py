@@ -1663,6 +1663,29 @@ def main():
     undo_parser.add_argument("--expire", action="store_true", help="Permanently delete expired polips")
     undo_parser.set_defaults(func=cmd_undo)
 
+    # workers (external model infrastructure)
+    workers_parser = subparsers.add_parser(
+        "workers",
+        help="Manage external worker infrastructure",
+        description="Check status, test, and run tasks on external models (Groq, Ollama, Gemini)."
+    )
+    workers_subparsers = workers_parser.add_subparsers(dest="workers_cmd")
+
+    # workers status
+    workers_status = workers_subparsers.add_parser("status", help="Show worker availability")
+
+    # workers test
+    workers_test = workers_subparsers.add_parser("test", help="Test a specific worker")
+    workers_test.add_argument("worker_name", nargs="?", help="Worker to test: groq, ollama, gemini")
+
+    # workers run
+    workers_run = workers_subparsers.add_parser("run", help="Run a task on workers")
+    workers_run.add_argument("prompt", nargs="?", help="Prompt to send to worker")
+    workers_run.add_argument("--worker", "-w", dest="worker_name", help="Specific worker to use")
+    workers_run.add_argument("--type", "-t", dest="task_type", help="Task type: search, summarize, extract")
+
+    workers_parser.set_defaults(func=cmd_workers, workers_cmd=None, worker_name=None, prompt=None, task_type=None)
+
     args = parser.parse_args()
     args.func(args)
 
