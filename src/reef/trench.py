@@ -598,14 +598,22 @@ class TrenchHarness:
         info.model = model
         info.complexity = complexity.value
 
-        # Build the claude command
-        # Use -p for print mode (non-interactive, executes and exits)
-        # Use --dangerously-skip-permissions to bypass permission prompts
-        # Use --model to select the model
-        # Note: Only safe because worktree is isolated + we trust the task
-        claude_cmd = ["claude", "-p", task, "--model", model]
+        # Build the harness command
+        # The harness wraps Claude and handles post-task lifecycle:
+        # 1. Runs Claude task
+        # 2. Runs tests on completion
+        # 3. Auto-merges if tests pass
+        # 4. Marks failed if tests fail
+        harness_path = Path(__file__).parent / "trench_harness.sh"
+        harness_cmd = [
+            str(harness_path),
+            name,
+            str(info.worktree_path),
+            task,
+            model,
+        ]
         if skip_permissions:
-            claude_cmd.append("--dangerously-skip-permissions")
+            harness_cmd.append("--skip-permissions")
 
         # Launch in background
         try:
@@ -614,7 +622,7 @@ class TrenchHarness:
 
             with open(log_file, "w") as log:
                 process = subprocess.Popen(
-                    claude_cmd,
+                    harness_cmd,
                     cwd=info.worktree_path,
                     stdout=log,
                     stderr=subprocess.STDOUT,
