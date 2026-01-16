@@ -1663,7 +1663,7 @@ def cmd_skills(args):
 
 
 def cmd_health(args):
-    """Show reef health metrics."""
+    """Show reef health metrics (AI-native: session-relative time)."""
     from reef.calcification import ReefHealth
     from reef.blob import Glob
 
@@ -1676,26 +1676,29 @@ def cmd_health(args):
         print(json.dumps(report.to_dict(), indent=2))
         return
 
-    print("Reef Health Report")
+    print("Reef Health Report (AI-Native)")
     print("=" * 40)
     print()
     print(f"Vitality Score: {report.vitality_score:.1%}")
     print(f"Total Polips:   {report.total_polips}")
-    print(f"Active Ratio:   {report.active_ratio:.1%}")
-    print(f"Ref Density:    {report.reference_density:.2f} refs/polip")
+    print(f"Hot Ratio:      {report.hot_ratio:.1%} (active this session)")
+    print(f"Connected:      {report.connected_ratio:.1%} (with network links)")
     print(f"Type Diversity: {report.type_diversity:.1%}")
     print()
 
     print("Lifecycle Distribution:")
-    for stage, count in report.lifecycle_stages.items():
+    stages_order = ["spawning", "drifting", "attached", "calcified", "fossil"]
+    for stage in stages_order:
+        count = report.lifecycle_stages.get(stage, 0)
         bar = "█" * min(count, 20)
         print(f"  {stage:12} {count:3} {bar}")
     print()
 
-    print("Age Distribution:")
-    for bracket, count in report.age_distribution.items():
-        bar = "█" * min(count, 20)
-        print(f"  {bracket:8} {count:3} {bar}")
+    print("Session Stats:")
+    stats = report.session_stats
+    print(f"  Refs this session: {stats.get('total_refs_this_session', 0)}")
+    print(f"  Avg intensity:     {stats.get('avg_intensity', 0):.2f}")
+    print(f"  Calcify ready:     {stats.get('calcification_candidates', 0)}")
     print()
 
     print("Recommendations:")
@@ -1704,7 +1707,7 @@ def cmd_health(args):
 
 
 def cmd_calcify(args):
-    """View calcification candidates or execute calcification."""
+    """View calcification candidates (AI-native: session-relative scoring)."""
     from reef.calcification import CalcificationEngine
     from reef.blob import Glob
 
@@ -1723,23 +1726,25 @@ def cmd_calcify(args):
 
     if not scores:
         print("No calcification candidates found.")
-        print("Polips need: time (30d), usage (10 accesses), ceremony, or consensus (3 refs)")
+        print("Polips calcify through: intensity (5+ refs/session), persistence (3+ sessions),")
+        print("                        ceremony (promoted), or consensus (3+ incoming refs)")
         return
 
     title = "All Polip Scores" if args.all else "Calcification Candidates"
     print(f"{title} ({len(scores)} polips)")
-    print("=" * 60)
+    print("=" * 70)
     print()
-    print(f"{'Polip':<35} {'Score':>8} {'Time':>6} {'Use':>6} {'Cer':>6} {'Con':>6}")
-    print("-" * 60)
+    print(f"{'Polip':<30} {'Score':>7} {'Int':>5} {'Per':>5} {'Dep':>5} {'Cer':>5} {'Con':>5} {'Stage':<10}")
+    print("-" * 70)
 
     for s in scores:
-        name = s.polip_key[:33] + ".." if len(s.polip_key) > 35 else s.polip_key
+        name = s.polip_key[:28] + ".." if len(s.polip_key) > 30 else s.polip_key
         marker = "✓" if s.should_calcify else " "
-        print(f"{name:<35} {s.total:>7.2f}{marker} {s.time_score:>6.2f} {s.usage_score:>6.2f} {s.ceremony_score:>6.2f} {s.consensus_score:>6.2f}")
+        print(f"{name:<30} {s.total:>6.2f}{marker} {s.intensity_score:>5.2f} {s.persistence_score:>5.2f} {s.depth_score:>5.2f} {s.ceremony_score:>5.2f} {s.consensus_score:>5.2f} {s.lifecycle_stage:<10}")
 
     print()
     print(f"Threshold: {engine.CALCIFICATION_THRESHOLD} (✓ = ready to calcify)")
+    print("Columns: Int=intensity, Per=persistence, Dep=depth, Cer=ceremony, Con=consensus")
 
 
 def cmd_decay(args):

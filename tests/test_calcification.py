@@ -1,7 +1,7 @@
 """
-Tests for reef calcification engine.
+Tests for AI-native reef calcification engine.
 
-Phase 6: Organic growth mechanics.
+Phase 6: Organic growth mechanics with session-relative time.
 """
 
 import pytest
@@ -19,16 +19,19 @@ from reef.calcification import (
     ChallengeReport,
     ReefHealth,
     HealthReport,
+    PolipVitals,
+    SessionMetrics,
 )
 
 
 class TestCalcificationEngine:
-    """Tests for calcification scoring."""
+    """Tests for AI-native calcification scoring."""
 
     def test_import(self):
         """Verify module imports correctly."""
         assert CalcificationEngine is not None
         assert CalcificationScore is not None
+        assert PolipVitals is not None
 
     def test_instantiation(self):
         """Verify can create engine instance."""
@@ -37,17 +40,56 @@ class TestCalcificationEngine:
             engine = CalcificationEngine(glob)
             assert engine is not None
 
-    def test_trigger_weights_sum_to_one(self):
+    def test_weights_sum_to_one(self):
         """Verify trigger weights are balanced."""
-        total = sum(t["weight"] for t in CalcificationEngine.TRIGGERS.values())
+        total = sum(CalcificationEngine.WEIGHTS.values())
         assert abs(total - 1.0) < 0.001
+
+    def test_session_management(self):
+        """Engine tracks sessions and turns."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            glob = Glob(Path(tmpdir))
+            engine = CalcificationEngine(glob)
+
+            session_id = engine.start_session("test-session")
+            assert session_id == "test-session"
+
+            turn = engine.tick_turn()
+            assert turn == 1
+
+            turn = engine.tick_turn()
+            assert turn == 2
+
+    def test_record_reference(self):
+        """Recording references updates session metrics."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            glob = Glob(Path(tmpdir))
+            engine = CalcificationEngine(glob)
+
+            engine.start_session("test-session")
+            engine.tick_turn()
+            engine.tick_turn()
+
+            blob = Blob(
+                type=BlobType.THREAD,
+                summary="Test polip",
+                scope=BlobScope.PROJECT,
+            )
+            path = glob.sprout(blob, "test")
+            key = glob._blob_key(path)
+
+            engine.record_reference(key)
+            engine.tick_turn()
+            engine.record_reference(key)
+
+            vitals = engine.get_vitals(key, blob)
+            assert vitals.refs_this_session == 2
 
     def test_score_new_polip(self):
         """New polip should have low score."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create new polip
             blob = Blob(
                 type=BlobType.THREAD,
                 summary="New polip",
@@ -59,16 +101,16 @@ class TestCalcificationEngine:
             key = glob._blob_key(path)
             score = engine.score_polip(key, blob)
 
-            # New polip: no time, no usage, no ceremony, no consensus
+            # New polip: no intensity, no persistence, no consensus
             assert score.total < 0.3
             assert not score.should_calcify
+            assert score.lifecycle_stage == "spawning"
 
     def test_score_ceremony_constraint(self):
         """Constraint scope should give ceremony score."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create constraint (ceremonial)
             blob = Blob(
                 type=BlobType.CONSTRAINT,
                 summary="Project constraint",
@@ -80,31 +122,59 @@ class TestCalcificationEngine:
             key = glob._blob_key(path)
             score = engine.score_polip(key, blob)
 
-            # Ceremony score should be 1.0
             assert score.ceremony_score == 1.0
+            assert score.lifecycle_stage == "calcified"  # Ceremony promotes
 
-    def test_score_usage(self):
-        """High usage should increase score."""
+    def test_score_intensity_from_session(self):
+        """High session refs increase intensity score."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
             blob = Blob(
                 type=BlobType.THREAD,
-                summary="Used polip",
+                summary="Hot polip",
                 scope=BlobScope.PROJECT,
             )
-            path = glob.sprout(blob, "test-used")
-
-            # Simulate 20 accesses
-            for _ in range(20):
-                glob._increment_access([glob._blob_key(path)])
+            path = glob.sprout(blob, "test-hot")
 
             engine = CalcificationEngine(glob)
+            engine.start_session()
             key = glob._blob_key(path)
+
+            # Simulate 10 references in current session
+            for i in range(10):
+                engine.tick_turn()
+                engine.record_reference(key)
+
             score = engine.score_polip(key, blob)
 
-            # Usage score should be high
-            assert score.usage_score > 0.5
+            # High intensity from session refs
+            assert score.intensity_score > 0.5
+            assert score.vitals.refs_this_session == 10
+
+    def test_lifecycle_stage_from_intensity(self):
+        """High intensity promotes to attached stage."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            glob = Glob(Path(tmpdir))
+
+            blob = Blob(
+                type=BlobType.THREAD,
+                summary="Hot polip",
+                scope=BlobScope.PROJECT,
+            )
+            path = glob.sprout(blob, "test-hot")
+
+            engine = CalcificationEngine(glob)
+            engine.start_session()
+            key = glob._blob_key(path)
+
+            # 5+ refs in session = attached (HIGH_INTENSITY_THRESHOLD)
+            for _ in range(6):
+                engine.tick_turn()
+                engine.record_reference(key)
+
+            score = engine.score_polip(key, blob)
+            assert score.lifecycle_stage == "attached"
 
     def test_get_candidates_empty(self):
         """Empty reef has no candidates."""
@@ -119,7 +189,6 @@ class TestCalcificationEngine:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create some polips
             for i in range(3):
                 blob = Blob(
                     type=BlobType.THREAD,
@@ -135,25 +204,30 @@ class TestCalcificationEngine:
 
     def test_score_serialization(self):
         """CalcificationScore serializes to dict."""
+        vitals = PolipVitals(refs_this_session=5, sessions_referenced=2)
         score = CalcificationScore(
             polip_key="test.blob.xml",
             total=0.75,
-            time_score=0.5,
-            usage_score=0.8,
+            intensity_score=0.5,
+            persistence_score=0.2,
+            depth_score=0.1,
             ceremony_score=0.0,
             consensus_score=0.6,
             should_calcify=True,
+            lifecycle_stage="attached",
+            vitals=vitals,
         )
         d = score.to_dict()
 
         assert d["polip"] == "test.blob.xml"
         assert d["total"] == 0.75
         assert d["should_calcify"] is True
+        assert d["lifecycle"] == "attached"
         assert "breakdown" in d
 
 
 class TestAdversarialDecay:
-    """Tests for adversarial decay challenges."""
+    """Tests for AI-native adversarial decay challenges."""
 
     def test_import(self):
         """Verify module imports correctly."""
@@ -172,64 +246,62 @@ class TestAdversarialDecay:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create protected polip (old but protected)
             blob = Blob(
                 type=BlobType.CONSTRAINT,
                 summary="Protected constraint",
                 scope=BlobScope.ALWAYS,
-                updated=datetime.now() - timedelta(days=100),
             )
             glob.sprout(blob, "protected")
 
             decay = AdversarialDecay(glob)
             challengers = decay.get_challengers()
 
-            # Should not be challenged despite age
             assert len(challengers) == 0
 
-    def test_stale_polip_challenged(self):
-        """Stale polips with low access are challenged."""
+    def test_cold_polip_challenged(self):
+        """Cold polips with no activity are challenged."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create stale polip (60+ days, <3 access)
+            # Create polip with no refs, no access
             blob = Blob(
                 type=BlobType.THREAD,
-                summary="Stale thread",
+                summary="Cold thread",
                 scope=BlobScope.PROJECT,
-                updated=datetime.now() - timedelta(days=70),
             )
-            glob.sprout(blob, "stale")
+            glob.sprout(blob, "cold")
 
             decay = AdversarialDecay(glob)
             challengers = decay.get_challengers()
 
-            # Should be challenged for staleness
+            # Should be challenged for being cold
             assert len(challengers) == 1
-            assert challengers[0][2] == "staleness"
+            assert challengers[0][2] == "cold"
 
-    def test_challenge_survive_with_usage(self):
-        """Polip with high usage survives challenge."""
+    def test_challenge_survive_with_session_refs(self):
+        """Polip with current session refs survives challenge."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
             blob = Blob(
                 type=BlobType.THREAD,
-                summary="Used thread",
+                summary="Active thread",
                 scope=BlobScope.PROJECT,
-                updated=datetime.now() - timedelta(days=70),
             )
-            path = glob.sprout(blob, "used")
+            path = glob.sprout(blob, "active")
             key = glob._blob_key(path)
 
-            # Simulate usage
-            for _ in range(10):
-                glob._increment_access([key])
+            engine = CalcificationEngine(glob)
+            engine.start_session()
 
-            decay = AdversarialDecay(glob)
-            report = decay.challenge(key, blob, "staleness")
+            # Add refs in current session
+            for _ in range(5):
+                engine.tick_turn()
+                engine.record_reference(key)
 
-            # Should survive due to usage
+            decay = AdversarialDecay(glob, engine)
+            report = decay.challenge(key, blob, "cold")
+
             assert report.result == ChallengeResult.SURVIVE
 
     def test_challenge_decompose_no_defense(self):
@@ -241,15 +313,13 @@ class TestAdversarialDecay:
                 type=BlobType.THREAD,
                 summary="Abandoned thread",
                 scope=BlobScope.PROJECT,
-                updated=datetime.now() - timedelta(days=70),
             )
             path = glob.sprout(blob, "abandoned")
             key = glob._blob_key(path)
 
             decay = AdversarialDecay(glob)
-            report = decay.challenge(key, blob, "staleness")
+            report = decay.challenge(key, blob, "cold")
 
-            # Should decompose
             assert report.result == ChallengeResult.DECOMPOSE
 
     def test_run_challenges_dry_run(self):
@@ -257,14 +327,12 @@ class TestAdversarialDecay:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create stale polip
             blob = Blob(
                 type=BlobType.THREAD,
-                summary="Stale",
+                summary="Cold",
                 scope=BlobScope.PROJECT,
-                updated=datetime.now() - timedelta(days=70),
             )
-            glob.sprout(blob, "stale")
+            glob.sprout(blob, "cold")
 
             decay = AdversarialDecay(glob)
             reports = decay.run_challenges(dry_run=True)
@@ -275,7 +343,7 @@ class TestAdversarialDecay:
         """ChallengeReport serializes to dict."""
         report = ChallengeReport(
             polip_key="test.blob.xml",
-            trigger="staleness",
+            trigger="cold",
             result=ChallengeResult.DECOMPOSE,
             reason="No justification",
         )
@@ -286,7 +354,7 @@ class TestAdversarialDecay:
 
 
 class TestReefHealth:
-    """Tests for reef health metrics."""
+    """Tests for AI-native reef health metrics."""
 
     def test_import(self):
         """Verify module imports correctly."""
@@ -316,7 +384,6 @@ class TestReefHealth:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create diverse polips
             for ptype in [BlobType.THREAD, BlobType.DECISION, BlobType.CONSTRAINT]:
                 blob = Blob(
                     type=ptype,
@@ -329,14 +396,43 @@ class TestReefHealth:
             report = health.calculate()
 
             assert report.total_polips == 3
-            assert report.vitality_score > 0
+            assert report.vitality_score >= 0
+
+    def test_hot_ratio_from_session(self):
+        """Hot ratio measures current session activity."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            glob = Glob(Path(tmpdir))
+
+            # Create 5 polips
+            paths = []
+            for i in range(5):
+                blob = Blob(
+                    type=BlobType.THREAD,
+                    summary=f"Thread {i}",
+                    scope=BlobScope.PROJECT,
+                )
+                paths.append(glob.sprout(blob, f"thread-{i}"))
+
+            engine = CalcificationEngine(glob)
+            engine.start_session()
+
+            # Reference only 2 of them
+            for path in paths[:2]:
+                key = glob._blob_key(path)
+                engine.tick_turn()
+                engine.record_reference(key)
+
+            health = ReefHealth(glob, engine)
+            report = health.calculate()
+
+            # 2/5 = 0.4 hot ratio
+            assert report.hot_ratio == 0.4
 
     def test_type_diversity_single_type(self):
         """Single type has low diversity."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create multiple of same type
             for i in range(5):
                 blob = Blob(
                     type=BlobType.THREAD,
@@ -348,41 +444,41 @@ class TestReefHealth:
             health = ReefHealth(glob)
             report = health.calculate()
 
-            # Single type = zero diversity
             assert report.type_diversity == 0.0
 
-    def test_lifecycle_distribution(self):
-        """Lifecycle stages are counted correctly."""
+    def test_lifecycle_distribution_from_vitals(self):
+        """Lifecycle stages are based on vitals, not age."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create polips of different ages
-            ages = [1, 15, 50, 120, 200]
-            for i, age in enumerate(ages):
-                blob = Blob(
-                    type=BlobType.THREAD,
-                    summary=f"Age {age}d",
-                    scope=BlobScope.PROJECT,
-                    updated=datetime.now() - timedelta(days=age),
-                )
-                glob.sprout(blob, f"age-{i}")
+            # Create constraint (ceremony -> calcified)
+            blob = Blob(
+                type=BlobType.CONSTRAINT,
+                summary="Constraint",
+                scope=BlobScope.ALWAYS,
+            )
+            glob.sprout(blob, "constraint")
+
+            # Create regular polip (no activity -> spawning)
+            blob2 = Blob(
+                type=BlobType.THREAD,
+                summary="Thread",
+                scope=BlobScope.PROJECT,
+            )
+            glob.sprout(blob2, "thread")
 
             health = ReefHealth(glob)
             report = health.calculate()
 
-            # Should have polips in different stages
-            assert report.lifecycle_stages["spawning"] == 1  # 1 day
-            assert report.lifecycle_stages["drifting"] == 1  # 15 days
-            assert report.lifecycle_stages["attached"] == 1  # 50 days
-            assert report.lifecycle_stages["calcified"] == 1  # 120 days
-            assert report.lifecycle_stages["fossil"] == 1    # 200 days
+            # Constraint should be calcified, thread should be spawning
+            assert report.lifecycle_stages.get("calcified", 0) >= 1
+            assert report.lifecycle_stages.get("spawning", 0) >= 1
 
     def test_recommendations_low_activity(self):
         """Low activity generates recommendation."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create polips with no access
             for i in range(5):
                 blob = Blob(
                     type=BlobType.THREAD,
@@ -401,7 +497,6 @@ class TestReefHealth:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create polips with no refs
             for i in range(5):
                 blob = Blob(
                     type=BlobType.THREAD,
@@ -414,6 +509,29 @@ class TestReefHealth:
             report = health.calculate()
 
             assert any("Low connectivity" in r for r in report.recommendations)
+
+    def test_session_stats(self):
+        """Health report includes session stats."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            glob = Glob(Path(tmpdir))
+
+            blob = Blob(
+                type=BlobType.THREAD,
+                summary="Test",
+                scope=BlobScope.PROJECT,
+            )
+            path = glob.sprout(blob, "test")
+
+            engine = CalcificationEngine(glob)
+            engine.start_session()
+            key = glob._blob_key(path)
+            engine.record_reference(key)
+
+            health = ReefHealth(glob, engine)
+            report = health.calculate()
+
+            assert "total_refs_this_session" in report.session_stats
+            assert "avg_intensity" in report.session_stats
 
     def test_health_report_serialization(self):
         """HealthReport serializes to dict."""
@@ -433,6 +551,7 @@ class TestReefHealth:
 
             assert "vitality_score" in d
             assert "lifecycle_stages" in d
+            assert "session_stats" in d
             assert "recommendations" in d
 
 
@@ -444,7 +563,6 @@ class TestConsensusScoring:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create target polip
             target = Blob(
                 type=BlobType.DECISION,
                 summary="Important decision",
@@ -452,25 +570,24 @@ class TestConsensusScoring:
             )
             target_path = glob.sprout(target, "target")
 
-            # Create polips that reference target
             for i in range(4):
                 ref_blob = Blob(
                     type=BlobType.THREAD,
                     summary=f"Referencing {i}",
                     scope=BlobScope.PROJECT,
-                    related=["target"],  # Reference by name
+                    related=["target"],
                 )
                 glob.sprout(ref_blob, f"ref-{i}")
 
-            # Rebuild index to capture related
             glob.rebuild_index()
 
             engine = CalcificationEngine(glob)
             key = glob._blob_key(target_path)
             score = engine.score_polip(key, target)
 
-            # Should have consensus score from 4 refs
+            # 4 refs >= CONSENSUS_THRESHOLD (3) -> calcified
             assert score.consensus_score > 0.5
+            assert score.lifecycle_stage == "calcified"
 
 
 class TestCLIIntegration:
@@ -486,7 +603,6 @@ class TestCLIIntegration:
             text=True,
             timeout=30,
         )
-        # Should output health report (might have warnings)
         assert "Vitality Score" in result.stdout or result.returncode == 0
 
     def test_calcify_runs(self):
@@ -499,7 +615,6 @@ class TestCLIIntegration:
             text=True,
             timeout=30,
         )
-        # Should complete successfully
         assert result.returncode == 0
 
     def test_decay_runs(self):
@@ -512,7 +627,6 @@ class TestCLIIntegration:
             text=True,
             timeout=30,
         )
-        # Should complete successfully
         assert result.returncode == 0
 
     def test_health_json_output(self):
@@ -526,15 +640,12 @@ class TestCLIIntegration:
             timeout=30,
         )
 
-        # Should succeed
         assert result.returncode == 0, f"Command failed: {result.stderr}"
 
-        # Find JSON in output (skip any warning lines)
         output = result.stdout.strip()
         if not output:
             pytest.skip("No output from health --json")
 
-        # Find first { and parse from there
         json_start = output.find("{")
         if json_start == -1:
             pytest.fail(f"No JSON found in output: {output}")

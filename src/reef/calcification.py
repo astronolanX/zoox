@@ -1,12 +1,24 @@
 """
 Calcification engine - organic growth mechanics for reef.
 
-Implements the core thesis: schema emerges from usage, not design.
-Polips crystallize through Time × Usage × Ceremony × Consensus.
-Selection pressure through adversarial decay keeps the reef healthy.
+AI-NATIVE TIME: Digital memory operates on sessions and turns, not days.
+A polip referenced 50 times in one session is more calcified than
+one touched once over 7 days.
+
+Time units:
+- turn: single interaction (the heartbeat)
+- session: one conversation (the fundamental unit)
+- epoch: multiple sessions (emergent pattern)
+
+Calcification triggers (combinatorial):
+- Intensity: refs within session (immediate value)
+- Persistence: sessions that reference (lasting value)
+- Depth: turn depth when referenced (real work vs surface)
+- Ceremony: explicit human promotion (authority)
+- Consensus: refs from other polips (network effect)
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -24,181 +36,303 @@ class ChallengeResult(Enum):
 
 
 @dataclass
+class SessionMetrics:
+    """Per-session tracking for a polip."""
+    session_id: str
+    refs: int = 0
+    max_turn_depth: int = 0
+    first_ref_turn: int = 0
+    last_ref_turn: int = 0
+
+
+@dataclass
+class PolipVitals:
+    """AI-native vitality metrics for a polip."""
+    # Intensity: how hot is it right now?
+    refs_this_session: int = 0
+    intensity_score: float = 0.0  # 0-1, based on refs/session
+
+    # Persistence: does it endure?
+    sessions_referenced: int = 0
+    session_coverage: float = 0.0  # fraction of sessions that ref'd
+
+    # Depth: is it used for real work?
+    avg_turn_depth: float = 0.0  # when in session it gets used
+    depth_score: float = 0.0  # 0-1, deeper = more valuable
+
+    # Network: is it connected?
+    incoming_refs: int = 0
+    outgoing_refs: int = 0
+    consensus_score: float = 0.0
+
+    # Ceremony: was it blessed?
+    promoted: bool = False
+    ceremony_score: float = 0.0
+
+
+@dataclass
 class CalcificationScore:
     """Detailed breakdown of calcification scoring."""
     polip_key: str
     total: float
-    time_score: float
-    usage_score: float
+    intensity_score: float
+    persistence_score: float
+    depth_score: float
     ceremony_score: float
     consensus_score: float
     should_calcify: bool
+    lifecycle_stage: str
+    vitals: PolipVitals
 
     def to_dict(self) -> dict:
         return {
             "polip": self.polip_key,
             "total": round(self.total, 3),
+            "lifecycle": self.lifecycle_stage,
             "breakdown": {
-                "time": round(self.time_score, 3),
-                "usage": round(self.usage_score, 3),
+                "intensity": round(self.intensity_score, 3),
+                "persistence": round(self.persistence_score, 3),
+                "depth": round(self.depth_score, 3),
                 "ceremony": round(self.ceremony_score, 3),
                 "consensus": round(self.consensus_score, 3),
             },
             "should_calcify": self.should_calcify,
+            "vitals": {
+                "refs_this_session": self.vitals.refs_this_session,
+                "sessions_referenced": self.vitals.sessions_referenced,
+                "avg_turn_depth": round(self.vitals.avg_turn_depth, 1),
+                "incoming_refs": self.vitals.incoming_refs,
+            },
         }
 
 
 class CalcificationEngine:
     """
-    Determines when polips should calcify into bedrock.
+    AI-native calcification: schema emerges from usage velocity.
 
-    Calcification triggers (combinatorial):
-    - Time: Stability over 30+ days (weight: 0.2)
-    - Usage: 10+ accesses via LRU tracking (weight: 0.3)
-    - Ceremony: Explicit human promotion (weight: 0.2)
-    - Consensus: 3+ references from other polips (weight: 0.3)
+    Time constants are session-relative, not wall-clock:
+    - HIGH_INTENSITY_THRESHOLD: 5 refs in single session = hot
+    - PERSISTENCE_THRESHOLD: 3 sessions = lasting
+    - DEPTH_THRESHOLD: turn 10+ = real work (not just startup context)
+    - CONSENSUS_THRESHOLD: 3 incoming refs = network effect
 
-    A polip calcifies when total score >= 0.7 (tunable threshold).
+    A polip calcifies when total score >= 0.7
     """
 
-    # Trigger weights must sum to 1.0
-    TRIGGERS = {
-        "time": {"weight": 0.2, "threshold_days": 30},
-        "usage": {"weight": 0.3, "threshold_count": 10},
-        "ceremony": {"weight": 0.2, "required": False},
-        "consensus": {"weight": 0.3, "threshold_refs": 3},
+    # AI-native thresholds
+    HIGH_INTENSITY_THRESHOLD = 5   # refs/session for "hot"
+    PERSISTENCE_THRESHOLD = 3       # sessions for "lasting"
+    DEPTH_THRESHOLD = 10            # turn depth for "real work"
+    CONSENSUS_THRESHOLD = 3         # incoming refs for "connected"
+
+    # Trigger weights (sum to 1.0)
+    WEIGHTS = {
+        "intensity": 0.25,    # immediate value
+        "persistence": 0.25,  # lasting value
+        "depth": 0.15,        # real work indicator
+        "ceremony": 0.15,     # human authority
+        "consensus": 0.20,    # network effect
     }
 
     CALCIFICATION_THRESHOLD = 0.7
 
     def __init__(self, glob: "Glob"):
         self.glob = glob
+        self._current_session_id: str | None = None
+        self._current_turn: int = 0
+        self._session_history: dict[str, list[SessionMetrics]] = {}
 
-    def score_polip(self, key: str, blob: "Blob") -> CalcificationScore:
-        """
-        Calculate calcification score for a polip.
+    def start_session(self, session_id: str | None = None) -> str:
+        """Start tracking a new session."""
+        self._current_session_id = session_id or datetime.now().isoformat()
+        self._current_turn = 0
+        return self._current_session_id
 
-        Args:
-            key: Index key for the polip
-            blob: The Blob object
+    def tick_turn(self) -> int:
+        """Advance the turn counter."""
+        self._current_turn += 1
+        return self._current_turn
 
-        Returns:
-            CalcificationScore with breakdown
-        """
+    def record_reference(self, polip_key: str) -> None:
+        """Record that a polip was referenced this turn."""
+        if not self._current_session_id:
+            self.start_session()
+
+        if polip_key not in self._session_history:
+            self._session_history[polip_key] = []
+
+        # Find or create session metrics
+        session_metrics = None
+        for sm in self._session_history[polip_key]:
+            if sm.session_id == self._current_session_id:
+                session_metrics = sm
+                break
+
+        if session_metrics is None:
+            session_metrics = SessionMetrics(
+                session_id=self._current_session_id,
+                first_ref_turn=self._current_turn,
+            )
+            self._session_history[polip_key].append(session_metrics)
+
+        session_metrics.refs += 1
+        session_metrics.last_ref_turn = self._current_turn
+        session_metrics.max_turn_depth = max(
+            session_metrics.max_turn_depth,
+            self._current_turn
+        )
+
+        # Also increment access_count in index for persistence
+        self.glob._increment_access([polip_key])
+
+    def get_vitals(self, key: str, blob: "Blob") -> PolipVitals:
+        """Calculate AI-native vitality metrics for a polip."""
         index = self.glob.get_index()
         blob_meta = index.get("blobs", {}).get(key, {})
 
-        # Time score: normalized age in days
-        time_score = self._score_time(blob)
+        vitals = PolipVitals()
 
-        # Usage score: normalized access count
-        usage_score = self._score_usage(blob_meta)
+        # Get session history for this polip
+        history = self._session_history.get(key, [])
 
-        # Ceremony score: check if explicitly promoted
-        ceremony_score = self._score_ceremony(blob)
+        # Intensity: refs in current session
+        if self._current_session_id:
+            for sm in history:
+                if sm.session_id == self._current_session_id:
+                    vitals.refs_this_session = sm.refs
+                    break
 
-        # Consensus score: count incoming references
-        consensus_score = self._score_consensus(key, index)
+        # Also use access_count as proxy when no live session data
+        access_count = blob_meta.get("access_count", 0)
+        effective_refs = max(vitals.refs_this_session, access_count)
+        vitals.intensity_score = min(1.0, effective_refs / (self.HIGH_INTENSITY_THRESHOLD * 2))
 
-        # Weighted total
-        total = (
-            time_score * self.TRIGGERS["time"]["weight"] +
-            usage_score * self.TRIGGERS["usage"]["weight"] +
-            ceremony_score * self.TRIGGERS["ceremony"]["weight"] +
-            consensus_score * self.TRIGGERS["consensus"]["weight"]
-        )
+        # Persistence: how many sessions referenced this
+        vitals.sessions_referenced = len(history) if history else (1 if access_count > 0 else 0)
+        # Estimate session coverage (assume ~10 sessions as baseline)
+        total_sessions = max(10, len(set(
+            sm.session_id
+            for polip_history in self._session_history.values()
+            for sm in polip_history
+        )))
+        vitals.session_coverage = vitals.sessions_referenced / total_sessions
 
-        return CalcificationScore(
-            polip_key=key,
-            total=total,
-            time_score=time_score,
-            usage_score=usage_score,
-            ceremony_score=ceremony_score,
-            consensus_score=consensus_score,
-            should_calcify=total >= self.CALCIFICATION_THRESHOLD,
-        )
+        # Depth: average turn depth when referenced
+        if history:
+            total_depth = sum(sm.max_turn_depth for sm in history)
+            vitals.avg_turn_depth = total_depth / len(history)
+        vitals.depth_score = min(1.0, vitals.avg_turn_depth / (self.DEPTH_THRESHOLD * 2))
 
-    def _score_time(self, blob: "Blob") -> float:
-        """Score based on age (0-1, saturates at 2x threshold)."""
-        threshold = self.TRIGGERS["time"]["threshold_days"]
-        age_days = (datetime.now() - blob.updated).days
-        # Sigmoid-like: 0 at 0 days, 0.5 at threshold, ~1 at 2x threshold
-        return min(1.0, age_days / (threshold * 2))
-
-    def _score_usage(self, meta: dict) -> float:
-        """Score based on access count (0-1, saturates at 2x threshold)."""
-        threshold = self.TRIGGERS["usage"]["threshold_count"]
-        count = meta.get("access_count", 0)
-        return min(1.0, count / (threshold * 2))
-
-    def _score_ceremony(self, blob: "Blob") -> float:
-        """Score 1.0 if explicitly promoted via ceremony."""
-        # Ceremony is indicated by scope=always OR type=constraint
-        # These require explicit human action to set
-        from .blob import BlobScope, BlobType
-        if blob.scope == BlobScope.ALWAYS:
-            return 1.0
-        if blob.type == BlobType.CONSTRAINT:
-            return 1.0
-        return 0.0
-
-    def _score_consensus(self, key: str, index: dict) -> float:
-        """Score based on incoming references from other polips."""
-        threshold = self.TRIGGERS["consensus"]["threshold_refs"]
-
-        # Extract polip name from key (e.g., "threads/foo.blob.xml" -> "foo")
+        # Consensus: incoming references from other polips
         polip_name = Path(key).stem.replace(".blob", "")
-
-        # Count how many other polips reference this one
-        ref_count = 0
         for other_key, meta in index.get("blobs", {}).items():
             if other_key == key:
                 continue
             related = meta.get("related", [])
             if polip_name in related or key in related:
-                ref_count += 1
+                vitals.incoming_refs += 1
 
-        return min(1.0, ref_count / (threshold * 2))
+        vitals.outgoing_refs = len(blob.related) if blob.related else 0
+        vitals.consensus_score = min(1.0, vitals.incoming_refs / (self.CONSENSUS_THRESHOLD * 2))
+
+        # Ceremony: explicit promotion
+        from .blob import BlobScope, BlobType
+        vitals.promoted = (
+            blob.scope == BlobScope.ALWAYS or
+            blob.type == BlobType.CONSTRAINT
+        )
+        vitals.ceremony_score = 1.0 if vitals.promoted else 0.0
+
+        return vitals
+
+    def get_lifecycle_stage(self, vitals: PolipVitals) -> str:
+        """
+        Determine lifecycle stage from vitals.
+
+        AI-native stages (session-based, not day-based):
+        - spawning: new, untested
+        - drifting: some use, finding its place
+        - attached: proven value, regular use
+        - calcified: essential, deeply integrated
+        - fossil: historical, rarely accessed
+        """
+        # Fast track: high intensity in current session = attached
+        if vitals.refs_this_session >= self.HIGH_INTENSITY_THRESHOLD:
+            return "attached"
+
+        # Ceremony overrides = calcified
+        if vitals.promoted:
+            return "calcified"
+
+        # Network integration = calcified
+        if vitals.incoming_refs >= self.CONSENSUS_THRESHOLD:
+            return "calcified"
+
+        # Persistent across sessions = attached
+        if vitals.sessions_referenced >= self.PERSISTENCE_THRESHOLD:
+            return "attached"
+
+        # Some use but not persistent = drifting
+        if vitals.sessions_referenced >= 1 or vitals.refs_this_session > 0:
+            return "drifting"
+
+        # No real use yet
+        return "spawning"
+
+    def score_polip(self, key: str, blob: "Blob") -> CalcificationScore:
+        """Calculate AI-native calcification score."""
+        vitals = self.get_vitals(key, blob)
+        lifecycle = self.get_lifecycle_stage(vitals)
+
+        # Weighted total
+        total = (
+            vitals.intensity_score * self.WEIGHTS["intensity"] +
+            vitals.session_coverage * self.WEIGHTS["persistence"] +
+            vitals.depth_score * self.WEIGHTS["depth"] +
+            vitals.ceremony_score * self.WEIGHTS["ceremony"] +
+            vitals.consensus_score * self.WEIGHTS["consensus"]
+        )
+
+        return CalcificationScore(
+            polip_key=key,
+            total=total,
+            intensity_score=vitals.intensity_score,
+            persistence_score=vitals.session_coverage,
+            depth_score=vitals.depth_score,
+            ceremony_score=vitals.ceremony_score,
+            consensus_score=vitals.consensus_score,
+            should_calcify=total >= self.CALCIFICATION_THRESHOLD,
+            lifecycle_stage=lifecycle,
+            vitals=vitals,
+        )
 
     def _iter_all_blobs(self):
         """Iterate over all blobs from root and subdirs."""
         from .blob import KNOWN_SUBDIRS
 
-        # Root blobs
         for name, blob in self.glob.list_blobs():
             key = f"{name}.blob.xml"
             yield key, blob
 
-        # Subdir blobs
         for subdir in KNOWN_SUBDIRS:
             for name, blob in self.glob.list_blobs(subdir):
                 key = f"{subdir}/{name}.blob.xml"
                 yield key, blob
 
     def get_candidates(self) -> list[CalcificationScore]:
-        """
-        Get all polips that are candidates for calcification.
-
-        Returns:
-            List of CalcificationScore objects for polips above threshold,
-            sorted by score descending.
-        """
+        """Get polips that are candidates for calcification."""
         candidates = []
-
         for key, blob in self._iter_all_blobs():
             score = self.score_polip(key, blob)
             if score.should_calcify:
                 candidates.append(score)
-
         return sorted(candidates, key=lambda s: s.total, reverse=True)
 
     def get_all_scores(self) -> list[CalcificationScore]:
-        """Get scores for all polips, regardless of threshold."""
+        """Get scores for all polips."""
         scores = []
-
         for key, blob in self._iter_all_blobs():
             scores.append(self.score_polip(key, blob))
-
         return sorted(scores, key=lambda s: s.total, reverse=True)
 
 
@@ -221,215 +355,173 @@ class ChallengeReport:
 
 class AdversarialDecay:
     """
-    Selection pressure through adversarial challenge.
+    AI-native selection pressure through adversarial challenge.
 
-    Challenge triggers:
-    - Staleness: 60+ days since update with <3 accesses
-    - Orphan: No references for 30+ days
-    - Contradiction: Validator detects conflicts (requires external validator)
+    Challenge triggers (session-based, aggressive):
+    - cold: 0 refs in last 3 sessions (going stale fast)
+    - shallow: only first-turn refs (context dump, not real use)
+    - orphan: no incoming refs and not promoted
+    - superseded: another polip on same topic has higher intensity
 
     Outcomes:
-    - SURVIVE: Polip justifies continued existence
-    - MERGE: Absorb into another polip
-    - DECOMPOSE: Archive to fossil layer
+    - SURVIVE: demonstrates continued value
+    - MERGE: should be absorbed into another polip
+    - DECOMPOSE: archive to fossil layer
     """
 
-    CHALLENGE_TRIGGERS = {
-        "staleness": {"days": 60, "min_access": 3},
-        "orphan": {"no_refs_days": 30},
-        "contradiction": {"requires_validator": True},
-    }
+    # Aggressive AI-native thresholds
+    COLD_SESSION_THRESHOLD = 3      # sessions without ref = cold
+    SHALLOW_TURN_THRESHOLD = 3      # only early turns = shallow
 
-    # Protected scopes never face challenge
     PROTECTED_SCOPES = ["always"]
 
-    def __init__(self, glob: "Glob"):
+    def __init__(self, glob: "Glob", engine: CalcificationEngine | None = None):
         self.glob = glob
+        self.engine = engine or CalcificationEngine(glob)
 
     def _iter_all_blobs(self):
         """Iterate over all blobs from root and subdirs."""
         from .blob import KNOWN_SUBDIRS
 
-        # Root blobs
         for name, blob in self.glob.list_blobs():
             key = f"{name}.blob.xml"
             yield key, blob
 
-        # Subdir blobs
         for subdir in KNOWN_SUBDIRS:
             for name, blob in self.glob.list_blobs(subdir):
                 key = f"{subdir}/{name}.blob.xml"
                 yield key, blob
 
     def get_challengers(self) -> list[tuple[str, "Blob", str]]:
-        """
-        Get polips that should face adversarial challenge.
-
-        Returns:
-            List of (key, blob, trigger_type) tuples
-        """
+        """Get polips that should face adversarial challenge."""
         challengers = []
         index = self.glob.get_index()
-        now = datetime.now()
 
         for key, blob in self._iter_all_blobs():
-            meta = index.get("blobs", {}).get(key, {})
-
-            # Skip protected scopes
             if blob.scope.value in self.PROTECTED_SCOPES:
                 continue
 
-            # Check staleness
-            age_days = (now - blob.updated).days
-            access_count = meta.get("access_count", 0)
-            staleness_cfg = self.CHALLENGE_TRIGGERS["staleness"]
+            vitals = self.engine.get_vitals(key, blob)
 
-            if age_days >= staleness_cfg["days"] and access_count < staleness_cfg["min_access"]:
-                challengers.append((key, blob, "staleness"))
-                continue
+            # Cold: no recent activity
+            if (vitals.sessions_referenced == 0 and
+                vitals.refs_this_session == 0 and
+                not vitals.promoted):
+                meta = index.get("blobs", {}).get(key, {})
+                if meta.get("access_count", 0) == 0:
+                    challengers.append((key, blob, "cold"))
+                    continue
 
-            # Check orphan status
-            orphan_cfg = self.CHALLENGE_TRIGGERS["orphan"]
-            if age_days >= orphan_cfg["no_refs_days"]:
-                # Count incoming refs
-                polip_name = Path(key).stem.replace(".blob", "")
-                has_refs = False
-                for other_key, other_meta in index.get("blobs", {}).items():
-                    if other_key == key:
-                        continue
-                    related = other_meta.get("related", [])
-                    if polip_name in related or key in related:
-                        has_refs = True
-                        break
+            # Shallow: only surface-level use
+            if vitals.avg_turn_depth < self.SHALLOW_TURN_THRESHOLD and not vitals.promoted:
+                if vitals.incoming_refs == 0:
+                    challengers.append((key, blob, "shallow"))
+                    continue
 
-                if not has_refs:
+            # Orphan: no connections and not blessed
+            if vitals.incoming_refs == 0 and vitals.outgoing_refs == 0:
+                if not vitals.promoted and vitals.sessions_referenced <= 1:
                     challengers.append((key, blob, "orphan"))
 
         return challengers
 
     def challenge(self, key: str, blob: "Blob", trigger: str) -> ChallengeReport:
-        """
-        Challenge a polip to defend its relevance.
+        """Challenge a polip to defend its relevance."""
+        vitals = self.engine.get_vitals(key, blob)
 
-        Simple heuristic defense:
-        - High access count = SURVIVE
-        - Has outgoing refs to active polips = MERGE candidate
-        - Otherwise = DECOMPOSE
-
-        Args:
-            key: Index key for the polip
-            blob: The Blob object
-            trigger: What triggered the challenge
-
-        Returns:
-            ChallengeReport with outcome
-        """
-        index = self.glob.get_index()
-        meta = index.get("blobs", {}).get(key, {})
-        access_count = meta.get("access_count", 0)
-
-        # Defense 1: High usage = survive
-        if access_count >= 5:
+        # Defense 1: Current session intensity
+        if vitals.refs_this_session >= 3:
             return ChallengeReport(
                 polip_key=key,
                 trigger=trigger,
                 result=ChallengeResult.SURVIVE,
-                reason=f"High usage ({access_count} accesses) justifies existence",
+                reason=f"High current intensity ({vitals.refs_this_session} refs this session)",
             )
 
-        # Defense 2: Has valuable outgoing links = merge candidate
-        if blob.related and len(blob.related) > 0:
-            # Check if any related polips are still active
-            for ref in blob.related:
-                ref_key = f"{ref}.blob.xml"
-                if ref_key in index.get("blobs", {}):
-                    return ChallengeReport(
-                        polip_key=key,
-                        trigger=trigger,
-                        result=ChallengeResult.MERGE,
-                        reason=f"Has active reference to {ref}, consider merging",
-                    )
+        # Defense 2: Network integration
+        if vitals.incoming_refs >= 2:
+            return ChallengeReport(
+                polip_key=key,
+                trigger=trigger,
+                result=ChallengeResult.SURVIVE,
+                reason=f"Network integrated ({vitals.incoming_refs} incoming refs)",
+            )
 
-        # No defense = decompose
+        # Defense 3: Persistence across sessions
+        if vitals.sessions_referenced >= 2:
+            return ChallengeReport(
+                polip_key=key,
+                trigger=trigger,
+                result=ChallengeResult.SURVIVE,
+                reason=f"Persistent value ({vitals.sessions_referenced} sessions)",
+            )
+
+        # Merge candidate: has outgoing refs to active polips
+        if vitals.outgoing_refs > 0:
+            return ChallengeReport(
+                polip_key=key,
+                trigger=trigger,
+                result=ChallengeResult.MERGE,
+                reason=f"Consider merging into referenced polips ({vitals.outgoing_refs} refs)",
+            )
+
+        # No defense
         return ChallengeReport(
             polip_key=key,
             trigger=trigger,
             result=ChallengeResult.DECOMPOSE,
-            reason=f"No justification for continued existence ({trigger})",
+            reason=f"No justification ({trigger}): 0 intensity, 0 network, 0 persistence",
         )
 
     def run_challenges(self, dry_run: bool = True) -> list[ChallengeReport]:
-        """
-        Run adversarial challenges on all eligible polips.
-
-        Args:
-            dry_run: If True, report without taking action
-
-        Returns:
-            List of challenge reports
-        """
+        """Run adversarial challenges on all eligible polips."""
         reports = []
-        challengers = self.get_challengers()
-
-        for key, blob, trigger in challengers:
+        for key, blob, trigger in self.get_challengers():
             report = self.challenge(key, blob, trigger)
             reports.append(report)
-
-            if not dry_run and report.result == ChallengeResult.DECOMPOSE:
-                # Move to quarantine (handled by safety module)
-                pass
-
         return reports
 
 
 @dataclass
 class HealthReport:
-    """Reef ecosystem health metrics."""
+    """AI-native reef ecosystem health metrics."""
     vitality_score: float
     total_polips: int
-    active_ratio: float
-    reference_density: float
-    age_distribution: dict
+    hot_ratio: float           # polips with current session activity
+    connected_ratio: float     # polips with network links
     type_diversity: float
     lifecycle_stages: dict
+    session_stats: dict
     recommendations: list[str]
 
     def to_dict(self) -> dict:
         return {
             "vitality_score": round(self.vitality_score, 3),
             "total_polips": self.total_polips,
-            "active_ratio": round(self.active_ratio, 3),
-            "reference_density": round(self.reference_density, 3),
-            "age_distribution": self.age_distribution,
+            "hot_ratio": round(self.hot_ratio, 3),
+            "connected_ratio": round(self.connected_ratio, 3),
             "type_diversity": round(self.type_diversity, 3),
             "lifecycle_stages": self.lifecycle_stages,
+            "session_stats": self.session_stats,
             "recommendations": self.recommendations,
         }
 
 
 class ReefHealth:
     """
-    Ecosystem health metrics for the reef.
+    AI-native ecosystem health metrics.
 
-    Measures:
-    - Vitality Score: Overall health 0-1
-    - Active Ratio: Proportion of recently accessed polips
-    - Reference Density: Average refs per polip
-    - Age Distribution: Spread across lifecycle stages
-    - Type Diversity: Shannon entropy of polip types
+    Measures (session-relative):
+    - Vitality Score: overall health 0-1
+    - Hot Ratio: polips active this session
+    - Connected Ratio: polips with network links
+    - Type Diversity: entropy of polip types
+    - Lifecycle Balance: distribution across stages
     """
 
-    # Lifecycle stage thresholds (days)
-    LIFECYCLE_STAGES = {
-        "spawning": 7,      # < 7 days old
-        "drifting": 30,     # 7-30 days
-        "attached": 90,     # 30-90 days
-        "calcified": 180,   # 90-180 days
-        "fossil": float("inf"),  # > 180 days
-    }
-
-    def __init__(self, glob: "Glob"):
+    def __init__(self, glob: "Glob", engine: CalcificationEngine | None = None):
         self.glob = glob
+        self.engine = engine or CalcificationEngine(glob)
 
     def calculate(self) -> HealthReport:
         """Calculate full health report."""
@@ -441,86 +533,66 @@ class ReefHealth:
             return HealthReport(
                 vitality_score=0.0,
                 total_polips=0,
-                active_ratio=0.0,
-                reference_density=0.0,
-                age_distribution={},
+                hot_ratio=0.0,
+                connected_ratio=0.0,
                 type_diversity=0.0,
-                lifecycle_stages={stage: 0 for stage in self.LIFECYCLE_STAGES},
+                lifecycle_stages={},
+                session_stats={},
                 recommendations=["Create your first polip with 'reef sprout'"],
             )
 
-        # Gather metrics
-        active_ratio = self._active_ratio(blobs_meta)
-        ref_density = self._reference_density(blobs_meta)
-        age_dist = self._age_distribution(blobs_meta)
-        type_div = self._type_diversity(blobs_meta)
-        lifecycle = self._lifecycle_distribution(blobs_meta)
+        # Calculate vitals for all polips
+        scores = self.engine.get_all_scores()
 
-        # Calculate vitality score (weighted combination)
+        # Hot ratio: polips with current session activity
+        hot_count = sum(1 for s in scores if s.vitals.refs_this_session > 0)
+        hot_ratio = hot_count / total
+
+        # Connected ratio: polips with network links
+        connected_count = sum(
+            1 for s in scores
+            if s.vitals.incoming_refs > 0 or s.vitals.outgoing_refs > 0
+        )
+        connected_ratio = connected_count / total
+
+        # Type diversity
+        type_div = self._type_diversity(blobs_meta)
+
+        # Lifecycle distribution
+        lifecycle = {}
+        for s in scores:
+            stage = s.lifecycle_stage
+            lifecycle[stage] = lifecycle.get(stage, 0) + 1
+
+        # Session stats
+        session_stats = {
+            "total_refs_this_session": sum(s.vitals.refs_this_session for s in scores),
+            "avg_intensity": sum(s.intensity_score for s in scores) / total,
+            "calcification_candidates": sum(1 for s in scores if s.should_calcify),
+        }
+
+        # Vitality score (weighted)
         vitality = (
-            0.25 * active_ratio +
-            0.25 * min(1.0, ref_density / 2.0) +  # Cap at 2 refs/polip
-            0.25 * type_div +
-            0.25 * self._lifecycle_balance(lifecycle, total)
+            0.30 * hot_ratio +
+            0.30 * connected_ratio +
+            0.20 * type_div +
+            0.20 * self._lifecycle_balance(lifecycle, total)
         )
 
-        # Generate recommendations
         recommendations = self._generate_recommendations(
-            active_ratio, ref_density, type_div, lifecycle, total
+            hot_ratio, connected_ratio, type_div, lifecycle, total, scores
         )
 
         return HealthReport(
             vitality_score=vitality,
             total_polips=total,
-            active_ratio=active_ratio,
-            reference_density=ref_density,
-            age_distribution=age_dist,
+            hot_ratio=hot_ratio,
+            connected_ratio=connected_ratio,
             type_diversity=type_div,
             lifecycle_stages=lifecycle,
+            session_stats=session_stats,
             recommendations=recommendations,
         )
-
-    def _active_ratio(self, blobs: dict) -> float:
-        """Proportion of polips accessed in last 30 days."""
-        if not blobs:
-            return 0.0
-        active = sum(1 for m in blobs.values() if m.get("access_count", 0) > 0)
-        return active / len(blobs)
-
-    def _reference_density(self, blobs: dict) -> float:
-        """Average number of references per polip."""
-        if not blobs:
-            return 0.0
-        total_refs = sum(len(m.get("related", [])) for m in blobs.values())
-        return total_refs / len(blobs)
-
-    def _age_distribution(self, blobs: dict) -> dict:
-        """Count of polips by age bracket."""
-        brackets = {"<7d": 0, "7-30d": 0, "30-90d": 0, "90-180d": 0, ">180d": 0}
-        now = datetime.now()
-
-        for meta in blobs.values():
-            updated_str = meta.get("updated", "")
-            if not updated_str:
-                continue
-            try:
-                updated = datetime.strptime(updated_str, "%Y-%m-%d")
-                age = (now - updated).days
-
-                if age < 7:
-                    brackets["<7d"] += 1
-                elif age < 30:
-                    brackets["7-30d"] += 1
-                elif age < 90:
-                    brackets["30-90d"] += 1
-                elif age < 180:
-                    brackets["90-180d"] += 1
-                else:
-                    brackets[">180d"] += 1
-            except ValueError:
-                pass
-
-        return brackets
 
     def _type_diversity(self, blobs: dict) -> float:
         """Shannon entropy of polip types (normalized 0-1)."""
@@ -541,71 +613,48 @@ class ReefHealth:
                 p = count / total
                 entropy -= p * math.log(p)
 
-        # Normalize by max possible entropy (log of number of types)
         max_entropy = math.log(max(len(type_counts), 1))
         if max_entropy == 0:
             return 0.0
 
         return min(1.0, entropy / max_entropy)
 
-    def _lifecycle_distribution(self, blobs: dict) -> dict:
-        """Count polips in each lifecycle stage."""
-        stages = {stage: 0 for stage in self.LIFECYCLE_STAGES}
-        now = datetime.now()
-
-        for meta in blobs.values():
-            updated_str = meta.get("updated", "")
-            if not updated_str:
-                continue
-            try:
-                updated = datetime.strptime(updated_str, "%Y-%m-%d")
-                age = (now - updated).days
-
-                for stage, threshold in self.LIFECYCLE_STAGES.items():
-                    if age < threshold:
-                        stages[stage] += 1
-                        break
-            except ValueError:
-                pass
-
-        return stages
-
     def _lifecycle_balance(self, stages: dict, total: int) -> float:
         """Score how balanced the lifecycle distribution is."""
         if total == 0:
             return 0.0
-
-        # Ideal: some in each stage (not all fossils, not all spawning)
         non_empty = sum(1 for count in stages.values() if count > 0)
-        max_stages = len(self.LIFECYCLE_STAGES)
-
-        return non_empty / max_stages
+        return non_empty / 5  # 5 possible stages
 
     def _generate_recommendations(
         self,
-        active_ratio: float,
-        ref_density: float,
+        hot_ratio: float,
+        connected_ratio: float,
         type_div: float,
         lifecycle: dict,
         total: int,
+        scores: list[CalcificationScore],
     ) -> list[str]:
         """Generate actionable recommendations."""
         recs = []
 
-        if active_ratio < 0.3:
-            recs.append("Low activity: review and prune unused polips")
+        if hot_ratio < 0.1:
+            recs.append("Low activity: surface relevant polips with /surface")
 
-        if ref_density < 0.5:
+        if connected_ratio < 0.2:
             recs.append("Low connectivity: use [[wiki-links]] to connect related polips")
 
         if type_div < 0.3 and total > 3:
             recs.append("Low type diversity: consider adding decisions or constraints")
 
-        if lifecycle.get("fossil", 0) > total * 0.5:
-            recs.append("Many fossils: run 'reef decay challenge' to clean up")
+        spawning = lifecycle.get("spawning", 0)
+        if spawning == total:
+            recs.append("All polips are new: use them to build calcification")
 
-        if lifecycle.get("spawning", 0) == total:
-            recs.append("All polips are new: give them time to mature")
+        # Check for calcification candidates
+        candidates = [s for s in scores if s.should_calcify]
+        if candidates:
+            recs.append(f"{len(candidates)} polip(s) ready for calcification")
 
         if not recs:
             recs.append("Reef is healthy!")
@@ -613,7 +662,7 @@ class ReefHealth:
         return recs
 
 
-# Convenience aliases for coral terminology
+# Convenience aliases
 Calcification = CalcificationEngine
 Decay = AdversarialDecay
 Health = ReefHealth
