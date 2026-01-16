@@ -88,9 +88,7 @@ Each spawned Claude inherits:
 ✓ Orchestrator merges successfully when both report green
 ✓ Resume next session: child can continue work, parent can continue orchestration
 ]]></spec-phase-7>
-  <related>
-    <ref>constraints-project-rules</ref>
-  </related>
+  <related></related>
   <context><![CDATA[
 ## Session Summary (2026-01-15)
 
@@ -243,12 +241,12 @@ Explored AI-native memory through 8 spark iterations. Key emergent insights:
 ## Next: .reef Format Design + Remaining Cleanup
 
 ### 1. Claude Code Plugin for Reef (HIGH PRIORITY)
-- [ ] Create reef plugin structure at `~/.claude/plugins/reef/`
-- [ ] Implement `/surface <polip-id>` command - load polip to context (L2 activation)
-- [ ] Implement `/surface` (no args) - show L1 index of available polips
+- [x] Create reef plugin structure at `~/.claude/plugins/reef/`
+- [x] Implement `/surface <polip-id>` command - load polip to context (L2 activation)
+- [x] Implement `/surface` (no args) - show L1 index of available polips
 - [ ] Add SessionStart hook to auto-inject L1 index (current GLOB behavior)
 - [ ] Add Stop hook to persist session context to polip
-- [ ] Register as `reef` plugin in Claude Code
+- [ ] Register as `reef` plugin in Claude Code (needs restart)
 
 Plugin structure:
 ```
@@ -285,9 +283,94 @@ Plugin structure:
 
 ### Test Gates
 ```bash
-uv run pytest -v                    # All 536 tests pass
+uv run pytest -v                    # All 541 tests pass
 reef sync                           # Reef integrity
-reef health                         # Ecosystem health
+reef health                         # Ecosystem health (AI-native)
 ```
+
+## Session 7: AI-Native Calcification Engine (2026-01-15)
+
+### Core Insight
+"Digital time is different. Don't make a reef like it's in the ocean."
+
+Biological coral calcifies over years. AI memory operates in sessions and turns.
+A polip referenced 50 times in one session is more calcified than one touched
+once over 7 days.
+
+### Completed
+- **Rewrote calcification engine** for session-relative time
+  - Removed all wall-clock dependencies (30d, 60d, 180d thresholds)
+  - New time model: turn (heartbeat) → session (fundamental unit) → epoch
+
+- **New calcification triggers**:
+  - Intensity: refs within session (immediate value)
+  - Persistence: sessions that reference (lasting value)
+  - Depth: turn depth when referenced (real work vs surface)
+  - Ceremony: explicit human promotion (authority)
+  - Consensus: refs from other polips (network effect)
+
+- **New lifecycle stages** (based on vitals, not age):
+  - spawning → drifting → attached → calcified → fossil
+  - Constraints with scope=always are immediately calcified
+  - 5+ refs/session jumps to attached
+
+- **New adversarial decay triggers**:
+  - cold: 0 refs, 0 access (aggressive)
+  - shallow: only first-turn refs (surface-level)
+  - orphan: no connections and not blessed
+
+- **Updated CLI**: `reef health` and `reef calcify` show AI-native metrics
+- **541 tests passing** (up from 536)
+
+### Key Code Changes
+- `src/reef/calcification.py`: Complete rewrite
+- `src/reef/cli.py`: Updated health/calcify output
+- `tests/test_calcification.py`: New tests for session-relative scoring
+
+## To Resume
+```bash
+/surface threads-reef-native-infrastructure
+```
+
+## How to Save to Reef
+```bash
+# Option 1: Edit thread polip directly
+# File: .claude/threads/reef-native-infrastructure.blob.xml
+
+# Option 2: Create new polip via CLI
+uv run python -m reef.cli sprout thread "Summary of work"
+
+# Option 3: Ask Claude to update the thread
+# "Update our reef thread with this session's progress"
+```
+
+## Reef UX Philosophy: The Dive
+
+**Above water**: Clear context. Focused task. You know what you're doing.
+
+**Diving into reef**: "What do I have?" "What did I forget?" "What's connected?"
+Exploration, not retrieval. Discovery, not search.
+
+**Coming up for air**: Session ends. You surface with something - or you don't.
+
+### Core Principle
+The reef shouldn't feel like a filing cabinet you search.
+It should feel like diving into your own forgotten depths
+and discovering what grew there while you weren't looking.
+
+"I don't know what's down here" is the right starting posture.
+The reef reveals itself.
+
+### Interaction Model
+- No phrase mapping or commands to memorize
+- Just talk naturally - intent is inferred
+- "Save this", "remember", "pick up tomorrow" - all understood dynamically
+- The reef is invisible infrastructure, not a tool to learn
+
+## Next Steps
+1. Claude Code Plugin for Reef (`/surface` command)
+2. .reef file format specification (decay protocol)
+3. Integration tests for trench harness
+4. Test coverage improvements
 ]]></context>
 </blob>

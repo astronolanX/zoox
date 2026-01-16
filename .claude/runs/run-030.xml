@@ -1,0 +1,39 @@
+<run id="030" date="2026-01-15">
+  <summary>AI-native calcification engine: rewrote reef time model from ocean time (days) to session-relative time (turns, sessions, epochs)</summary>
+
+  <what-worked>
+    - Complete rewrite of calcification.py with session-based scoring
+    - New lifecycle stages based on vitals not age (spawning→drifting→attached→calcified→fossil)
+    - Intensity/persistence/depth/ceremony/consensus triggers replace time-based thresholds
+    - User insight about "digital time is different" drove entire redesign
+    - UX philosophy crystallized: "the dive" metaphor - exploration not retrieval
+  </what-worked>
+
+  <what-didnt>
+    - Nothing significant - clean implementation session
+  </what-didnt>
+
+  <files-created>
+    - None (rewrites only)
+  </files-created>
+
+  <files-modified>
+    - src/reef/calcification.py (complete rewrite - AI-native time model)
+    - src/reef/cli.py (health/calcify commands updated for new metrics)
+    - tests/test_calcification.py (new tests for session-relative scoring)
+    - src/reef/blob.py (archive directory in integrity check)
+    - .claude/threads/reef-native-infrastructure.blob.xml (session 7 progress + UX philosophy)
+  </files-modified>
+
+  <metrics>
+    <tests>541 passed, 3 skipped</tests>
+    <coverage>49% overall</coverage>
+  </metrics>
+
+  <next-session>
+    <item>Claude Code Plugin for Reef - /surface command implementation</item>
+    <item>.reef file format specification (decay protocol, not storage)</item>
+    <item>Integration tests for trench harness</item>
+    <item>Implement "the dive" UX - exploration not retrieval</item>
+  </next-session>
+</run>
