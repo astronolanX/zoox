@@ -1,7 +1,6 @@
-<blob type="context" scope="session" updated="2026-01-13" v="2">
+<blob type="context" scope="session" updated="2026-01-15" v="2">
   <summary>Fixed three high-priority bugs (XML error handling, verified subdirectory scanning), completed 90% of zoox→reef package rename, designed 6 elegant polip surfacing UX patterns (startup menu, modal questions, inline annotations, constraint interrupts, IDE sidebar, graph viz), and packaged everything with reef for next session including automated migration script and context polips.</summary>
   <files>
-    <file>src/zoox/blob.py</file>
     <file>pyproject.toml</file>
     <file>README.md</file>
     <file>CLAUDE.md</file>
