@@ -102,6 +102,43 @@ class TestGlobBasics:
             result = glob.get("does-not-exist")
             assert result is None
 
+    def test_get_reef_format_file(self):
+        """Get retrieves .reef format files (dual-format detection)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            # Create .reef file directly
+            reef_path = glob.claude_dir / "my-reef.reef"
+            reef_content = '(polip my-reef @thread ^project ~"Reef format polip")'
+            reef_path.write_text(reef_content)
+
+            retrieved = glob.get("my-reef")
+            assert retrieved is not None
+            assert retrieved.summary == "Reef format polip"
+            assert retrieved.type == BlobType.THREAD
+
+    def test_list_finds_both_formats(self):
+        """List_blobs finds both .reef and .blob.xml files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project = Path(tmpdir)
+            glob = Glob(project)
+
+            # Create .blob.xml file
+            blob = Blob(type=BlobType.FACT, summary="XML format")
+            glob.sprout(blob, "xml-polip")
+
+            # Create .reef file directly
+            reef_path = glob.claude_dir / "reef-polip.reef"
+            reef_content = '(polip reef-polip @context ~"Reef format")'
+            reef_path.write_text(reef_content)
+
+            blobs = glob.list_blobs()
+            names = [name for name, _ in blobs]
+            assert "xml-polip" in names
+            assert "reef-polip" in names
+            assert len(blobs) == 2
+
 
 class TestGlobListBlobs:
     """Blob listing functionality."""

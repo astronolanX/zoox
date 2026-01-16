@@ -323,6 +323,31 @@ class TestBlobFilePersistence:
         with pytest.raises(FileNotFoundError):
             Blob.load(Path("/nonexistent/path/file.blob.xml"))
 
+    def test_load_reef_format(self):
+        """Load .reef format files (dual-format detection)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.reef"
+            # Write a .reef file manually (s-expression format)
+            reef_content = '(polip test-polip @thread ^project ~"Test reef format")'
+            path.write_text(reef_content)
+
+            loaded = Blob.load(path)
+            assert loaded.summary == "Test reef format"
+            assert loaded.type == BlobType.THREAD
+            assert loaded.scope == BlobScope.PROJECT
+
+    def test_load_auto_detect_sexpr_by_content(self):
+        """Auto-detect s-expression format by content (starts with '(')."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Even with .blob.xml extension, if content starts with (, parse as sexpr
+            path = Path(tmpdir) / "test.blob.xml"
+            reef_content = '(polip auto-detect @context ~"Detected by content")'
+            path.write_text(reef_content)
+
+            loaded = Blob.load(path)
+            assert loaded.summary == "Detected by content"
+            assert loaded.type == BlobType.CONTEXT
+
 
 class TestBlobStress:
     """Stress tests with absurd inputs."""

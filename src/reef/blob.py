@@ -251,8 +251,40 @@ BLOB_VERSION = 2
 # Known subdirectories for blob organization (DRY: single source of truth)
 KNOWN_SUBDIRS = ("threads", "decisions", "constraints", "contexts", "facts")
 
+# Supported polip file extensions (order = preference for new files)
+POLIP_EXTENSIONS = (".reef", ".blob.xml")
+
 # Wiki link pattern: [[polip-name]]
 WIKI_LINK_PATTERN = re.compile(r'\[\[([^\]]+)\]\]')
+
+
+def _iter_polip_files(directory: Path):
+    """Yield all polip files in directory (both .reef and .blob.xml)."""
+    if not directory.exists():
+        return
+    for ext in POLIP_EXTENSIONS:
+        yield from directory.glob(f"*{ext}")
+
+
+def _polip_name_from_path(path: Path) -> str:
+    """Extract polip name from path, removing extension."""
+    name = path.name
+    for ext in POLIP_EXTENSIONS:
+        if name.endswith(ext):
+            return name[:-len(ext)]
+    return name
+
+
+def _find_polip_path(base_dir: Path, name: str, subdir: str = None) -> Path | None:
+    """Find a polip file by name, checking both extensions."""
+    search_dir = base_dir / subdir if subdir else base_dir
+    if not search_dir.exists():
+        return None
+    for ext in POLIP_EXTENSIONS:
+        path = search_dir / f"{name}{ext}"
+        if path.exists():
+            return path
+    return None
 
 
 def _tokenize(text: str) -> list[str]:
@@ -682,22 +714,96 @@ class Blob:
         _atomic_write(path, self.to_xml())
 
     @classmethod
+    def _from_polip(cls, polip: "Polip") -> "Blob":
+        """Convert a Polip (from format.py) to a Blob."""
+        from datetime import datetime
+
+        # Map type string to BlobType enum
+        type_map = {
+            "constraint": BlobType.CONSTRAINT,
+            "thread": BlobType.THREAD,
+            "context": BlobType.CONTEXT,
+            "decision": BlobType.DECISION,
+            "fact": BlobType.FACT,
+        }
+        blob_type = type_map.get(polip.type, BlobType.CONTEXT)
+
+        # Map scope string to BlobScope enum
+        scope_map = {
+            "always": BlobScope.ALWAYS,
+            "project": BlobScope.PROJECT,
+            "session": BlobScope.SESSION,
+        }
+        blob_scope = scope_map.get(polip.scope, BlobScope.PROJECT)
+
+        # Map status string to BlobStatus enum
+        status_map = {
+            "active": BlobStatus.ACTIVE,
+            "blocked": BlobStatus.BLOCKED,
+            "done": BlobStatus.DONE,
+            "archived": BlobStatus.ARCHIVED,
+        }
+        blob_status = status_map.get(polip.status) if polip.status else None
+
+        # Combine context lines into single string
+        context_text = "\n".join(polip.context) if polip.context else ""
+
+        # Convert steps to next_steps (just the text, not done status for now)
+        next_steps = [step_text for done, step_text in polip.steps if not done]
+
+        return cls(
+            type=blob_type,
+            summary=polip.summary,
+            scope=blob_scope,
+            status=blob_status,
+            files=[],  # Polip format doesn't have files
+            related=polip.links,
+            context=context_text,
+            facts=polip.facts,
+            decisions=[(d, "") for d in polip.decisions],  # Convert to (choice, why) tuples
+            next_steps=next_steps,
+            updated=datetime.combine(polip.updated, datetime.min.time()),
+        )
+
+    @classmethod
     def load(cls, path: Path) -> "Blob":
-        """Load blob from file.
+        """Load blob from file (auto-detects .reef or .blob.xml format).
 
         Raises:
             FileNotFoundError: If the blob file doesn't exist
-            ValueError: If the blob XML is malformed
+            ValueError: If the blob content is malformed
             UnicodeDecodeError: If the file contains invalid UTF-8
         """
         try:
-            xml_content = path.read_text(encoding="utf-8")
+            content = path.read_text(encoding="utf-8")
         except FileNotFoundError:
             raise FileNotFoundError(f"Blob file not found: {path}")
         except UnicodeDecodeError as e:
             raise ValueError(f"Blob file contains invalid UTF-8: {path}") from e
 
-        return cls.from_xml(xml_content)
+        stripped = content.lstrip()
+
+        # Auto-detect format based on content prefix
+        # Human-readable .reef format starts with =
+        if stripped.startswith("="):
+            from .format import Polip
+            try:
+                polip = Polip.from_reef(content)
+                return cls._from_polip(polip)
+            except Exception as e:
+                raise ValueError(f"Invalid .reef format in {path}: {e}") from e
+
+        # S-expression format starts with (
+        if stripped.startswith("("):
+            from .sexpr import parse_sexpr, sexpr_to_blob
+            try:
+                sexpr = parse_sexpr(content)
+                return sexpr_to_blob(sexpr)
+            except Exception as e:
+                raise ValueError(f"Invalid S-expression format in {path}: {e}") from e
+
+        # Fall back to XML format
+        return cls.from_xml(content)
 
 
 class Glob:
@@ -872,7 +978,7 @@ class Glob:
             if not search_dir.exists():
                 continue
 
-            for path in search_dir.glob("*.blob.xml"):
+            for path in _iter_polip_files(search_dir):
                 try:
                     blob = Blob.load(path)
                     key = self._blob_key(path)
@@ -1040,11 +1146,13 @@ class Glob:
         _validate_name_safe(name)
         if subdir:
             _validate_subdir_safe(subdir)
-            path = self.claude_dir / subdir / f"{name}.blob.xml"
-        else:
-            path = self.claude_dir / f"{name}.blob.xml"
 
-        # Also validate constructed path (defense in depth)
+        # Find polip file (supports both .reef and .blob.xml)
+        path = _find_polip_path(self.claude_dir, name, subdir)
+        if not path:
+            return None
+
+        # Also validate found path (defense in depth)
         _validate_path_safe(self.claude_dir, path)
 
         return self._get_cached(path)
@@ -1060,13 +1168,10 @@ class Glob:
             return []
 
         blobs = []
-        for path in search_dir.glob("*.blob.xml"):
+        for path in _iter_polip_files(search_dir):
             blob = self._get_cached(path)
             if blob is not None:
-                # Extract name by removing .blob.xml suffix (not using replace)
-                name = path.name
-                if name.endswith(".blob.xml"):
-                    name = name[:-9]  # Remove ".blob.xml" (9 chars)
+                name = _polip_name_from_path(path)
                 blobs.append((name, blob))
 
         return blobs
@@ -1132,8 +1237,13 @@ class Glob:
 
             # LRU boost: frequently accessed polips get a small boost
             # Use logarithmic scaling to prevent runaway scores
-            key = f"{subdir}/{name}.blob.xml" if subdir else f"{name}.blob.xml"
-            access_count = blobs_index.get(key, {}).get("access_count", 0)
+            # Try both extensions when looking up in index
+            access_count = 0
+            for ext in POLIP_EXTENSIONS:
+                key = f"{subdir}/{name}{ext}" if subdir else f"{name}{ext}"
+                access_count = blobs_index.get(key, {}).get("access_count", 0)
+                if access_count > 0:
+                    break
             if access_count > 0:
                 # log(1 + count) gives diminishing returns: 1->0.69, 10->2.4, 100->4.6
                 score += math.log(1 + access_count)
@@ -1172,16 +1282,17 @@ class Glob:
         Raises:
             PathTraversalError: If name or subdir attempts directory traversal
         """
+        # Validate name before path construction
+        _validate_name_safe(name)
         if subdir:
-            src = self.claude_dir / subdir / f"{name}.blob.xml"
-        else:
-            src = self.claude_dir / f"{name}.blob.xml"
+            _validate_subdir_safe(subdir)
+
+        src = _find_polip_path(self.claude_dir, name, subdir)
+        if not src:
+            return
 
         # Validate source path is safely within .claude directory
         _validate_path_safe(self.claude_dir, src)
-
-        if not src.exists():
-            return
 
         # Load, update status, save to archive
         blob = Blob.load(src)
@@ -1239,15 +1350,15 @@ class Glob:
 
         for name, blob in all_blobs:
             if blob.needs_migration():
-                # Reconstruct path
-                path = self.claude_dir / f"{name}.blob.xml"
-                if not path.exists():
+                # Find actual path (could be .reef or .blob.xml)
+                path = _find_polip_path(self.claude_dir, name)
+                if not path:
                     for subdir in KNOWN_SUBDIRS:
-                        candidate = self.claude_dir / subdir / f"{name}.blob.xml"
-                        if candidate.exists():
-                            path = candidate
+                        path = _find_polip_path(self.claude_dir, name, subdir)
+                        if path:
                             break
-                outdated.append((path, blob))
+                if path:
+                    outdated.append((path, blob))
 
         return outdated
 
@@ -1274,7 +1385,7 @@ class Glob:
         Update the status of an existing blob.
 
         Args:
-            name: Blob name (without .blob.xml extension)
+            name: Blob name (without extension)
             status: New status to set
             subdir: Optional subdirectory
             blocked_by: Reason for blocking (only used with BLOCKED status)
@@ -1285,16 +1396,17 @@ class Glob:
         Raises:
             PathTraversalError: If name or subdir attempts directory traversal
         """
+        # Validate name before path construction
+        _validate_name_safe(name)
         if subdir:
-            path = self.claude_dir / subdir / f"{name}.blob.xml"
-        else:
-            path = self.claude_dir / f"{name}.blob.xml"
+            _validate_subdir_safe(subdir)
+
+        path = _find_polip_path(self.claude_dir, name, subdir)
+        if not path:
+            return None
 
         # Validate path is safely within .claude directory
         _validate_path_safe(self.claude_dir, path)
-
-        if not path.exists():
-            return None
 
         blob = Blob.load(path)
         blob.status = status
@@ -1654,8 +1766,9 @@ class Glob:
         for subdir in [None, *KNOWN_SUBDIRS, "archive"]:
             for blob_name, blob in self.list_blobs(subdir):
                 key = f"{subdir}/{blob_name}" if subdir else blob_name
-                key_with_ext = f"{key}.blob.xml"
-                found_keys.add(key_with_ext)
+                # Track found keys (try both extensions for index comparison)
+                for ext in POLIP_EXTENSIONS:
+                    found_keys.add(f"{key}{ext}")
 
                 # Check file references
                 for f in blob.files:
@@ -1672,17 +1785,16 @@ class Glob:
 
                 # Check related refs
                 for ref in blob.related:
-                    # Check if ref exists as a polip
-                    ref_path = self.claude_dir / f"{ref}.blob.xml"
-                    if not ref_path.exists():
+                    # Check if ref exists as a polip (either extension)
+                    ref_found = _find_polip_path(self.claude_dir, ref) is not None
+                    if not ref_found:
                         # Try subdirs
-                        exists = False
                         for sd in KNOWN_SUBDIRS:
-                            if (self.claude_dir / sd / f"{ref}.blob.xml").exists():
-                                exists = True
+                            if _find_polip_path(self.claude_dir, ref, sd) is not None:
+                                ref_found = True
                                 break
-                        if not exists:
-                            issues["broken_refs"].append((key, ref))
+                    if not ref_found:
+                        issues["broken_refs"].append((key, ref))
 
                 # Check schema version
                 if blob.needs_migration():
@@ -1732,13 +1844,11 @@ class Glob:
             blob.files = valid_files
             blob.updated = datetime.now()
 
-            # Save back
-            if subdir:
-                path = self.claude_dir / subdir / f"{name}.blob.xml"
-            else:
-                path = self.claude_dir / f"{name}.blob.xml"
-            blob.save(path)
-            self._update_index(path, blob)
+            # Save back (find actual path regardless of extension)
+            path = _find_polip_path(self.claude_dir, name, subdir)
+            if path:
+                blob.save(path)
+                self._update_index(path, blob)
 
         return True
 
@@ -1888,11 +1998,8 @@ class Glob:
                         continue
                     # SESSION blobs from previous days are stale
                     if blob.updated.date() < threshold.date():
-                        if subdir:
-                            path = self.claude_dir / subdir / f"{name}.blob.xml"
-                        else:
-                            path = self.claude_dir / f"{name}.blob.xml"
-                        if not dry_run:
+                        path = _find_polip_path(self.claude_dir, name, subdir)
+                        if path and not dry_run:
                             path.unlink(missing_ok=True)
                         results["sessions_pruned"] += 1
 
@@ -1900,7 +2007,7 @@ class Glob:
             archive_dir = self.claude_dir / "archive"
             if archive_dir.exists():
                 cutoff = datetime.now().date() - timedelta(days=archive_days)
-                for path in archive_dir.glob("*.blob.xml"):
+                for path in _iter_polip_files(archive_dir):
                     try:
                         blob = Blob.load(path)
                         if blob.updated.date() < cutoff:
@@ -2025,11 +2132,10 @@ class Glob:
 
     def _count_polips(self, claude_dir: Path) -> int:
         """Count polips in a .claude directory."""
-        count = len(list(claude_dir.glob("*.blob.xml")))
+        count = len(list(_iter_polip_files(claude_dir)))
         for subdir in KNOWN_SUBDIRS:
             subpath = claude_dir / subdir
-            if subpath.exists():
-                count += len(list(subpath.glob("*.blob.xml")))
+            count += len(list(_iter_polip_files(subpath)))
         return count
 
     def list_drift_polips(self, scope_filter: list[str] = None) -> list[dict]:
@@ -2067,17 +2173,14 @@ class Glob:
                 if not search_dir.exists():
                     continue
 
-                for path in search_dir.glob("*.blob.xml"):
+                for path in _iter_polip_files(search_dir):
                     try:
                         blob = Blob.load(path)
                         # Filter by scope
                         if blob.scope.value not in scope_filter:
                             continue
 
-                        name = path.stem
-                        if name.endswith(".blob"):
-                            name = name[:-5]
-
+                        name = _polip_name_from_path(path)
                         key = f"{reef_name}/{subdir}/{name}" if subdir else f"{reef_name}/{name}"
 
                         polips.append({
