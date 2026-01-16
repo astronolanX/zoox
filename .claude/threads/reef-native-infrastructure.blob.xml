@@ -441,16 +441,43 @@ Captured in `.claude/ideas/tenacious-agent-mode.md`:
 - `.claude/agents/reef-validator.md` - Karen's new contract
 - `.claude/ideas/tenacious-agent-mode.md` - Persistent agent concept
 
+## Session 9: Phase 9 Implementation (2026-01-15)
+
+### Completed
+- **Sigil sugar tokenizer/parser**: `@thread ^always ~"summary" +active #["files"]`
+- **Delta-from-default compression**: Omit defaults (type=thread, scope=project, status=active, version=2)
+- **Canonical defaults**: Defined in `DEFAULTS` dict
+- **Migration CLI**: `reef format --stats`, `reef format --convert [--dry-run] [--keep]`
+- **57 sexpr tests** (up from 48)
+- **598 total tests passing**
+
+### Token Savings Analysis
+```
+reef format --convert --dry-run
+
+context.blob.xml -> context.reef (29.8% smaller)
+spark-evolution.blob.xml -> spark-evolution.reef (40.9% smaller)
+never-commit-secrets.blob.xml -> never-commit-secrets.reef (54.1% smaller)
+reef-native-infrastructure.blob.xml -> reef-native-infrastructure.reef (8.2% smaller)
+...
+Average: ~28% reduction
+```
+
+### Files Modified
+- `src/reef/sexpr.py`: Sigil sugar + delta compression
+- `src/reef/cli.py`: `reef format` command
+- `tests/test_sexpr.py`: New tests for sigils + defaults
+
 ## Next Steps
 
-### Phase 9: .reef Format Implementation
-1. [ ] Add sigil sugar to `sexpr.py` (`@thread` → `:type thread`)
-2. [ ] Implement delta-from-default (omit default values)
-3. [ ] Define canonical defaults (type=thread, scope=project, etc.)
-4. [ ] Add decay protocol support (`(decay :half-life N)`)
-5. [ ] Migration script: `.blob.xml` → `.reef`
-6. [ ] Update CLI for new format
-7. [ ] Dual-format transition period (auto-detect by first char)
+### Phase 9 Remaining
+1. [x] Add sigil sugar to `sexpr.py`
+2. [x] Implement delta-from-default
+3. [x] Define canonical defaults
+4. [ ] Add decay protocol support (Blob class needs fields)
+5. [x] Migration CLI: `reef format --convert`
+6. [x] Update CLI for new format
+7. [ ] Dual-format auto-detection in Glob.load()
 
 ### Remaining from Previous Sessions
 - [ ] Claude Code Plugin hooks (SessionStart, Stop)
@@ -459,9 +486,9 @@ Captured in `.claude/ideas/tenacious-agent-mode.md`:
 
 ### Test Gates
 ```bash
-uv run pytest -v              # 589 tests (48 new sexpr)
+uv run pytest -v              # 598 tests
 reef sync                     # Reef integrity
-reef health                   # Ecosystem health
+reef format --stats           # Token savings
 ```
 
 ## To Resume
@@ -470,8 +497,7 @@ reef health                   # Ecosystem health
 ```
 
 Key files to review:
-- `src/reef/sexpr.py` - Working S-expression parser
-- `.claude/skills/investigate.md` - Investigation harness
-- `.claude/agents/reef-validator.md` - Karen's updated role
+- `src/reef/sexpr.py` - Sigil sugar + delta compression
+- `src/reef/cli.py` - `reef format` command
 ]]></context>
 </blob>

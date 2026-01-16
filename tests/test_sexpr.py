@@ -296,9 +296,23 @@ class TestBlobToSexpr:
         )
         output = blob_to_sexpr(blob, "minimal")
 
-        assert "(polip thread minimal" in output
-        assert ":scope project" in output
-        assert ':summary "Minimal"' in output
+        # With delta compression: defaults (thread, project, active) are omitted
+        assert "(polip minimal" in output
+        assert '~"Minimal"' in output
+        assert ":updated" in output
+
+    def test_minimal_blob_no_delta(self):
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Minimal",
+            scope=BlobScope.PROJECT,
+        )
+        output = blob_to_sexpr(blob, "minimal", delta=False)
+
+        # Without delta: all attrs present
+        assert "(polip minimal @thread" in output
+        assert "^project" in output
+        assert '~"Minimal"' in output
 
     def test_blob_with_multiline_context(self):
         blob = Blob(
@@ -359,12 +373,21 @@ class TestEdgeCases:
         blob = sexpr_to_blob(expr)
         assert len(blob.decisions) == 3
 
-    def test_missing_required_fields(self):
-        # Missing type and name should fail
+    def test_minimal_with_defaults(self):
+        # With delta compression, even (polip name) works - uses defaults
+        source = "(polip my-name)"
+        expr = parse_sexpr(source)
+        blob = sexpr_to_blob(expr)
+        assert blob.type == BlobType.THREAD  # Default
+        assert blob.scope == BlobScope.PROJECT  # Default
+
+    def test_truly_empty_polip(self):
+        # Completely empty still needs a name
         source = "(polip)"
         expr = parse_sexpr(source)
-        with pytest.raises((ValueError, IndexError)):
-            sexpr_to_blob(expr)
+        blob = sexpr_to_blob(expr)
+        assert blob.type == BlobType.THREAD  # Default
+        # Name defaults to "unnamed"
 
     def test_wrong_head(self):
         source = "(blob thread test)"  # 'blob' instead of 'polip'

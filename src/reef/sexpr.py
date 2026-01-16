@@ -391,20 +391,23 @@ def sexpr_to_blob(sexpr: SExpr):
     if sexpr.head != "polip":
         raise ValueError(f"Expected 'polip', got '{sexpr.head}'")
 
-    # Determine type - sigil style (attrs) or legacy (items[0])
+    # Determine type - sigil style (attrs), legacy (items[0]), or default
     if "type" in sexpr.attrs:
         # Sigil style: @thread sets attrs["type"]
         type_str = sexpr.attrs["type"]
         # Name is items[0] if present
         name = sexpr.items[0] if sexpr.items else "unnamed"
         content_start = 1
-    else:
+    elif sexpr.items and sexpr.items[0] in ("thread", "decision", "constraint", "fact", "context"):
         # Legacy style: items[0] is type, items[1] is name
-        if len(sexpr.items) < 2:
-            raise ValueError("Polip requires type and name (legacy) or @type sigil")
         type_str = sexpr.items[0]
-        name = sexpr.items[1]
+        name = sexpr.items[1] if len(sexpr.items) > 1 else "unnamed"
         content_start = 2
+    else:
+        # Delta compression: type omitted, use default
+        type_str = DEFAULTS["type"]
+        name = sexpr.items[0] if sexpr.items else "unnamed"
+        content_start = 1
 
     # Parse type
     blob_type = BlobType(type_str)
@@ -413,10 +416,9 @@ def sexpr_to_blob(sexpr: SExpr):
     scope_str = sexpr.attrs.get("scope", "project")
     scope = BlobScope(scope_str)
 
-    # Parse status
-    status = None
-    if "status" in sexpr.attrs:
-        status = BlobStatus(sexpr.attrs["status"])
+    # Parse status (default: active)
+    status_str = sexpr.attrs.get("status", DEFAULTS["status"])
+    status = BlobStatus(status_str) if status_str else None
 
     # Parse updated
     updated_str = sexpr.attrs.get("updated")
@@ -495,41 +497,81 @@ def sexpr_to_blob(sexpr: SExpr):
     )
 
 
-def blob_to_sexpr(blob, name: str = "unnamed") -> str:
-    """Convert Blob object to S-expression string."""
+def blob_to_sexpr(blob, name: str = "unnamed", use_sigils: bool = True, delta: bool = True) -> str:
+    """Convert Blob object to S-expression string.
+
+    Args:
+        blob: Blob object to convert
+        name: Polip name
+        use_sigils: Use sigil sugar (@thread instead of :type thread)
+        delta: Omit default values (delta-from-default compression)
+    """
     from .blob import Blob, BlobStatus, BlobScope
 
     lines = []
     indent = "  "
 
-    # Opening
-    lines.append(f"(polip {blob.type.value} {name}")
+    # Opening with name
+    header = f"(polip {name}"
 
-    # Attributes on same line or next
-    attrs = []
-    attrs.append(f":scope {blob.scope.value}")
-    if blob.status:
-        attrs.append(f":status {blob.status.value}")
-    attrs.append(f':updated "{blob.updated.strftime("%Y-%m-%d")}"')
-    attrs.append(f":v {blob.version}")
+    # Type - use sigil or omit if default
+    type_val = blob.type.value
+    if use_sigils:
+        if not delta or type_val != DEFAULTS["type"]:
+            header += f" @{type_val}"
+    else:
+        if not delta or type_val != DEFAULTS["type"]:
+            header += f" :type {type_val}"
 
-    lines[0] += " " + " ".join(attrs)
+    # Scope - use sigil or omit if default
+    scope_val = blob.scope.value
+    if use_sigils:
+        if not delta or scope_val != DEFAULTS["scope"]:
+            header += f" ^{scope_val}"
+    else:
+        if not delta or scope_val != DEFAULTS["scope"]:
+            header += f" :scope {scope_val}"
 
-    # Summary (always present)
+    # Summary - always present, use sigil
     summary_escaped = _escape_string(blob.summary)
-    lines.append(f'{indent}:summary "{summary_escaped}"')
+    if use_sigils:
+        header += f' ~"{summary_escaped}"'
+    else:
+        header += f' :summary "{summary_escaped}"'
+
+    # Status - use sigil or omit if default
+    if blob.status:
+        status_val = blob.status.value
+        if use_sigils:
+            if not delta or status_val != DEFAULTS["status"]:
+                header += f" +{status_val}"
+        else:
+            if not delta or status_val != DEFAULTS["status"]:
+                header += f" :status {status_val}"
+
+    lines.append(header)
+
+    # Updated (always include - temporal anchor)
+    lines.append(f'{indent}:updated "{blob.updated.strftime("%Y-%m-%d")}"')
+
+    # Version - omit if default
+    if not delta or blob.version != DEFAULTS["version"]:
+        lines.append(f"{indent}:v {blob.version}")
 
     # Blocked by
     if blob.blocked_by:
         lines.append(f'{indent}:blocked-by "{_escape_string(blob.blocked_by)}"')
 
-    # Files
+    # Files - use sigil sugar
     if blob.files:
-        file_strs = [f'"{_escape_string(f)}"' for f in blob.files]
-        lines.append(f"{indent}(files")
-        for f in file_strs:
-            lines.append(f"{indent}{indent}{f}")
-        lines.append(f"{indent})")
+        if use_sigils:
+            file_strs = " ".join(f'"{_escape_string(f)}"' for f in blob.files)
+            lines.append(f"{indent}#[{file_strs}]")
+        else:
+            lines.append(f"{indent}(files")
+            for f in blob.files:
+                lines.append(f'{indent}{indent}"{_escape_string(f)}"')
+            lines.append(f"{indent})")
 
     # Decisions
     if blob.decisions:

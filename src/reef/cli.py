@@ -252,6 +252,89 @@ def cmd_migrate(args):
     print(f"Migrated {count} polip(s) to v{BLOB_VERSION}")
 
 
+def cmd_format(args):
+    """Manage polip file formats (XML vs .reef)."""
+    from reef.blob import Blob
+    from reef.sexpr import blob_to_sexpr, compare_formats
+
+    project_dir = Path.cwd()
+    claude_dir = project_dir / ".claude"
+
+    if not claude_dir.exists():
+        print("No .claude/ directory found")
+        sys.exit(1)
+
+    # Find all polip files
+    xml_files = list(claude_dir.rglob("*.blob.xml"))
+    reef_files = list(claude_dir.rglob("*.reef"))
+
+    if args.stats:
+        # Show format statistics
+        print("=== Format Statistics ===")
+        print(f"XML files:  {len(xml_files)}")
+        print(f".reef files: {len(reef_files)}")
+
+        if xml_files:
+            total_xml_tokens = 0
+            total_reef_tokens = 0
+            for path in xml_files:
+                name = path.stem.replace(".blob", "")
+                try:
+                    blob = Blob.load(path)
+                    comparison = compare_formats(blob, name)
+                    total_xml_tokens += comparison["xml_tokens"]
+                    total_reef_tokens += comparison["sexpr_tokens"]
+                except Exception:
+                    continue
+
+            if total_xml_tokens > 0:
+                reduction = (1 - total_reef_tokens / total_xml_tokens) * 100
+                print(f"\nToken analysis (all XML files):")
+                print(f"  XML total:  ~{total_xml_tokens} tokens")
+                print(f"  .reef total: ~{total_reef_tokens} tokens")
+                print(f"  Reduction:  {reduction:.1f}%")
+        return
+
+    if args.convert:
+        # Convert XML to .reef
+        if not xml_files:
+            print("No XML files to convert")
+            return
+
+        converted = 0
+        for path in xml_files:
+            name = path.stem.replace(".blob", "")
+            try:
+                blob = Blob.load(path)
+                sexpr_str = blob_to_sexpr(blob, name)
+                reef_path = path.with_suffix("").with_suffix(".reef")
+
+                if args.dry_run:
+                    comparison = compare_formats(blob, name)
+                    print(f"{path.name} -> {reef_path.name} ({comparison['token_reduction']} smaller)")
+                else:
+                    reef_path.write_text(sexpr_str)
+                    if not args.keep:
+                        path.unlink()
+                    converted += 1
+                    print(f"Converted: {path.name} -> {reef_path.name}")
+            except Exception as e:
+                print(f"Error converting {path}: {e}", file=sys.stderr)
+
+        if args.dry_run:
+            print(f"\n{len(xml_files)} file(s) would be converted. Run without --dry-run to convert.")
+        else:
+            print(f"\nConverted {converted} file(s)")
+        return
+
+    # Default: show help
+    print("Usage:")
+    print("  reef format --stats     Show format statistics")
+    print("  reef format --convert   Convert XML to .reef")
+    print("  reef format --convert --dry-run  Preview conversion")
+    print("  reef format --convert --keep     Keep original XML files")
+
+
 def cmd_list(args):
     """Show reef health and diagnostics."""
     from reef.blob import Glob, Blob, BlobType, BlobScope, BlobStatus, BLOB_VERSION, KNOWN_SUBDIRS
@@ -2116,6 +2199,18 @@ def main():
     )
     migrate_parser.add_argument("--dry-run", action="store_true", help="Preview migrations without applying")
     migrate_parser.set_defaults(func=cmd_migrate)
+
+    # format (XML to .reef conversion)
+    format_parser = subparsers.add_parser(
+        "format",
+        help="Manage polip file formats",
+        description="Convert between XML and .reef formats, show statistics"
+    )
+    format_parser.add_argument("--stats", action="store_true", help="Show format statistics and token savings")
+    format_parser.add_argument("--convert", action="store_true", help="Convert XML files to .reef format")
+    format_parser.add_argument("--dry-run", action="store_true", help="Preview conversion without applying")
+    format_parser.add_argument("--keep", action="store_true", help="Keep original XML files after conversion")
+    format_parser.set_defaults(func=cmd_format)
 
     # decompose (sink)
     decompose_parser = subparsers.add_parser(
