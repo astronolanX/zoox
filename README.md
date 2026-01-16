@@ -24,8 +24,19 @@ reef works as an MCP server - plug it into Claude Desktop, Cursor, or any MCP cl
 {
   "mcpServers": {
     "reef": {
+      "command": "reef-mcp"
+    }
+  }
+}
+```
+
+Uses current working directory by default. For a specific project:
+```json
+{
+  "mcpServers": {
+    "reef": {
       "command": "reef-mcp",
-      "args": ["--project-dir", "/path/to/your/project"]
+      "args": ["--project-dir", "/path/to/project"]
     }
   }
 }
