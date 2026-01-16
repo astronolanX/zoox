@@ -18,11 +18,14 @@ Architecture:
 import json
 import os
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Optional
+
+from reef.fs import atomic_write as _atomic_write
 
 
 class TrenchStatus(Enum):
@@ -76,6 +79,7 @@ class TrenchInfo:
     test_output: Optional[str] = None
     error: Optional[str] = None
     pid: Optional[int] = None
+    pid_start_time: Optional[float] = None  # monotonic time when PID was assigned
     task: Optional[str] = None
     model: Optional[str] = None
     complexity: Optional[str] = None
@@ -91,6 +95,7 @@ class TrenchInfo:
             "test_output": self.test_output,
             "error": self.error,
             "pid": self.pid,
+            "pid_start_time": self.pid_start_time,
             "task": self.task,
             "model": self.model,
             "complexity": self.complexity,
@@ -180,6 +185,7 @@ class TrenchHarness:
                 test_output=data.get("test_output"),
                 error=data.get("error"),
                 pid=data.get("pid"),
+                pid_start_time=data.get("pid_start_time"),
                 task=data.get("task"),
                 model=data.get("model"),
                 complexity=data.get("complexity"),
@@ -251,10 +257,180 @@ class TrenchHarness:
         return info
 
     def _write_trench_status(self, info: TrenchInfo) -> None:
-        """Write the status file to a trench worktree."""
+        """Write the status file to a trench worktree atomically."""
         status_file = info.worktree_path / self.STATUS_FILE
         info.last_updated = datetime.now()
-        status_file.write_text(json.dumps(info.to_dict(), indent=2))
+        _atomic_write(status_file, json.dumps(info.to_dict(), indent=2))
+
+    # --- Event-based coordination (Phase 2) ---
+
+    EVENTS_DIR = "events"
+
+    def _emit_event(self, name: str, event_type: str, data: dict) -> Path:
+        """
+        Emit an event to a trench's event log.
+
+        Events are append-only: each event creates a new file with a sequence number.
+        This eliminates race conditions since there are no overwrites.
+
+        Args:
+            name: Trench name
+            event_type: Type of event (spawn, running, testing, ready, failed, etc.)
+            data: Event-specific data
+
+        Returns:
+            Path to the created event file
+        """
+        trench_path = self._get_trench_path(name)
+        events_dir = trench_path / self.EVENTS_DIR
+        events_dir.mkdir(exist_ok=True)
+
+        # Count existing events to get next sequence number
+        existing = sorted(events_dir.glob("*.json"))
+        next_num = len(existing) + 1
+
+        event = {
+            "type": event_type,
+            "timestamp": datetime.now().isoformat(),
+            "seq": next_num,
+            **data,
+        }
+
+        event_file = events_dir / f"{next_num:03d}-{event_type}.json"
+        _atomic_write(event_file, json.dumps(event, indent=2))
+        return event_file
+
+    def _read_events(self, name: str) -> list[dict]:
+        """
+        Read all events for a trench in sequence order.
+
+        Args:
+            name: Trench name
+
+        Returns:
+            List of event dicts, sorted by sequence number
+        """
+        trench_path = self._get_trench_path(name)
+        events_dir = trench_path / self.EVENTS_DIR
+
+        if not events_dir.exists():
+            return []
+
+        events = []
+        for event_file in sorted(events_dir.glob("*.json")):
+            try:
+                event = json.loads(event_file.read_text())
+                events.append(event)
+            except (json.JSONDecodeError, OSError):
+                continue  # Skip corrupted events
+
+        return events
+
+    def _compute_status_from_events(self, name: str) -> Optional[dict]:
+        """
+        Reconstruct current state from event sequence.
+
+        This provides the authoritative state by replaying all events.
+        The .reef-trench.json file acts as a cache of this computed state.
+
+        Args:
+            name: Trench name
+
+        Returns:
+            Dict with current state fields, or None if no events exist
+        """
+        events = self._read_events(name)
+        if not events:
+            return None
+
+        # Start with empty state and apply events in order
+        state = {
+            "name": name,
+            "status": None,
+            "pid": None,
+            "pid_start_time": None,
+            "task": None,
+            "model": None,
+            "complexity": None,
+            "test_output": None,
+            "error": None,
+            "created": None,
+            "last_updated": None,
+        }
+
+        for event in events:
+            event_type = event.get("type")
+            timestamp = event.get("timestamp")
+
+            if state["created"] is None:
+                state["created"] = timestamp
+            state["last_updated"] = timestamp
+
+            if event_type == "spawn":
+                state["status"] = TrenchStatus.SPAWNING.value
+                state["task"] = event.get("task")
+                state["model"] = event.get("model")
+                state["complexity"] = event.get("complexity")
+                state["branch"] = event.get("branch")
+                state["worktree_path"] = event.get("worktree_path")
+
+            elif event_type == "running":
+                state["status"] = TrenchStatus.RUNNING.value
+                state["pid"] = event.get("pid")
+                state["pid_start_time"] = event.get("pid_start_time")
+
+            elif event_type == "testing":
+                state["status"] = TrenchStatus.TESTING.value
+
+            elif event_type == "ready":
+                state["status"] = TrenchStatus.READY.value
+                state["test_output"] = event.get("test_output")
+
+            elif event_type == "failed":
+                state["status"] = TrenchStatus.FAILED.value
+                state["error"] = event.get("error")
+                state["test_output"] = event.get("test_output")
+
+            elif event_type == "merged":
+                state["status"] = TrenchStatus.MERGED.value
+
+            elif event_type == "aborted":
+                state["status"] = TrenchStatus.ABORTED.value
+
+        return state
+
+    def _sync_status_from_events(self, name: str) -> Optional[TrenchInfo]:
+        """
+        Sync the status file from events and return the TrenchInfo.
+
+        This is used to ensure the cached status file is up-to-date with events.
+        """
+        state = self._compute_status_from_events(name)
+        if not state:
+            return None
+
+        trench_path = self._get_trench_path(name)
+
+        # Build TrenchInfo from computed state
+        info = TrenchInfo(
+            name=name,
+            branch=state.get("branch", f"{self.BRANCH_PREFIX}{name}"),
+            worktree_path=Path(state.get("worktree_path", str(trench_path))),
+            status=TrenchStatus(state["status"]) if state.get("status") else TrenchStatus.SPAWNING,
+            created=datetime.fromisoformat(state["created"]) if state.get("created") else datetime.now(),
+            last_updated=datetime.fromisoformat(state["last_updated"]) if state.get("last_updated") else datetime.now(),
+            test_output=state.get("test_output"),
+            error=state.get("error"),
+            pid=state.get("pid"),
+            pid_start_time=state.get("pid_start_time"),
+            task=state.get("task"),
+            model=state.get("model"),
+            complexity=state.get("complexity"),
+        )
+
+        # Write synchronized status file
+        self._write_trench_status(info)
+        return info
 
     def spawn(self, name: str, base_branch: Optional[str] = None) -> TrenchResult:
         """
@@ -327,9 +503,19 @@ class TrenchHarness:
         )
         self._write_trench_status(info)
 
+        # Emit spawn event (event-sourced state)
+        self._emit_event(name, "spawn", {
+            "branch": branch,
+            "worktree_path": str(trench_path),
+            "base_branch": base_branch,
+        })
+
         # Update status to running
         info.status = TrenchStatus.RUNNING
         self._write_trench_status(info)
+
+        # Emit running event (no PID yet, that comes from spawn_session)
+        self._emit_event(name, "running", {})
 
         return TrenchResult(
             success=True,
@@ -436,8 +622,18 @@ class TrenchHarness:
                 )
 
             info.pid = process.pid
+            info.pid_start_time = time.monotonic()  # Track when PID was assigned
             info.status = TrenchStatus.RUNNING
             self._write_trench_status(info)
+
+            # Emit running event with full session details
+            self._emit_event(name, "running", {
+                "pid": process.pid,
+                "pid_start_time": info.pid_start_time,
+                "task": task,
+                "model": model,
+                "complexity": complexity.value,
+            })
 
             return TrenchResult(
                 success=True,
@@ -449,6 +645,8 @@ class TrenchHarness:
             info.status = TrenchStatus.FAILED
             info.error = "Claude CLI not found. Is it installed and in PATH?"
             self._write_trench_status(info)
+            # Emit failed event
+            self._emit_event(name, "failed", {"error": info.error})
             return TrenchResult(
                 success=False,
                 message=f"Failed to launch Claude session in trench '{name}'",
@@ -459,6 +657,8 @@ class TrenchHarness:
             info.status = TrenchStatus.FAILED
             info.error = str(e)
             self._write_trench_status(info)
+            # Emit failed event
+            self._emit_event(name, "failed", {"error": str(e)})
             return TrenchResult(
                 success=False,
                 message=f"Failed to launch Claude session in trench '{name}'",
@@ -466,9 +666,16 @@ class TrenchHarness:
                 error=str(e),
             )
 
+    # Maximum session age before we consider the PID stale (potential reuse)
+    MAX_SESSION_AGE_SECONDS = 7 * 24 * 60 * 60  # 7 days
+
     def is_session_alive(self, name: str) -> bool:
         """
         Check if a trench's Claude session is still running.
+
+        Uses PID existence check plus age-based heuristic to detect PID reuse.
+        If a session has been "running" for more than MAX_SESSION_AGE_SECONDS,
+        we consider the PID potentially reused and the session dead.
 
         Args:
             name: Trench name
@@ -480,11 +687,20 @@ class TrenchHarness:
         if not info or not info.pid:
             return False
 
+        # Check if process exists
         try:
             os.kill(info.pid, 0)  # Signal 0 = check if process exists
-            return True
         except OSError:
+            return False  # Process doesn't exist
+
+        # PID reuse protection: check session age
+        # If the trench has been running for too long, the PID may have been reused
+        session_age_seconds = (datetime.now() - info.created).total_seconds()
+        if session_age_seconds > self.MAX_SESSION_AGE_SECONDS:
+            # Session is suspiciously old - likely a reused PID
             return False
+
+        return True
 
     def get_session_output(self, name: str, tail_lines: int = 50) -> Optional[str]:
         """
@@ -566,6 +782,7 @@ class TrenchHarness:
         # Update status to testing
         info.status = TrenchStatus.TESTING
         self._write_trench_status(info)
+        self._emit_event(name, "testing", {"command": test_command})
 
         # Run tests
         try:
@@ -582,6 +799,7 @@ class TrenchHarness:
             if result.returncode == 0:
                 info.status = TrenchStatus.READY
                 self._write_trench_status(info)
+                self._emit_event(name, "ready", {"test_output": info.test_output[:1000]})  # Truncate for event
                 return TrenchResult(
                     success=True,
                     message=f"Tests passed in trench '{name}'",
@@ -591,6 +809,7 @@ class TrenchHarness:
                 info.status = TrenchStatus.FAILED
                 info.error = f"Tests failed with exit code {result.returncode}"
                 self._write_trench_status(info)
+                self._emit_event(name, "failed", {"error": info.error, "test_output": info.test_output[:1000]})
                 return TrenchResult(
                     success=False,
                     message=f"Tests failed in trench '{name}'",
@@ -602,6 +821,7 @@ class TrenchHarness:
             info.status = TrenchStatus.FAILED
             info.error = "Test command timed out after 10 minutes"
             self._write_trench_status(info)
+            self._emit_event(name, "failed", {"error": info.error})
             return TrenchResult(
                 success=False,
                 message=f"Tests timed out in trench '{name}'",
@@ -612,6 +832,7 @@ class TrenchHarness:
             info.status = TrenchStatus.FAILED
             info.error = str(e)
             self._write_trench_status(info)
+            self._emit_event(name, "failed", {"error": str(e)})
             return TrenchResult(
                 success=False,
                 message=f"Test execution failed in trench '{name}'",
@@ -663,6 +884,7 @@ class TrenchHarness:
             info.status = TrenchStatus.FAILED
             info.error = f"Merge conflict: {output}"
             self._write_trench_status(info)
+            self._emit_event(name, "failed", {"error": f"Merge conflict: {output}"})
             return TrenchResult(
                 success=False,
                 message=f"Merge failed for trench '{name}'",
@@ -673,6 +895,7 @@ class TrenchHarness:
         # Update status
         info.status = TrenchStatus.MERGED
         self._write_trench_status(info)
+        self._emit_event(name, "merged", {"target_branch": current_branch})
 
         # Clean up worktree and branch
         cleanup_result = self._cleanup_trench(name, delete_branch)
@@ -723,6 +946,7 @@ class TrenchHarness:
         # Update status
         info.status = TrenchStatus.ABORTED
         self._write_trench_status(info)
+        self._emit_event(name, "aborted", {"force": force})
 
         # Clean up
         return self._cleanup_trench(name, delete_branch=True, force=force)
@@ -820,7 +1044,23 @@ class TrenchHarness:
             data["last_updated"] = datetime.now().isoformat()
             if test_output:
                 data["test_output"] = test_output
-            status_file.write_text(json.dumps(data, indent=2))
+            _atomic_write(status_file, json.dumps(data, indent=2))
+
+            # Emit ready event (determine name from current directory)
+            name = data.get("name", Path.cwd().name)
+            events_dir = Path.cwd() / self.EVENTS_DIR
+            events_dir.mkdir(exist_ok=True)
+            existing = sorted(events_dir.glob("*.json"))
+            next_num = len(existing) + 1
+            event = {
+                "type": "ready",
+                "timestamp": datetime.now().isoformat(),
+                "seq": next_num,
+                "test_output": test_output[:1000] if test_output else "",
+            }
+            event_file = events_dir / f"{next_num:03d}-ready.json"
+            _atomic_write(event_file, json.dumps(event, indent=2))
+
             return True
         except Exception:
             return False
