@@ -15,6 +15,46 @@ A "reef" is a colony of polips - lightweight XML context files that persist acro
 pip install reef
 ```
 
+## MCP Server (Universal AI Memory)
+
+reef works as an MCP server - plug it into Claude Desktop, Cursor, or any MCP client:
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "reef": {
+      "command": "reef-mcp",
+      "args": ["--project-dir", "/path/to/your/project"]
+    }
+  }
+}
+```
+
+**What AI gets:**
+| Tool | Purpose |
+|------|---------|
+| `reef_surface` | Search and retrieve relevant polips |
+| `reef_sprout` | Create new polips (threads, decisions, facts) |
+| `reef_health` | Check reef vitality score |
+| `reef_index` | Browse polip metadata |
+| `reef_sync` | Check integrity |
+| `reef_audit` | Query operation history |
+| `reef_undo` | Restore quarantined polips |
+
+**Resources:**
+- `reef://polips` - Full polip index
+- `reef://health` - Vitality metrics
+
+Test it works:
+```bash
+reef-mcp --test
+# Reef MCP Server v0.1.0
+# Project: /your/project
+# Tools: 8
+# Resources: 2
+```
+
 ## Usage
 
 ```bash

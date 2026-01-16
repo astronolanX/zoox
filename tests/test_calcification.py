@@ -652,4 +652,6 @@ class TestCLIIntegration:
 
         json_str = output[json_start:]
         data = json.loads(json_str)
-        assert "vitality_score" in data
+        # Vitality data is nested under "vitality" key
+        assert "vitality" in data
+        assert "score" in data["vitality"]

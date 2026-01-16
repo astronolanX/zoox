@@ -839,13 +839,24 @@ def cmd_health(args):
         with open(status_file) as f:
             status = json.load(f)
     except Exception:
-        print("Error reading reef status")
+        if getattr(args, 'json', False):
+            print(json.dumps({"error": "Error reading reef status"}))
+        else:
+            print("Error reading reef status")
         sys.exit(1)
 
     vitality = status.get("vitality", {})
     if not vitality:
-        print("No vitality data available")
+        if getattr(args, 'json', False):
+            print(json.dumps({"error": "No vitality data available"}))
+        else:
+            print("No vitality data available")
         sys.exit(1)
+
+    # JSON output mode
+    if getattr(args, 'json', False):
+        print(json.dumps(status, indent=2))
+        return
 
     # Print health report
     icon = vitality.get("icon", "")
@@ -2570,6 +2581,7 @@ def main():
         help="Show reef vitality and health metrics",
         description="Display reef ecosystem health score, activity patterns, and recommended actions to maintain or revive your reef."
     )
+    health_parser.add_argument("--json", action="store_true", help="Output as JSON")
     health_parser.set_defaults(func=cmd_health)
 
     # template

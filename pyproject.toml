@@ -28,6 +28,7 @@ dependencies = []
 
 [project.scripts]
 reef = "reef.cli:main"
+reef-mcp = "reef.mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/reef"]
