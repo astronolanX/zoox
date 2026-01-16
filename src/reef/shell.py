@@ -32,7 +32,7 @@ SHOW_CURSOR = "\033[?25h"
 
 
 def get_reef_hint() -> Optional[str]:
-    """Get hint from reef status file."""
+    """Get hint from reef status file with spark grades."""
     project_dir = Path.cwd()
     status_file = Path(f"/tmp/reef-{project_dir.name}.status")
 
@@ -47,32 +47,40 @@ def get_reef_hint() -> Optional[str]:
         vitality_icon = vitality.get("icon", "")
         vitality_score = vitality.get("score", 0)
         vitality_status = vitality.get("status", "unknown")
+        grades = vitality.get("grades", {})
+        grade_compact = grades.get("compact", "········")
 
-        # Priority 1: Show vitality if reef is dying or declining
+        # Build compact statusline with spark grades
+        polip_count = state.get("count", 0)
+        trench_count = len(state.get("trenches", []))
+        token_savings = state.get("token_savings_pct", 0)
+
+        # Compact format: 🟠 40 [15p 0t 83%] [██····▓▓]
+        compact_status = f"{vitality_icon} {vitality_score} [{polip_count}p {trench_count}t {token_savings}%] [{grade_compact}]"
+
+        # Priority 1: Show vitality if reef is dying or declining (with action)
         if vitality_status in ["dying", "declining"]:
             action = vitality.get("recommended_action", "")
-            return f"{vitality_icon} Reef {vitality_status} ({vitality_score}) - {action}"
+            return f"{compact_status} - {action}"
 
         # Priority 2: Active trenches
         trenches = state.get("trenches", [])
         if trenches:
             active = [t for t in trenches if t.get("status") in ["running", "testing"]]
             if active:
-                return f"{vitality_icon} {len(active)} trench{'es' if len(active) > 1 else ''} active"
+                return f"{compact_status} - {len(active)} trench{'es' if len(active) > 1 else ''} active"
             ready = [t for t in trenches if t.get("status") == "ready"]
             if ready:
-                return f"{vitality_icon} {len(ready)} trench{'es' if len(ready) > 1 else ''} ready to merge"
+                return f"{compact_status} - {len(ready)} trench{'es' if len(ready) > 1 else ''} ready to merge"
 
         # Priority 3: Active thread
         thread = state.get("active_thread")
         if thread:
-            return f"{vitality_icon} Continue: {thread}"
+            return f"{compact_status} - Continue: {thread}"
 
-        # Priority 4: Show vitality status
-        if vitality_icon:
-            return f"{vitality_icon} Reef {vitality_status} ({vitality_score})"
+        # Priority 4: Show compact status with grades
+        return compact_status
 
-        return None
     except:
         return None
 

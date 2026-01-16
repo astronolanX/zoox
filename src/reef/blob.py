@@ -1939,6 +1939,33 @@ class Glob:
 
         return True
 
+    def _component_to_grade(self, score: int, max_score: int = 25) -> str:
+        """
+        Convert component score to spark grade using square ASCII system.
+
+        Grades:
+        - ██ (≥80%): High confidence
+        - ▓▓ (≥60%): Medium-high
+        - ░░ (≥40%): Medium-low
+        - ·· (<40%): Low
+
+        Args:
+            score: Component score (0-25)
+            max_score: Maximum possible score (default 25)
+
+        Returns:
+            Two-character grade string
+        """
+        pct = (score / max_score * 100) if max_score > 0 else 0
+        if pct >= 80:
+            return "██"
+        elif pct >= 60:
+            return "▓▓"
+        elif pct >= 40:
+            return "░░"
+        else:
+            return "··"
+
     def _calculate_vitality(self, blobs_dict: dict) -> dict:
         """
         Calculate reef vitality score (0-100) based on ecosystem health.
@@ -1950,7 +1977,7 @@ class Glob:
         - Health (0-25): Freshness, no contradictions, connectivity
 
         Returns:
-            Dict with score, status, last_activity, and recommended_action
+            Dict with score, status, last_activity, recommended_action, and spark grades
         """
         if not blobs_dict:
             return {
@@ -1959,6 +1986,13 @@ class Glob:
                 "last_activity": None,
                 "recommended_action": "Create first polip: reef sprout thread 'Start your reef'",
                 "components": {"activity": 0, "quality": 0, "resonance": 0, "health": 0},
+                "grades": {
+                    "activity": "··",
+                    "quality": "··",
+                    "resonance": "··",
+                    "health": "··",
+                    "compact": "········"
+                },
             }
 
         now = datetime.now()
@@ -2105,6 +2139,12 @@ class Glob:
 
         recommended_action = actions.get(weakest[0], "Keep creating quality content")
 
+        # Generate spark grades for each component
+        a_grade = self._component_to_grade(activity_score)
+        q_grade = self._component_to_grade(quality_score)
+        r_grade = self._component_to_grade(resonance_score)
+        h_grade = self._component_to_grade(health_score)
+
         return {
             "score": int(vitality_score),
             "status": status,
@@ -2113,6 +2153,13 @@ class Glob:
             "days_since_activity": (now - last_activity).days if last_activity else None,
             "recommended_action": recommended_action,
             "components": components,
+            "grades": {
+                "activity": a_grade,
+                "quality": q_grade,
+                "resonance": r_grade,
+                "health": h_grade,
+                "compact": f"{a_grade}{q_grade}{r_grade}{h_grade}"
+            },
             "metrics": {
                 "avg_facts": round(avg_facts, 1),
                 "avg_decisions": round(avg_decisions, 1),

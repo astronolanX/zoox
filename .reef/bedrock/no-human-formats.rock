@@ -1,0 +1,9 @@
+=constraint:always no-human-formats 2026-01-16
+No markdown or YAML frontmatter in reef
++NEVER use Markdown as a reef format - it's human-optimized, not AI-optimized
++NEVER use YAML frontmatter - it's verbose cruft from human-era tools
++Reef uses its own syntax: .rock (constraints), .blob.xml (polips), .current (threads)
++AI deserves its own language - faster to parse, denser semantics, zero human baggage
+~Human formats (markdown, yaml, toml) optimize for human readability
+~AI formats should optimize for: token density, semantic precision, fast parsing
+~Reef's mission: evolve AI-native language that lets AI think faster

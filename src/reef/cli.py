@@ -889,12 +889,15 @@ def cmd_health(args):
             print()
     print()
 
-    # Component breakdown
+    # Component breakdown with spark grades
+    grades = vitality.get("grades", {})
     print("Components:")
-    print(f"  Activity:  {components.get('activity', 0):>2}/25  {'█' * int(components.get('activity', 0) / 5)}")
-    print(f"  Quality:   {components.get('quality', 0):>2}/25  {'█' * int(components.get('quality', 0) / 5)}")
-    print(f"  Resonance: {components.get('resonance', 0):>2}/25  {'█' * int(components.get('resonance', 0) / 5)}")
-    print(f"  Health:    {components.get('health', 0):>2}/25  {'█' * int(components.get('health', 0) / 5)}")
+    print(f"  Activity:  {grades.get('activity', '··')} {components.get('activity', 0):>2}/25  {'█' * int(components.get('activity', 0) / 5)}")
+    print(f"  Quality:   {grades.get('quality', '··')} {components.get('quality', 0):>2}/25  {'█' * int(components.get('quality', 0) / 5)}")
+    print(f"  Resonance: {grades.get('resonance', '··')} {components.get('resonance', 0):>2}/25  {'█' * int(components.get('resonance', 0) / 5)}")
+    print(f"  Health:    {grades.get('health', '··')} {components.get('health', 0):>2}/25  {'█' * int(components.get('health', 0) / 5)}")
+    print()
+    print(f"Spark Grades: [{grades.get('compact', '········')}]")
     print()
 
     # Metrics

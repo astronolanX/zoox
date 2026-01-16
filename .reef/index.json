@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-01-16T14:44:11.103116",
+  "updated": "2026-01-16T15:01:30.020585",
   "blobs": {
     "current/test-statusline.reef": {
       "type": "thread",
@@ -136,6 +136,16 @@
       "files": [],
       "related": [],
       "updated": "2026-01-15",
+      "access_count": 0
+    },
+    "bedrock/no-human-formats.rock": {
+      "type": "constraint",
+      "scope": "always",
+      "status": null,
+      "summary": "No markdown or YAML frontmatter in reef",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-16",
       "access_count": 0
     },
     "bedrock/never-commit-secrets.rock": {
