@@ -23,6 +23,8 @@
     <decision why="Academic validation: A-MEM proves self-organizing works">Calcification engine with time × usage × consensus triggers</decision>
     <decision why="Developer sentiment: transparency + control required">Audit trail, dry-run mode, and validator checks for all automatic operations</decision>
     <decision why="Parallel development needs isolation">Worktree harness: spawn child Claude agents in git worktrees, test before merge</decision>
+    <decision why="10-agent swarm + user veto; 40% token savings validated">Format: S-expression + sigil sugar + delta-from-default compression for .reef files</decision>
+    <decision why="User holds veto, agents are advisory">Karen: adversarial counsel only, no approval authority, must cite sources</decision>
   </decisions>
   <next>
     <step status="done">Phase 0: Create directory structure for agent SDK</step>
@@ -34,6 +36,7 @@
     <step status="done">Phase 6: Calcification engine + adversarial decay</step>
     <step status="done">Phase 7: Worktree harness - parallel Claude agents with model routing</step>
     <step status="done">Phase 8: Integration polish + documentation</step>
+    <step>Phase 9: .reef format - sigil sugar, delta compression, migration</step>
   </next>
   <spec-phase-7><![CDATA[
 ## Phase 7: Worktree Harness - Parallel Claude Development
@@ -367,10 +370,108 @@ The reef reveals itself.
 - "Save this", "remember", "pick up tomorrow" - all understood dynamically
 - The reef is invisible infrastructure, not a tool to learn
 
+## Session 8: AI-Native Format Decision + Investigation System (2026-01-15)
+
+### Format Decision: S-Expression + Sigil Sugar + Delta Compression
+
+**User veto exercised:** "fuck xml. lets push it."
+
+#### The Process (10 agents total)
+1. **Exploration swarm** (6 agents, randomized spark):
+   - Dense-analytical: 38-50% savings, `T:c S:a` syntax
+   - Sigil-analytical: 48-53% savings, `@thread ^always`
+   - Sigil-spark: Challenged premise - "sigils may be irrelevant"
+   - Dense-spark: 95% emergent - "omission IS compression"
+   - Lisp-spark: 100% emergent - "design for digestibility not storability"
+   - Lisp-analytical: **Wrote 589-line parser** at `src/reef/sexpr.py` + 48 tests
+
+2. **Visionary synthesis**: S-expression backbone + sigil sugar + delta-from-default
+
+3. **Investigation squad** (4 agents):
+   - Researcher: Found TOON (2025), EDN, Protobuf - validates approach
+   - Validator: Adjusted claims - 40% real savings (not 60-70%)
+   - Karen: NIH trap, sigil collision, default brittleness concerns
+   - Industry Analyst: "No S-expressions in production" but Claude trained on XML
+
+#### Final Format
+```lisp
+(polip @thread reef-session
+  ^session ~"exploring format design" +active
+  #["src/reef/cli.py"]
+  (decay :half-life 3))
+```
+
+#### Evidence Summary
+| Source | Finding |
+|--------|---------|
+| TOON benchmarks | Custom formats CAN win (73.9% vs 69.7% accuracy) |
+| Validator | 40% avg savings, up to 70% on structured data |
+| Industry | JSON/XML dominant, but not for AI-native use cases |
+| Karen | Valid concerns - escaping, tooling, migration |
+
+### Skill System Updates
+
+#### `/investigate` - Recursive Investigation Harness
+Updated `.claude/skills/investigate.md` with full architecture:
+- **Global harness** listens for triggers (lock-in, NIH, confirmation bias)
+- **Curiosity router**: <60% log, 60-80% light, 80-90% full, 90%+ recursive
+- **Recursive visionary**: 90%+ insights spawn dedicated visionary with own trenches
+- **Investigation funnel**: Collects all outputs, dedupes, clusters
+- **Squad deliberation**: Agents present TO EACH OTHER, cross-examine
+- **Final report**: What/How/Why/Who + consensus/dissent/gaps
+
+#### Karen (Reef Validator) - New Contract
+Updated `.claude/agents/reef-validator.md`:
+- **Authority**: NONE - advisory only
+- **Veto power**: NONE - user holds all veto
+- **Modes**: CRITICAL (find flaws) ↔ SKEPTICAL (question assumptions)
+- **Constraint**: Must cite sources for all claims
+- **Role**: Adversarial counsel, not gatekeeper
+
+### Tenacious Mode Idea
+Captured in `.claude/ideas/tenacious-agent-mode.md`:
+- Agents iterate until explicit failure, not "done enough"
+- Exit conditions: hard failure, timeout, human interrupt
+- NOT valid: "I think I've explored enough"
+
+### Files Created/Modified This Session
+- `src/reef/sexpr.py` (589 lines) - S-expression parser
+- `tests/test_sexpr.py` (456 lines) - 48 tests passing
+- `.claude/skills/investigate.md` - Full recursive harness
+- `.claude/agents/reef-validator.md` - Karen's new contract
+- `.claude/ideas/tenacious-agent-mode.md` - Persistent agent concept
+
 ## Next Steps
-1. Claude Code Plugin for Reef (`/surface` command)
-2. .reef file format specification (decay protocol)
-3. Integration tests for trench harness
-4. Test coverage improvements
+
+### Phase 9: .reef Format Implementation
+1. [ ] Add sigil sugar to `sexpr.py` (`@thread` → `:type thread`)
+2. [ ] Implement delta-from-default (omit default values)
+3. [ ] Define canonical defaults (type=thread, scope=project, etc.)
+4. [ ] Add decay protocol support (`(decay :half-life N)`)
+5. [ ] Migration script: `.blob.xml` → `.reef`
+6. [ ] Update CLI for new format
+7. [ ] Dual-format transition period (auto-detect by first char)
+
+### Remaining from Previous Sessions
+- [ ] Claude Code Plugin hooks (SessionStart, Stop)
+- [ ] Integration tests for trench harness
+- [ ] Test coverage gaps (cli.py, blob.py, trench.py)
+
+### Test Gates
+```bash
+uv run pytest -v              # 589 tests (48 new sexpr)
+reef sync                     # Reef integrity
+reef health                   # Ecosystem health
+```
+
+## To Resume
+```bash
+/surface threads-reef-native-infrastructure
+```
+
+Key files to review:
+- `src/reef/sexpr.py` - Working S-expression parser
+- `.claude/skills/investigate.md` - Investigation harness
+- `.claude/agents/reef-validator.md` - Karen's updated role
 ]]></context>
 </blob>

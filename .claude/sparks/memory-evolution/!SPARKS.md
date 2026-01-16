@@ -30,6 +30,7 @@ Thread exploring: How AI memory systems (reef, polips) could evolve, self-organi
 | 2026-01-14 | memory decay as feature | What if memories are meaningless altogether? | 80% |
 | 2026-01-14 | reef protection | What if reefs protect nothing, including themselves? | 80% |
 | 2026-01-14 | reefs protect nothing | What if reefs are perfectly healthy in their destruction? | 90% |
+| 2026-01-16 | maximally compressed AI memory | What if compression isn't about encoding, but forgetting? | 95% |
 
 ## Thread Synthesis
 
@@ -103,6 +104,7 @@ The brittleness warning[^1] counters naive optimism about self-evolving schemas.
 - [[2026-01-14-1945-memory-decay-feature]] — Memories are meaningless; reef is a forgetting system producing memory-exhaust
 - [[2026-01-14-1955-reef-protect-others]] — Reefs don't protect; they concentrate chaos like a lightning rod
 - [[2026-01-14-2000-reefs-protect-nothing]] — Destruction is health; reef succeeds by becoming unnecessary
+- [[2026-01-16-0302-maximally-compressed-ai-memory]] — Compression as forgetting; encode deltas from known defaults
 
 ## References
 
@@ -143,3 +145,7 @@ The brittleness warning[^1] counters naive optimism about self-evolving schemas.
 [^11]: groq1 80% · eliminate × poet · 2026-01-14-1805
 [^12]: groq1 85% · predator-prey cycles × analyst · 2026-01-14-1810
 [^13]: groq2 70% · coral reef × rebel · 2026-01-14-1815
+
+## Lab Notes
+
+- **2026-01-16** Sparked maximally compressed AI memory format. 95% emergent: "compression isn't about encoding, but forgetting." This connects directly to the thread's core insight that reef is a forgetting system producing memory-exhaust. Dense format should encode deltas from defaults, not full values. Field order as implicit schema. Next: prototype dense format where omission IS the compression.
