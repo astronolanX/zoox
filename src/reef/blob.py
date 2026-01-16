@@ -1915,6 +1915,86 @@ class Glob:
 
         return True
 
+    def write_status(self) -> None:
+        """
+        Write current reef status to /tmp/reef-{project}.status for statusline.
+
+        Includes:
+        - Polip counts by type
+        - Total tokens and token savings
+        - Active thread info
+        - Active trenches
+        """
+        status_file = Path(f"/tmp/reef-{self.project_dir.name}.status")
+
+        # Collect polip statistics
+        index = self.get_index()
+        blobs_dict = index.get("blobs", {})
+
+        # Count by type and calculate tokens
+        type_counts = {}
+        total_tokens = 0
+        l1_tokens = 0  # Tokens if only loading L1 metadata
+
+        for key, entry in blobs_dict.items():
+            blob_type = entry.get("type", "unknown")
+            type_counts[blob_type] = type_counts.get(blob_type, 0) + 1
+
+            # Estimate tokens (actual value from polip or estimate)
+            tokens = entry.get("tokens", len(entry.get("summary", "").split()) * 1.3)
+            total_tokens += tokens
+
+            # L1 is just summary + metadata (roughly 1/10th)
+            l1_tokens += len(entry.get("summary", "").split()) * 1.3 + 20
+
+        # Token savings calculation
+        token_savings_pct = 0
+        if total_tokens > 0:
+            token_savings_pct = int((1 - l1_tokens / total_tokens) * 100)
+
+        # Find active thread
+        active_thread = None
+        for key, entry in blobs_dict.items():
+            if entry.get("type") == "thread" and entry.get("status") == "active":
+                active_thread = entry.get("summary", "Unknown thread")
+                break
+
+        # Get trench status
+        trenches_active = []
+        try:
+            from reef.trench import TrenchManager
+            trench_mgr = TrenchManager(self.project_dir)
+            trenches = trench_mgr.list_trenches()
+            for trench in trenches:
+                if trench.status.value in ["running", "testing", "ready"]:
+                    trenches_active.append({
+                        "name": trench.name,
+                        "status": trench.status.value,
+                        "branch": trench.branch,
+                    })
+        except Exception:
+            # Trench system not available or no trenches
+            pass
+
+        # Build status data
+        status = {
+            "count": len(blobs_dict),
+            "types": type_counts,
+            "total_tokens": int(total_tokens),
+            "l1_tokens": int(l1_tokens),
+            "token_savings_pct": token_savings_pct,
+            "active_thread": active_thread,
+            "trenches": trenches_active,
+            "updated": datetime.now().isoformat(),
+        }
+
+        # Write atomically
+        try:
+            _atomic_write(status_file, json.dumps(status, indent=2))
+        except Exception:
+            # Fail silently - statusline is non-critical
+            pass
+
     def build_graph(self) -> dict:
         """
         Build a graph of polip relationships.

@@ -99,6 +99,9 @@ def cmd_init(args):
     print("  Use 'reef sprout' to create polips")
     print("  Use 'reef reef' to view reef health")
 
+    # Update statusline
+    glob.write_status()
+
 
 def cmd_sprout(args):
     """Create a new polip (spawn)."""
@@ -175,6 +178,9 @@ def cmd_sprout(args):
     path = glob.sprout(blob, name, subdir)
     rel_path = path.relative_to(project_dir)
     print(f"Spawned: {rel_path}")
+
+    # Update statusline
+    glob.write_status()
 
 
 def cmd_decompose(args):
@@ -899,6 +905,7 @@ def cmd_index(args):
     if args.rebuild:
         count = glob.rebuild_index()
         print(f"Index rebuilt: {count} polip(s) indexed")
+        glob.write_status()
         return
 
     if args.search or args.type or args.scope or args.status:
@@ -927,6 +934,7 @@ def cmd_index(args):
             score_str = f" [{score:.1f}]" if args.search else ""
             print(f"  {key} {type_tag} {scope_tag}{status_str}{score_str}")
             print(f"    {entry.get('summary', '')[:60]}")
+        glob.write_status()
         return
 
     # Default: show stats
@@ -954,6 +962,9 @@ def cmd_index(args):
         print("\nBy scope:")
         for s, c in sorted(scope_counts.items()):
             print(f"  {s}: {c}")
+
+    # Update statusline
+    glob.write_status()
 
 
 def cmd_surface(args):
@@ -1425,6 +1436,9 @@ def cmd_sync(args):
     elif not args.fix and total_issues > 0:
         print("Run `reef sync --fix` to auto-fix where possible")
         print("Run `reef sync --fix --dry-run` to preview fixes")
+
+    # Update statusline
+    glob.write_status()
 
 
 def cmd_audit(args):
