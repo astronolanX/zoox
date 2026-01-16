@@ -482,10 +482,11 @@ class TestTrenchListWorktrees:
 class TestTrenchSignalReady:
     """Tests for signal_ready helper."""
 
-    def test_signal_ready_no_status_file(self):
+    def test_signal_ready_no_status_file(self, git_repo):
         """Verify signal_ready returns False when not in a trench."""
-        harness = TrenchHarness()
-        # This is called from within a trench - returns False if not in one
+        # Use git_repo fixture to ensure clean environment (not in a trench)
+        harness = TrenchHarness(git_repo)
+        # This should return False since git_repo is not a trench worktree
         assert harness.signal_ready() is False
 
 
