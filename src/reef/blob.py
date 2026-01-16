@@ -1915,6 +1915,189 @@ class Glob:
 
         return True
 
+    def _calculate_vitality(self, blobs_dict: dict) -> dict:
+        """
+        Calculate reef vitality score (0-100) based on ecosystem health.
+
+        Components:
+        - Activity (0-25): Recent polip updates, creation rate
+        - Quality (0-25): Nutrient richness (facts, decisions, links)
+        - Resonance (0-25): Access patterns, linking patterns
+        - Health (0-25): Freshness, no contradictions, connectivity
+
+        Returns:
+            Dict with score, status, last_activity, and recommended_action
+        """
+        if not blobs_dict:
+            return {
+                "score": 0,
+                "status": "empty",
+                "last_activity": None,
+                "recommended_action": "Create first polip: reef sprout thread 'Start your reef'",
+                "components": {"activity": 0, "quality": 0, "resonance": 0, "health": 0},
+            }
+
+        now = datetime.now()
+
+        # Component 1: Activity (Tidal patterns)
+        # Track: last update, polip creation rate, access frequency
+        activity_score = 0
+        last_activity = None
+        polip_ages = []
+
+        for key, entry in blobs_dict.items():
+            updated_str = entry.get("updated", "")
+            if updated_str:
+                try:
+                    updated = datetime.strptime(updated_str, "%Y-%m-%d")
+                    polip_ages.append((now - updated).days)
+                    if last_activity is None or updated > last_activity:
+                        last_activity = updated
+                except (ValueError, TypeError):
+                    pass
+
+        if last_activity:
+            days_since_activity = (now - last_activity).days
+            # Recent activity gets high score
+            if days_since_activity < 1:
+                activity_score = 25
+            elif days_since_activity < 3:
+                activity_score = 20
+            elif days_since_activity < 7:
+                activity_score = 15
+            elif days_since_activity < 14:
+                activity_score = 10
+            else:
+                activity_score = max(0, 10 - days_since_activity // 7)
+
+        # Component 2: Quality (Nutrient richness)
+        # Track: facts, decisions, links, content depth
+        quality_score = 0
+        total_facts = 0
+        total_decisions = 0
+        total_links = 0
+
+        for key, entry in blobs_dict.items():
+            facts = entry.get("facts", [])
+            decisions = entry.get("decisions", [])
+            related = entry.get("related", [])
+
+            total_facts += len(facts) if isinstance(facts, list) else 0
+            total_decisions += len(decisions) if isinstance(decisions, list) else 0
+            total_links += len(related) if isinstance(related, list) else 0
+
+        polip_count = len(blobs_dict)
+        avg_facts = total_facts / polip_count if polip_count > 0 else 0
+        avg_decisions = total_decisions / polip_count if polip_count > 0 else 0
+        avg_links = total_links / polip_count if polip_count > 0 else 0
+
+        # Score based on content richness
+        quality_score = min(25, int(
+            avg_facts * 3 +      # Facts add richness
+            avg_decisions * 5 +  # Decisions are critical
+            avg_links * 2        # Links show integration
+        ))
+
+        # Component 3: Resonance (Access patterns)
+        # Track: access_count, link frequency, calcification potential
+        resonance_score = 0
+        total_access = 0
+        linked_polips = set()
+
+        for key, entry in blobs_dict.items():
+            access_count = entry.get("access_count", 0)
+            total_access += access_count
+
+            related = entry.get("related", [])
+            if isinstance(related, list):
+                for ref in related:
+                    linked_polips.add(ref)
+
+        avg_access = total_access / polip_count if polip_count > 0 else 0
+        link_density = len(linked_polips) / polip_count if polip_count > 0 else 0
+
+        # Score based on usage patterns
+        resonance_score = min(25, int(
+            math.log(1 + avg_access) * 5 +  # Log scale for access counts
+            link_density * 20                # Link density is key indicator
+        ))
+
+        # Component 4: Health (Freshness and cohesion)
+        # Track: stale polips, contradictions, isolated polips
+        health_score = 25  # Start at max, deduct for issues
+
+        # Deduct for stale polips
+        stale_count = sum(1 for age in polip_ages if age > 30)
+        health_score -= min(10, stale_count * 2)
+
+        # Deduct for isolated polips (no links)
+        isolated_count = sum(1 for key, entry in blobs_dict.items()
+                            if not entry.get("related", []))
+        isolation_rate = isolated_count / polip_count if polip_count > 0 else 0
+        health_score -= int(isolation_rate * 10)
+
+        # Deduct for session contexts that never became threads
+        abandoned_contexts = sum(1 for key, entry in blobs_dict.items()
+                                if entry.get("type") == "context"
+                                and entry.get("scope") == "session"
+                                and (now - datetime.strptime(entry.get("updated", "2000-01-01"), "%Y-%m-%d")).days > 14)
+        health_score -= min(5, abandoned_contexts)
+
+        health_score = max(0, health_score)
+
+        # Total vitality score
+        vitality_score = activity_score + quality_score + resonance_score + health_score
+
+        # Determine status
+        if vitality_score >= 75:
+            status = "thriving"
+            icon = "🟢"
+        elif vitality_score >= 50:
+            status = "stable"
+            icon = "🟡"
+        elif vitality_score >= 25:
+            status = "declining"
+            icon = "🟠"
+        else:
+            status = "dying"
+            icon = "🔴"
+
+        # Recommended action (based on weakest component)
+        components = {
+            "activity": activity_score,
+            "quality": quality_score,
+            "resonance": resonance_score,
+            "health": health_score,
+        }
+
+        weakest = min(components.items(), key=lambda x: x[1])
+
+        actions = {
+            "activity": "Add new polips or update existing ones (reef sprout thread '...')",
+            "quality": "Enrich polips with facts and decisions (edit .claude/threads/*.xml)",
+            "resonance": "Link related polips together using [[polip-name]] syntax",
+            "health": "Prune stale polips (reef sink) or resolve contradictions",
+        }
+
+        recommended_action = actions.get(weakest[0], "Keep creating quality content")
+
+        return {
+            "score": int(vitality_score),
+            "status": status,
+            "icon": icon,
+            "last_activity": last_activity.strftime("%Y-%m-%d") if last_activity else None,
+            "days_since_activity": (now - last_activity).days if last_activity else None,
+            "recommended_action": recommended_action,
+            "components": components,
+            "metrics": {
+                "avg_facts": round(avg_facts, 1),
+                "avg_decisions": round(avg_decisions, 1),
+                "avg_links": round(avg_links, 1),
+                "stale_count": stale_count,
+                "isolated_count": isolated_count,
+            }
+        }
+
     def write_status(self) -> None:
         """
         Write current reef status to /tmp/reef-{project}.status for statusline.
@@ -1968,6 +2151,9 @@ class Glob:
                 active_thread = entry.get("summary", "Unknown thread")
                 break
 
+        # Calculate vitality score (reef health)
+        vitality_data = self._calculate_vitality(blobs_dict)
+
         # Get trench status
         trenches_active = []
         try:
@@ -1994,6 +2180,7 @@ class Glob:
             "token_savings_pct": token_savings_pct,
             "active_thread": active_thread,
             "trenches": trenches_active,
+            "vitality": vitality_data,
             "updated": datetime.now().isoformat(),
         }
 

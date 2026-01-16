@@ -43,26 +43,34 @@ def get_reef_hint() -> Optional[str]:
         with open(status_file) as f:
             state = json.load(f)
 
-        # Priority 1: Active trenches
+        vitality = state.get("vitality", {})
+        vitality_icon = vitality.get("icon", "")
+        vitality_score = vitality.get("score", 0)
+        vitality_status = vitality.get("status", "unknown")
+
+        # Priority 1: Show vitality if reef is dying or declining
+        if vitality_status in ["dying", "declining"]:
+            action = vitality.get("recommended_action", "")
+            return f"{vitality_icon} Reef {vitality_status} ({vitality_score}) - {action}"
+
+        # Priority 2: Active trenches
         trenches = state.get("trenches", [])
         if trenches:
             active = [t for t in trenches if t.get("status") in ["running", "testing"]]
             if active:
-                return f"{len(active)} trench{'es' if len(active) > 1 else ''} active"
+                return f"{vitality_icon} {len(active)} trench{'es' if len(active) > 1 else ''} active"
             ready = [t for t in trenches if t.get("status") == "ready"]
             if ready:
-                return f"{len(ready)} trench{'es' if len(ready) > 1 else ''} ready to merge"
+                return f"{vitality_icon} {len(ready)} trench{'es' if len(ready) > 1 else ''} ready to merge"
 
-        # Priority 2: Active thread
+        # Priority 3: Active thread
         thread = state.get("active_thread")
         if thread:
-            return f"Continue: {thread}"
+            return f"{vitality_icon} Continue: {thread}"
 
-        # Priority 3: Show token savings
-        count = state.get("count", 0)
-        savings_pct = state.get("token_savings_pct", 0)
-        if count > 0:
-            return f"{count} polips • {savings_pct}% token savings"
+        # Priority 4: Show vitality status
+        if vitality_icon:
+            return f"{vitality_icon} Reef {vitality_status} ({vitality_score})"
 
         return None
     except:
@@ -222,11 +230,29 @@ def print_banner():
             types = state.get("types", {})
             trenches = state.get("trenches", [])
             savings_pct = state.get("token_savings_pct", 0)
+            vitality = state.get("vitality", {})
+
+            # Show vitality first
+            if vitality:
+                icon = vitality.get("icon", "")
+                status = vitality.get("status", "unknown")
+                score = vitality.get("score", 0)
+                days_since = vitality.get("days_since_activity")
+
+                vitality_line = f"{icon} Reef {status} ({score}/100)"
+                if days_since is not None:
+                    if days_since == 0:
+                        vitality_line += " • active today"
+                    elif days_since == 1:
+                        vitality_line += " • active yesterday"
+                    else:
+                        vitality_line += f" • {days_since}d since activity"
+
+                print(f"{vitality_line}")
 
             if count > 0:
                 type_summary = ", ".join(f"{v} {k}" for k, v in sorted(types.items())[:3])
-                print(f"{DIM}{count} polips ({type_summary}){RESET}")
-                print(f"{DIM}Token savings: {savings_pct}%{RESET}")
+                print(f"{DIM}{count} polips ({type_summary}) • {savings_pct}% token savings{RESET}")
 
             if trenches:
                 by_status = {}

@@ -821,6 +821,107 @@ def cmd_graph(args):
         print("Tip: reef graph --dot | dot -Tpng -o reef.png")
 
 
+def cmd_health(args):
+    """Show reef vitality and health metrics."""
+    from reef.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    # Read status file
+    status_file = Path(f"/tmp/reef-{project_dir.name}.status")
+
+    if not status_file.exists():
+        # Generate status first
+        glob.write_status()
+
+    try:
+        with open(status_file) as f:
+            status = json.load(f)
+    except Exception:
+        print("Error reading reef status")
+        sys.exit(1)
+
+    vitality = status.get("vitality", {})
+    if not vitality:
+        print("No vitality data available")
+        sys.exit(1)
+
+    # Print health report
+    icon = vitality.get("icon", "")
+    score = vitality.get("score", 0)
+    status_str = vitality.get("status", "unknown")
+    last_activity = vitality.get("last_activity")
+    days_since = vitality.get("days_since_activity")
+    recommended = vitality.get("recommended_action", "")
+    components = vitality.get("components", {})
+    metrics = vitality.get("metrics", {})
+
+    print(f"Reef Health Report")
+    print("=" * 60)
+    print()
+
+    # Overall vitality
+    print(f"{icon} Vitality: {status_str.upper()} ({score}/100)")
+    if last_activity:
+        print(f"  Last activity: {last_activity}", end="")
+        if days_since is not None:
+            if days_since == 0:
+                print(" (today)")
+            elif days_since == 1:
+                print(" (yesterday)")
+            else:
+                print(f" ({days_since}d ago)")
+        else:
+            print()
+    print()
+
+    # Component breakdown
+    print("Components:")
+    print(f"  Activity:  {components.get('activity', 0):>2}/25  {'█' * int(components.get('activity', 0) / 5)}")
+    print(f"  Quality:   {components.get('quality', 0):>2}/25  {'█' * int(components.get('quality', 0) / 5)}")
+    print(f"  Resonance: {components.get('resonance', 0):>2}/25  {'█' * int(components.get('resonance', 0) / 5)}")
+    print(f"  Health:    {components.get('health', 0):>2}/25  {'█' * int(components.get('health', 0) / 5)}")
+    print()
+
+    # Metrics
+    print("Metrics:")
+    print(f"  Avg facts/polip:     {metrics.get('avg_facts', 0)}")
+    print(f"  Avg decisions/polip: {metrics.get('avg_decisions', 0)}")
+    print(f"  Avg links/polip:     {metrics.get('avg_links', 0)}")
+    print(f"  Stale polips (>30d): {metrics.get('stale_count', 0)}")
+    print(f"  Isolated polips:     {metrics.get('isolated_count', 0)}")
+    print()
+
+    # Polip stats
+    count = status.get("count", 0)
+    types = status.get("types", {})
+    if count > 0:
+        print(f"Reef Size: {count} polips")
+        for ptype, pcount in sorted(types.items()):
+            print(f"  {ptype}: {pcount}")
+        print()
+
+    # Recommended action
+    if recommended:
+        print(f"💡 Recommended Action:")
+        print(f"  {recommended}")
+        print()
+
+    # Status interpretation
+    print("Status Guide:")
+    if status_str == "thriving":
+        print("  🟢 THRIVING - Your reef is healthy with good content flow")
+    elif status_str == "stable":
+        print("  🟡 STABLE - Reef is functional but could use more activity")
+    elif status_str == "declining":
+        print("  🟠 DECLINING - Low vitality, needs nutrient-rich content")
+    elif status_str == "dying":
+        print("  🔴 DYING - Critical: reef needs immediate attention")
+    else:
+        print(f"  Status: {status_str}")
+
+
 def cmd_snapshot(args):
     """Manage reef snapshots."""
     from reef.blob import Glob
@@ -1778,50 +1879,6 @@ def cmd_skills(args):
         return
 
 
-def cmd_health(args):
-    """Show reef health metrics (AI-native: session-relative time)."""
-    from reef.calcification import ReefHealth
-    from reef.blob import Glob
-
-    project_dir = Path.cwd()
-    glob = Glob(project_dir)
-    health = ReefHealth(glob)
-    report = health.calculate()
-
-    if args.json:
-        print(json.dumps(report.to_dict(), indent=2))
-        return
-
-    print("Reef Health Report (AI-Native)")
-    print("=" * 40)
-    print()
-    print(f"Vitality Score: {report.vitality_score:.1%}")
-    print(f"Total Polips:   {report.total_polips}")
-    print(f"Hot Ratio:      {report.hot_ratio:.1%} (active this session)")
-    print(f"Connected:      {report.connected_ratio:.1%} (with network links)")
-    print(f"Type Diversity: {report.type_diversity:.1%}")
-    print()
-
-    print("Lifecycle Distribution:")
-    stages_order = ["spawning", "drifting", "attached", "calcified", "fossil"]
-    for stage in stages_order:
-        count = report.lifecycle_stages.get(stage, 0)
-        bar = "█" * min(count, 20)
-        print(f"  {stage:12} {count:3} {bar}")
-    print()
-
-    print("Session Stats:")
-    stats = report.session_stats
-    print(f"  Refs this session: {stats.get('total_refs_this_session', 0)}")
-    print(f"  Avg intensity:     {stats.get('avg_intensity', 0):.2f}")
-    print(f"  Calcify ready:     {stats.get('calcification_candidates', 0)}")
-    print()
-
-    print("Recommendations:")
-    for rec in report.recommendations:
-        print(f"  • {rec}")
-
-
 def cmd_calcify(args):
     """View calcification candidates (AI-native: session-relative scoring)."""
     from reef.calcification import CalcificationEngine
@@ -2507,6 +2564,14 @@ def main():
     graph_parser.add_argument("--dot", action="store_true", help="Output Graphviz DOT format")
     graph_parser.set_defaults(func=cmd_graph)
 
+    # health
+    health_parser = subparsers.add_parser(
+        "health",
+        help="Show reef vitality and health metrics",
+        description="Display reef ecosystem health score, activity patterns, and recommended actions to maintain or revive your reef."
+    )
+    health_parser.set_defaults(func=cmd_health)
+
     # template
     template_parser = subparsers.add_parser(
         "template",
@@ -2643,15 +2708,6 @@ def main():
     skills_check = skills_subparsers.add_parser("check", help="Check for modified skills")
 
     skills_parser.set_defaults(func=cmd_skills, skills_cmd=None, name=None, agents=None, task_types=None, local=False, global_=False)
-
-    # health - Reef health metrics
-    health_parser = subparsers.add_parser(
-        "health",
-        help="Show reef ecosystem health metrics",
-        description="Calculate vitality score, lifecycle distribution, and recommendations",
-    )
-    health_parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
-    health_parser.set_defaults(func=cmd_health)
 
     # calcify - Calcification candidates
     calcify_parser = subparsers.add_parser(

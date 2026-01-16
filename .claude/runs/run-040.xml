@@ -1,0 +1,49 @@
+<run id="040" date="2026-01-16">
+  <summary>
+    Major reef architecture pivot: .reef becomes universal AI memory source.
+    Added reef health command with vitality scoring. Created projection system
+    for LLM-specific views (claude, ollama, gpt, gemini). Built tidepool.py
+    minimal prototype. Ran multi-agent team screen. Validated MCP-first strategy.
+  </summary>
+
+  <what-worked>
+    - Vitality scoring with four components (activity, quality, resonance, health)
+    - Projection concept: one .reef source generates multiple LLM views
+    - Tidepool prototype distills reef to 150 lines with decay mechanics
+    - Multi-agent analysis (architect, QA, pragmatist) surfaced real issues
+    - Web search confirmed market opportunity (Mem0 at 37k stars but different approach)
+  </what-worked>
+
+  <what-didnt>
+    - Initial direction tried using .claude for reef audit logs (wrong: use .reef)
+    - Shell hardening still unimplemented (tabled for later)
+    - Windows fcntl.flock incompatibility noted but not resolved
+  </what-didnt>
+
+  <files-created>
+    <file>.reef/reef.manifest</file>
+    <file>tidepool.py</file>
+  </files-created>
+
+  <files-modified>
+    <file>src/reef/blob.py - _calculate_vitality(), write_status() vitality</file>
+    <file>src/reef/cli.py - cmd_health(), cmd_project(), projection functions</file>
+    <file>src/reef/shell.py - status_file updates</file>
+  </files-modified>
+
+  <decisions>
+    <decision>.reef is source of truth; .claude/.ollama/.gpt are projections</decision>
+    <decision>reef project {target} generates LLM-specific views</decision>
+    <decision>MCP-first strategy: plugin → default → platform</decision>
+    <decision>Tidepool = minimal reef sandbox for testing concepts</decision>
+    <decision>Vitality = activity + quality + resonance + health (each 0-25)</decision>
+  </decisions>
+
+  <next-session>
+    <item>PyPI publication prep: pip install reef</item>
+    <item>README quickstart: 3-minute setup guide</item>
+    <item>MCP config example: one-line Claude Desktop setup</item>
+    <item>Demo GIF showing reef context surfacing</item>
+    <item>Windows support decision (fcntl alternative)</item>
+  </next-session>
+</run>
