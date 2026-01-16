@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="028" date="2026-01-15" duration="~90min">
+  <summary>
+    Session 6: Cleanup phase, trench harness fix, spark upgrade with Claude agents,
+    and deep exploration of .reef file format as AI-native memory substrate.
+  </summary>
+
+  <what-worked>
+    <item>Trench harness autonomous execution fixed with --dangerously-skip-permissions</item>
+    <item>3 parallel trenches ran successfully (cleanup-exports, cleanup-coverage, cleanup-logging)</item>
+    <item>Spark upgraded with --premium flag for Claude agent quality</item>
+    <item>8 deep sparks revealed core insight: memory IS forgetting</item>
+    <item>Unused imports cleaned across 9 modules efficiently</item>
+    <item>Thread file provides excellent session continuity</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Premium spark slower than cheap models (~70s vs ~20s)</item>
+    <item>Some Claude agents in premium mode returned meta-commentary instead of insights</item>
+    <item>Trenches got accidentally staged as submodules (fixed)</item>
+  </what-didnt>
+
+  <files-created>
+    <file>.claude/sparks/reef-format/2026-01-15-1800-reef-format-problem.md</file>
+    <file>~/.claude/incubator/raw/ins_2026011510-memory-forgetting-primary.yaml</file>
+    <file>~/.claude/incubator/raw/ins_2026011511-memory-parasites.yaml</file>
+    <file>~/.claude/incubator/raw/ins_2026011512-context-reflection.yaml</file>
+  </files-created>
+
+  <files-modified>
+    <file>src/reef/trench.py - Added --dangerously-skip-permissions, skip_permissions param</file>
+    <file>src/reef/calcification.py - Removed unused imports</file>
+    <file>src/reef/cli.py - Removed unused imports</file>
+    <file>src/reef/agents/orchestrator.py - Removed unused field import</file>
+    <file>src/reef/safety/guards.py - Cleaned imports</file>
+    <file>src/reef/skills/loader.py - Cleaned imports</file>
+    <file>src/reef/workers/*.py - Removed unused Any imports</file>
+    <file>~/.claude/spark-runner.sh - Added --premium, --sonnet, --opus flags</file>
+    <file>.gitignore - Added .reef-trenches/</file>
+  </files-modified>
+
+  <insights>
+    <insight score="95">Context isn't digested, merely reflected</insight>
+    <insight score="90">Memories are viral only when incoherent AND eerily consistent</insight>
+    <insight score="85">Timeless formats absorb human error, not prevent it</insight>
+    <insight score="80">Forgetting is the PRIMARY function of memory</insight>
+    <insight score="80">Memories are parasites evolving to monopolize neural resources</insight>
+  </insights>
+
+  <next-session>
+    <item priority="high">Create Claude Code plugin for reef with /surface command</item>
+    <item priority="high">Design .reef format as decay protocol (decay_rate, half_life, compost_to)</item>
+    <item priority="medium">Add integration tests for trench harness</item>
+    <item priority="medium">CLI polish - exit codes, help text</item>
+    <item priority="low">Test coverage gaps - cli.py, blob.py edge cases</item>
+  </next-session>
+</run>
