@@ -56,6 +56,7 @@ reef index --search "foo"  # Search polips
 | `reef template list` | Show templates |
 | `reef template create name` | Create custom template |
 | `reef drift discover` | Find nearby reefs |
+| `reef shell` | REPL with ghost text hints |
 
 ## Progressive Loading (L1/L2/L3)
 

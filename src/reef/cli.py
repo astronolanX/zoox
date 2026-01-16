@@ -2165,6 +2165,20 @@ def cmd_trench(args):
         return
 
 
+def cmd_shell(args):
+    """Interactive REPL with ghost text hints."""
+    from reef.shell import main as shell_main
+    import sys
+
+    # Pass through args
+    if args.hint:
+        sys.argv = ["reef-shell", "--hint"]
+    else:
+        sys.argv = ["reef-shell"]
+
+    shell_main()
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="reef",
@@ -2525,6 +2539,15 @@ def main():
     trench_logs.add_argument("--follow", "-f", action="store_true", help="Follow output (like tail -f)")
 
     trench_parser.set_defaults(func=cmd_trench, trench_cmd=None, name=None, json_output=False)
+
+    # shell - Interactive REPL with ghost hints
+    shell_parser = subparsers.add_parser(
+        "shell",
+        help="Interactive REPL with ghost text hints",
+        description="Start reef shell with context-aware input hints from active threads",
+    )
+    shell_parser.add_argument("--hint", action="store_true", help="Show current hint and exit")
+    shell_parser.set_defaults(func=cmd_shell)
 
     args = parser.parse_args()
     args.func(args)
