@@ -248,11 +248,21 @@ class BlobStatus(Enum):
 # Current blob schema version - increment when schema changes
 BLOB_VERSION = 2
 
-# Known subdirectories for blob organization (DRY: single source of truth)
-KNOWN_SUBDIRS = ("threads", "decisions", "constraints", "contexts", "facts")
+# Import centralized constants
+from reef.constants import (
+    REEF_DIR, LEGACY_DIR, SUBDIRS, POLIP_EXTENSIONS,
+    TYPE_TO_SUBDIR, TYPE_TO_EXTENSION, DEFAULT_EXTENSION,
+    extension_for_type, subdir_for_type, lifecycle_for_extension,
+)
 
-# Supported polip file extensions (order = preference for new files)
-POLIP_EXTENSIONS = (".reef", ".blob.xml")
+# Known subdirectories for blob organization (DRY: single source of truth)
+# Includes both new structure and legacy for migration
+KNOWN_SUBDIRS = (
+    # New structure
+    "current", "bedrock", "settled", "pool",
+    # Legacy (for migration)
+    "threads", "decisions", "constraints", "contexts", "facts",
+)
 
 # Wiki link pattern: [[polip-name]]
 WIKI_LINK_PATTERN = re.compile(r'\[\[([^\]]+)\]\]')
@@ -874,12 +884,32 @@ class Glob:
     A glob of blobs for a project.
 
     Manages reading, writing, and surfacing relevant blobs.
+    Supports both new .reef/ structure and legacy .claude/ for migration.
     """
 
     def __init__(self, project_dir: Path):
         self.project_dir = project_dir
-        self.claude_dir = project_dir / ".claude"
-        self.claude_dir.mkdir(exist_ok=True)
+
+        # Try new .reef/ first, fall back to .claude/ for migration
+        reef_dir = project_dir / REEF_DIR
+        legacy_dir = project_dir / LEGACY_DIR
+
+        if reef_dir.exists():
+            self.reef_dir = reef_dir
+            self._using_legacy = False
+        elif legacy_dir.exists():
+            # Use legacy dir but flag for migration
+            self.reef_dir = legacy_dir
+            self._using_legacy = True
+        else:
+            # New project - create .reef/
+            reef_dir.mkdir(exist_ok=True)
+            self.reef_dir = reef_dir
+            self._using_legacy = False
+
+        # Alias for backwards compatibility (deprecated, use reef_dir)
+        self.claude_dir = self.reef_dir
+
         # Cache: path -> (mtime, Blob) for avoiding repeated I/O
         self._cache: dict[Path, tuple[float, Blob]] = {}
         self._cache_hits = 0
@@ -1171,7 +1201,7 @@ class Glob:
         Args:
             blob: The blob to create
             name: Filename (without extension)
-            subdir: Optional subdirectory (threads/, decisions/, etc.)
+            subdir: Optional subdirectory (current/, bedrock/, etc.)
 
         Returns:
             Path to the created blob file
@@ -1183,14 +1213,16 @@ class Glob:
         _validate_name_safe(name)
         if subdir:
             _validate_subdir_safe(subdir)
-            target_dir = self.claude_dir / subdir
+            target_dir = self.reef_dir / subdir
         else:
-            target_dir = self.claude_dir
+            target_dir = self.reef_dir
 
-        path = target_dir / f"{name}.blob.xml"
+        # Choose extension based on blob type
+        ext = extension_for_type(blob.type.value) if blob.type else DEFAULT_EXTENSION
+        path = target_dir / f"{name}{ext}"
 
         # Also validate constructed path (defense in depth)
-        _validate_path_safe(self.claude_dir, path)
+        _validate_path_safe(self.reef_dir, path)
 
         target_dir.mkdir(parents=True, exist_ok=True)
         blob.save(path)
@@ -1298,15 +1330,13 @@ class Glob:
                 overlap = set(files) & set(blob.files)
                 score += len(overlap) * 3.0
 
+            # Determine the actual key for this blob (based on its type extension)
+            blob_ext = extension_for_type(blob.type.value) if blob.type else DEFAULT_EXTENSION
+            blob_key = f"{subdir}/{name}{blob_ext}" if subdir else f"{name}{blob_ext}"
+
             # LRU boost: frequently accessed polips get a small boost
             # Use logarithmic scaling to prevent runaway scores
-            # Try both extensions when looking up in index
-            access_count = 0
-            for ext in POLIP_EXTENSIONS:
-                key = f"{subdir}/{name}{ext}" if subdir else f"{name}{ext}"
-                access_count = blobs_index.get(key, {}).get("access_count", 0)
-                if access_count > 0:
-                    break
+            access_count = blobs_index.get(blob_key, {}).get("access_count", 0)
             if access_count > 0:
                 # log(1 + count) gives diminishing returns: 1->0.69, 10->2.4, 100->4.6
                 score += math.log(1 + access_count)
@@ -1326,7 +1356,7 @@ class Glob:
                     score += 1.0
 
             if score > 0:
-                relevant.append((score, blob, key))
+                relevant.append((score, blob, blob_key))
 
         # Sort by score descending
         relevant.sort(key=lambda x: x[0], reverse=True)
@@ -1729,14 +1759,8 @@ class Glob:
             next_steps=next_steps,
         )
 
-        # Determine subdirectory
-        subdir_map = {
-            BlobType.THREAD: "threads",
-            BlobType.DECISION: "decisions",
-            BlobType.CONSTRAINT: "constraints",
-            BlobType.FACT: "facts",
-        }
-        subdir = subdir_map.get(blob_type)
+        # Determine subdirectory using centralized constants
+        subdir = subdir_for_type(blob_type.value) if blob_type else "current"
 
         # Generate name from title
         name = title.lower()
@@ -2406,11 +2430,11 @@ class Glob:
 
         Searches:
         1. ~/.claude/ (global reef)
-        2. Sibling directories with .claude/
+        2. Sibling directories with .reef/ or .claude/
         3. Configured additional paths
 
         Returns list of reef info dicts with:
-        - path: Path to .claude/ directory
+        - path: Path to reef directory
         - name: Project/reef name
         - source: 'global', 'sibling', or 'configured'
         - polip_count: Number of polips found
@@ -2418,7 +2442,17 @@ class Glob:
         config = self._get_drift_config()
         reefs = []
 
-        # 1. Global reef (~/.claude/)
+        def _find_reef_dir(project_path: Path) -> Path | None:
+            """Find reef directory, preferring .reef over .claude."""
+            reef_dir = project_path / REEF_DIR
+            if reef_dir.exists():
+                return reef_dir
+            legacy_dir = project_path / LEGACY_DIR
+            if legacy_dir.exists():
+                return legacy_dir
+            return None
+
+        # 1. Global reef (~/.claude/ or ~/.reef/)
         if config.get("include_global", True):
             global_claude = Path.home() / ".claude"
             if global_claude.exists():
@@ -2441,12 +2475,12 @@ class Glob:
                     continue
                 if sibling.name.startswith("."):
                     continue
-                sibling_claude = sibling / ".claude"
-                if sibling_claude.exists():
-                    count = self._count_polips(sibling_claude)
+                sibling_reef = _find_reef_dir(sibling)
+                if sibling_reef:
+                    count = self._count_polips(sibling_reef)
                     if count > 0:
                         reefs.append({
-                            "path": sibling_claude,
+                            "path": sibling_reef,
                             "name": sibling.name,
                             "source": "sibling",
                             "polip_count": count,
@@ -2456,12 +2490,16 @@ class Glob:
         for path_str in config.get("additional_paths", []):
             path = Path(path_str).expanduser()
             if path.exists() and path.is_dir():
-                claude_dir = path / ".claude" if not path.name == ".claude" else path
-                if claude_dir.exists():
-                    count = self._count_polips(claude_dir)
+                reef_dir = _find_reef_dir(path)
+                if not reef_dir:
+                    # Check if path itself is a reef dir
+                    if path.name in (REEF_DIR, LEGACY_DIR):
+                        reef_dir = path
+                if reef_dir and reef_dir.exists():
+                    count = self._count_polips(reef_dir)
                     if count > 0:
                         reefs.append({
-                            "path": claude_dir,
+                            "path": reef_dir,
                             "name": path.name,
                             "source": "configured",
                             "polip_count": count,

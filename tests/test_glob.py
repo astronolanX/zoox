@@ -16,21 +16,21 @@ class TestGlobBasics:
     """Basic Glob initialization and blob management."""
 
     def test_init_creates_claude_dir(self):
-        """Glob init creates .claude directory."""
+        """Glob init creates .reef directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir)
             glob = Glob(project)
-            assert (project / ".claude").exists()
-            assert (project / ".claude").is_dir()
+            assert (project / ".reef").exists()
+            assert (project / ".reef").is_dir()
 
     def test_init_existing_claude_dir(self):
-        """Glob works with existing .claude directory."""
+        """Glob works with existing .reef directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir)
-            (project / ".claude").mkdir()
-            (project / ".claude" / "existing.txt").write_text("test")
+            (project / ".reef").mkdir()
+            (project / ".reef" / "existing.txt").write_text("test")
             glob = Glob(project)
-            assert (project / ".claude" / "existing.txt").exists()
+            assert (project / ".reef" / "existing.txt").exists()
 
     def test_sprout_creates_blob(self):
         """Sprout creates blob file."""
@@ -42,7 +42,7 @@ class TestGlobBasics:
             path = glob.sprout(blob, "test-fact")
 
             assert path.exists()
-            assert path.name == "test-fact.blob.xml"
+            assert path.name == "test-fact.reef"
 
     def test_sprout_in_subdir(self):
         """Sprout creates blob in subdirectory."""
@@ -51,10 +51,10 @@ class TestGlobBasics:
             glob = Glob(project)
 
             blob = Blob(type=BlobType.THREAD, summary="Test thread")
-            path = glob.sprout(blob, "my-thread", subdir="threads")
+            path = glob.sprout(blob, "my-thread", subdir="current")
 
             assert path.exists()
-            assert path.parent.name == "threads"
+            assert path.parent.name == "current"
 
     def test_sprout_creates_subdirs(self):
         """Sprout creates missing subdirectories."""
@@ -87,9 +87,9 @@ class TestGlobBasics:
             glob = Glob(project)
 
             blob = Blob(type=BlobType.THREAD, summary="In subdir")
-            glob.sprout(blob, "nested", subdir="threads")
+            glob.sprout(blob, "nested", subdir="current")
 
-            retrieved = glob.get("nested", subdir="threads")
+            retrieved = glob.get("nested", subdir="current")
             assert retrieved is not None
             assert retrieved.summary == "In subdir"
 
@@ -176,14 +176,14 @@ class TestGlobListBlobs:
             glob = Glob(project)
 
             blob = Blob(type=BlobType.THREAD, summary="Thread 1")
-            glob.sprout(blob, "thread1", subdir="threads")
+            glob.sprout(blob, "thread1", subdir="current")
 
             # Root should be empty
             root_blobs = glob.list_blobs()
             assert len(root_blobs) == 0
 
             # Subdir should have the blob
-            thread_blobs = glob.list_blobs(subdir="threads")
+            thread_blobs = glob.list_blobs(subdir="current")
             assert len(thread_blobs) == 1
             assert thread_blobs[0][0] == "thread1"
 
@@ -207,7 +207,7 @@ class TestGlobListBlobs:
             glob.sprout(blob, "valid")
 
             # Create a malformed file
-            (project / ".claude" / "malformed.blob.xml").write_text("not xml")
+            (project / ".reef" / "malformed.reef").write_text("not xml")
 
             blobs = glob.list_blobs()
             assert len(blobs) == 1
@@ -229,10 +229,13 @@ class TestGlobDecompose:
             glob.decompose("to-archive")
 
             # Original should be gone
-            assert not (project / ".claude" / "to-archive.blob.xml").exists()
+            assert not (project / ".reef" / "to-archive.reef").exists()
 
-            # Archive should exist
-            archive_files = list((project / ".claude" / "archive").glob("*.blob.xml"))
+            # Archive should exist (with any polip extension)
+            from reef.blob import POLIP_EXTENSIONS
+            archive_files = []
+            for ext in POLIP_EXTENSIONS:
+                archive_files.extend((project / ".reef" / "archive").glob(f"*{ext}"))
             assert len(archive_files) == 1
             assert "to-archive" in archive_files[0].name
 
@@ -243,12 +246,15 @@ class TestGlobDecompose:
             glob = Glob(project)
 
             blob = Blob(type=BlobType.THREAD, summary="Archive me", status=BlobStatus.ACTIVE)
-            glob.sprout(blob, "to-archive", subdir="threads")
+            glob.sprout(blob, "to-archive", subdir="current")
 
-            glob.decompose("to-archive", subdir="threads")
+            glob.decompose("to-archive", subdir="current")
 
-            # Load from archive
-            archive_files = list((project / ".claude" / "archive").glob("*.blob.xml"))
+            # Load from archive (with any polip extension)
+            from reef.blob import POLIP_EXTENSIONS
+            archive_files = []
+            for ext in POLIP_EXTENSIONS:
+                archive_files.extend((project / ".reef" / "archive").glob(f"*{ext}"))
             archived = Blob.load(archive_files[0])
             assert archived.status == BlobStatus.ARCHIVED
 
@@ -268,11 +274,11 @@ class TestGlobDecompose:
             glob = Glob(project)
 
             blob = Blob(type=BlobType.DECISION, summary="Archived decision")
-            glob.sprout(blob, "old-decision", subdir="decisions")
+            glob.sprout(blob, "old-decision", subdir="current")
 
-            glob.decompose("old-decision", subdir="decisions")
+            glob.decompose("old-decision", subdir="current")
 
-            assert not (project / ".claude" / "decisions" / "old-decision.blob.xml").exists()
+            assert not (project / ".reef" / "current" / "old-decision.reef").exists()
 
 
 class TestGlobSurfaceRelevant:
@@ -314,9 +320,9 @@ class TestGlobSurfaceRelevant:
             blocked = Blob(type=BlobType.THREAD, summary="Blocked", status=BlobStatus.BLOCKED)
             done = Blob(type=BlobType.THREAD, summary="Done", status=BlobStatus.DONE)
 
-            glob.sprout(active, "active", subdir="threads")
-            glob.sprout(blocked, "blocked", subdir="threads")
-            glob.sprout(done, "done", subdir="threads")
+            glob.sprout(active, "active", subdir="current")
+            glob.sprout(blocked, "blocked", subdir="current")
+            glob.sprout(done, "done", subdir="current")
 
             relevant = glob.surface_relevant()
             # Active and blocked should surface, done should not
@@ -336,9 +342,9 @@ class TestGlobSurfaceRelevant:
             blob_b = Blob(type=BlobType.THREAD, summary="B", files=["bar.py", "foo.py"])
             blob_c = Blob(type=BlobType.THREAD, summary="C", files=["other.py"])
 
-            glob.sprout(blob_a, "a", subdir="threads")
-            glob.sprout(blob_b, "b", subdir="threads")
-            glob.sprout(blob_c, "c", subdir="threads")
+            glob.sprout(blob_a, "a", subdir="current")
+            glob.sprout(blob_b, "b", subdir="current")
+            glob.sprout(blob_c, "c", subdir="current")
 
             relevant = glob.surface_relevant(files=["foo.py"])
             assert len(relevant) == 2  # A and B match, C doesn't
@@ -394,8 +400,8 @@ class TestGlobSurfaceRelevant:
             # Low score: just file match
             low_blob = Blob(type=BlobType.THREAD, summary="Other", files=["auth.py"])
 
-            glob.sprout(super_blob, "super", subdir="threads")
-            glob.sprout(low_blob, "low", subdir="threads")
+            glob.sprout(super_blob, "super", subdir="current")
+            glob.sprout(low_blob, "low", subdir="current")
 
             relevant = glob.surface_relevant(files=["auth.py"], query="auth")
             # Super blob should be first
@@ -457,11 +463,11 @@ class TestGlobMigrations:
                 decisions=[("choice", "reason")],
                 context="Context here",
             )
-            glob.sprout(blob, "important", subdir="threads")
+            glob.sprout(blob, "important", subdir="current")
 
             glob.migrate_all()
 
-            loaded = glob.get("important", subdir="threads")
+            loaded = glob.get("important", subdir="current")
             assert loaded.summary == "Important thread"
             assert loaded.files == ["a.py", "b.py"]
             assert loaded.decisions == [("choice", "reason")]
@@ -487,7 +493,7 @@ class TestGlobInjectContext:
             glob = Glob(project)
 
             blob = Blob(type=BlobType.CONSTRAINT, summary="Constraint", scope=BlobScope.ALWAYS)
-            glob.sprout(blob, "rule", subdir="constraints")
+            glob.sprout(blob, "rule", subdir="bedrock")
 
             xml = glob.inject_context()
             import xml.etree.ElementTree as ET
@@ -503,7 +509,7 @@ class TestGlobInjectContext:
             # Create 15 always-scope blobs
             for i in range(15):
                 blob = Blob(type=BlobType.CONSTRAINT, summary=f"Rule {i}", scope=BlobScope.ALWAYS)
-                glob.sprout(blob, f"rule-{i}", subdir="constraints")
+                glob.sprout(blob, f"rule-{i}", subdir="bedrock")
 
             xml = glob.inject_context()
             import xml.etree.ElementTree as ET
@@ -519,7 +525,7 @@ class TestGlobInjectContext:
             glob = Glob(project)
 
             blob = Blob(type=BlobType.CONSTRAINT, summary="Test", scope=BlobScope.ALWAYS)
-            glob.sprout(blob, "test", subdir="constraints")
+            glob.sprout(blob, "test", subdir="bedrock")
 
             xml = glob.inject_context()
             import xml.etree.ElementTree as ET
@@ -554,10 +560,10 @@ class TestGlobEdgeCases:
             sub_blob = Blob(type=BlobType.FACT, summary="Subdir blob")
 
             glob.sprout(root_blob, "samename")
-            glob.sprout(sub_blob, "samename", subdir="facts")
+            glob.sprout(sub_blob, "samename", subdir="current")
 
             root_retrieved = glob.get("samename")
-            sub_retrieved = glob.get("samename", subdir="facts")
+            sub_retrieved = glob.get("samename", subdir="current")
 
             assert root_retrieved.summary == "Root blob"
             assert sub_retrieved.summary == "Subdir blob"
@@ -629,7 +635,7 @@ class TestGlobStress:
                     status=BlobStatus.ACTIVE if i % 3 == 0 else BlobStatus.DONE,
                     files=[f"file_{i}.py"],
                 )
-                glob.sprout(blob, f"thread-{i}", subdir="threads")
+                glob.sprout(blob, f"thread-{i}", subdir="current")
 
             relevant = glob.surface_relevant(files=["file_15.py"])
             # Should find at least the one with matching file
@@ -657,8 +663,11 @@ class TestGlobStress:
                 glob.sprout(blob, f"temp-{i}")
                 glob.decompose(f"temp-{i}")
 
-            # Should have 50 archived blobs
-            archive = list((project / ".claude" / "archive").glob("*.blob.xml"))
+            # Should have 50 archived blobs (with any polip extension)
+            from reef.blob import POLIP_EXTENSIONS
+            archive = []
+            for ext in POLIP_EXTENSIONS:
+                archive.extend((project / ".reef" / "archive").glob(f"*{ext}"))
             assert len(archive) == 50
 
 
@@ -786,8 +795,8 @@ class TestGlobIndex:
             glob.sprout(blob, "indexed")
 
             index = glob.get_index()
-            assert "indexed.blob.xml" in index["blobs"]
-            assert index["blobs"]["indexed.blob.xml"]["type"] == "fact"
+            assert "indexed.reef" in index["blobs"]
+            assert index["blobs"]["indexed.reef"]["type"] == "fact"
 
     def test_index_removed_on_decompose(self):
         """Decompose removes from index and adds archive entry."""
@@ -800,14 +809,14 @@ class TestGlobIndex:
 
             # Verify in index
             index1 = glob.get_index()
-            assert "to-archive.blob.xml" in index1["blobs"]
+            assert "to-archive.reef" in index1["blobs"]
 
             # Decompose
             glob.decompose("to-archive")
 
             # Verify removed from index, archive added
             index2 = glob.get_index()
-            assert "to-archive.blob.xml" not in index2["blobs"]
+            assert "to-archive.reef" not in index2["blobs"]
             # Archive entry should exist
             archive_keys = [k for k in index2["blobs"] if k.startswith("archive/")]
             assert len(archive_keys) == 1
@@ -824,7 +833,7 @@ class TestGlobIndex:
                 glob.sprout(blob, f"blob-{i}")
 
             # Delete index manually
-            index_path = project / ".claude" / "index.json"
+            index_path = project / ".reef" / "index.json"
             index_path.unlink()
 
             # Rebuild
@@ -842,11 +851,11 @@ class TestGlobIndex:
             glob = Glob(project)
 
             blob = Blob(type=BlobType.THREAD, summary="Thread blob", status=BlobStatus.ACTIVE)
-            glob.sprout(blob, "my-thread", subdir="threads")
+            glob.sprout(blob, "my-thread", subdir="current")
 
             index = glob.get_index()
-            assert "threads/my-thread.blob.xml" in index["blobs"]
-            assert index["blobs"]["threads/my-thread.blob.xml"]["status"] == "active"
+            assert "current/my-thread.reef" in index["blobs"]
+            assert index["blobs"]["current/my-thread.reef"]["status"] == "active"
 
 
 # ============================================================================
@@ -880,7 +889,7 @@ class TestTFIDFSearch:
             assert len(results) >= 2
             # Auth-specific blobs should score higher
             keys = [r[0] for r in results]
-            assert "auth-design.blob.xml" in keys or "auth-tokens.blob.xml" in keys
+            assert "auth-design.reef" in keys or "auth-tokens.reef" in keys
 
     def test_tfidf_ranks_relevant_higher(self):
         """TF-IDF ranks more relevant documents higher."""
@@ -914,7 +923,7 @@ class TestTFIDFSearch:
             blob2 = Blob(type=BlobType.FACT, summary="JavaScript legacy code",
                         scope=BlobScope.PROJECT)
 
-            glob.sprout(blob1, "typescript-rule", subdir="constraints")
+            glob.sprout(blob1, "typescript-rule", subdir="bedrock")
             glob.sprout(blob2, "js-legacy")
 
             # Query for "frontend" should surface the TypeScript constraint
@@ -1008,7 +1017,7 @@ class TestLRUAccessTracking:
             glob.sprout(blob, "test-fact")
 
             index = glob.get_index()
-            assert index["blobs"]["test-fact.blob.xml"]["access_count"] == 0
+            assert index["blobs"]["test-fact.reef"]["access_count"] == 0
 
     def test_surface_increments_access(self):
         """surface_relevant increments access count."""
@@ -1018,13 +1027,13 @@ class TestLRUAccessTracking:
 
             blob = Blob(type=BlobType.CONSTRAINT, summary="Always surface me",
                        scope=BlobScope.ALWAYS)
-            glob.sprout(blob, "always-surface", subdir="constraints")
+            glob.sprout(blob, "always-surface", subdir="bedrock")
 
             # Surface should increment count
             glob.surface_relevant(track_access=True)
 
             index = glob.get_index()
-            key = "constraints/always-surface.blob.xml"
+            key = "bedrock/always-surface.rock"
             assert index["blobs"][key]["access_count"] >= 1
 
     def test_access_count_preserved_on_update(self):
@@ -1038,7 +1047,7 @@ class TestLRUAccessTracking:
 
             # Manually set access count
             index = glob._load_index()
-            index["blobs"]["test-fact.blob.xml"]["access_count"] = 10
+            index["blobs"]["test-fact.reef"]["access_count"] = 10
             glob._save_index(index)
 
             # Update the blob
@@ -1047,7 +1056,7 @@ class TestLRUAccessTracking:
 
             # Access count should be preserved
             index = glob.get_index()
-            assert index["blobs"]["test-fact.blob.xml"]["access_count"] == 10
+            assert index["blobs"]["test-fact.reef"]["access_count"] == 10
 
     def test_access_count_preserved_on_rebuild(self):
         """Access count preserved when index is rebuilt."""
@@ -1060,7 +1069,7 @@ class TestLRUAccessTracking:
 
             # Set access count
             index = glob._load_index()
-            index["blobs"]["test-fact.blob.xml"]["access_count"] = 42
+            index["blobs"]["test-fact.reef"]["access_count"] = 42
             glob._save_index(index)
 
             # Rebuild index
@@ -1068,7 +1077,7 @@ class TestLRUAccessTracking:
 
             # Access count should be preserved
             index = glob.get_index()
-            assert index["blobs"]["test-fact.blob.xml"]["access_count"] == 42
+            assert index["blobs"]["test-fact.reef"]["access_count"] == 42
 
     def test_track_access_false_skips_increment(self):
         """track_access=False prevents access count increment."""
@@ -1078,14 +1087,14 @@ class TestLRUAccessTracking:
 
             blob = Blob(type=BlobType.CONSTRAINT, summary="Test",
                        scope=BlobScope.ALWAYS)
-            glob.sprout(blob, "test-constraint", subdir="constraints")
+            glob.sprout(blob, "test-constraint", subdir="bedrock")
 
             # Surface without tracking
             glob.surface_relevant(track_access=False)
             glob.surface_relevant(track_access=False)
 
             index = glob.get_index()
-            assert index["blobs"]["constraints/test-constraint.blob.xml"]["access_count"] == 0
+            assert index["blobs"]["bedrock/test-constraint.rock"]["access_count"] == 0
 
 
 class TestRichTemplateVariables:

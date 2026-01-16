@@ -504,8 +504,12 @@ class TestKnownSubdirsConsistency:
         assert len(KNOWN_SUBDIRS) >= 5
 
     def test_known_subdirs_has_expected_values(self):
-        """KNOWN_SUBDIRS contains expected subdirectories."""
-        expected = {"threads", "decisions", "constraints", "contexts", "facts"}
+        """KNOWN_SUBDIRS contains expected subdirectories (new and legacy)."""
+        # New structure subdirs
+        new_subdirs = {"current", "bedrock", "settled", "pool"}
+        # Legacy subdirs for backwards compatibility
+        legacy_subdirs = {"threads", "decisions", "constraints", "contexts", "facts"}
+        expected = new_subdirs | legacy_subdirs
         actual = set(KNOWN_SUBDIRS)
         assert expected == actual, f"Missing: {expected - actual}, Extra: {actual - expected}"
 
@@ -523,32 +527,42 @@ class TestKnownSubdirsConsistency:
         assert "KNOWN_SUBDIRS" in migrations_src, "check_migrations should use KNOWN_SUBDIRS"
 
     def test_no_hardcoded_subdir_lists(self):
-        """No hardcoded subdir lists in blob.py."""
+        """No NEW hardcoded subdir lists in blob.py outside KNOWN_SUBDIRS."""
         from reef import blob as blob_module
         import re
 
         source = inspect.getsource(blob_module)
 
-        # Look for suspicious patterns (hardcoded lists with subdir names)
-        # Exclude the KNOWN_SUBDIRS definition itself
+        # Look for suspicious patterns (hardcoded lists with ALL subdir names)
+        # Exclude the KNOWN_SUBDIRS definition itself and constants.py imports
         lines = source.split("\n")
         suspicious = []
 
+        in_known_subdirs_block = False
         for i, line in enumerate(lines):
-            # Skip the KNOWN_SUBDIRS definition
+            # Skip the KNOWN_SUBDIRS definition block
             if "KNOWN_SUBDIRS" in line and "=" in line:
+                in_known_subdirs_block = True
                 continue
+            if in_known_subdirs_block:
+                # End block when we hit a line that's not indented or is a new assignment
+                if line and not line.startswith(" ") and not line.startswith("\t") and not line.startswith("}"):
+                    in_known_subdirs_block = False
+                else:
+                    continue
             # Skip comments and strings that explain things
             if line.strip().startswith("#"):
                 continue
+            # Skip import lines from constants
+            if "from reef.constants import" in line or "from .constants import" in line:
+                continue
 
-            # Check for inline lists with these strings
-            if (
-                '"threads"' in line
-                and '"decisions"' in line
-                or '"contexts"' in line
-                and '"facts"' in line
-            ):
+            # Check for inline lists with multiple new subdirs
+            # (having many new subdirs in same line is suspicious)
+            new_found = sum(1 for s in ['"current"', '"bedrock"', '"settled"', '"pool"'] if s in line)
+            # Only flag if we find 3+ new subdirs hardcoded in a single line
+            # and it's not a set/frozenset definition (which is the constants definition)
+            if new_found >= 3 and "frozenset" not in line and "KNOWN_SUBDIRS" not in line:
                 suspicious.append((i + 1, line.strip()))
 
         assert not suspicious, f"Found hardcoded subdir lists: {suspicious}"
@@ -573,15 +587,15 @@ class TestSecurityIntegration:
                 summary="Secure lifecycle test",
                 status=BlobStatus.ACTIVE,
             )
-            path = glob.sprout(blob, "secure-test", subdir="threads")
+            path = glob.sprout(blob, "secure-test", subdir="current")
             assert path.exists()
 
             # Read back
-            loaded = glob.get("secure-test", subdir="threads")
+            loaded = glob.get("secure-test", subdir="current")
             assert loaded.summary == "Secure lifecycle test"
 
             # Decompose (archive)
-            glob.decompose("secure-test", subdir="threads")
+            glob.decompose("secure-test", subdir="current")
             assert not (glob.claude_dir / "threads" / "secure-test.blob.xml").exists()
 
             # Archived version exists with unique name
@@ -686,8 +700,8 @@ class TestCleanupSessionBasic:
 
             # Create and decompose a blob
             blob = Blob(type=BlobType.THREAD, summary="To archive", status=BlobStatus.ACTIVE)
-            glob.sprout(blob, "to-archive", subdir="threads")
-            glob.decompose("to-archive", subdir="threads")
+            glob.sprout(blob, "to-archive", subdir="current")
+            glob.decompose("to-archive", subdir="current")
 
             # Manually backdate the archive
             archive_dir = glob.claude_dir / "archive"

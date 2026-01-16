@@ -142,6 +142,22 @@ class CalcificationEngine:
         self._current_turn: int = 0
         self._session_history: dict[str, list[SessionMetrics]] = {}
 
+    def _iter_all_blobs(self):
+        """Iterate over all blobs from root and subdirs."""
+        from .blob import KNOWN_SUBDIRS
+        from .constants import extension_for_type, DEFAULT_EXTENSION
+
+        for name, blob in self.glob.list_blobs():
+            ext = extension_for_type(blob.type.value) if blob.type else DEFAULT_EXTENSION
+            key = f"{name}{ext}"
+            yield key, blob
+
+        for subdir in KNOWN_SUBDIRS:
+            for name, blob in self.glob.list_blobs(subdir):
+                ext = extension_for_type(blob.type.value) if blob.type else DEFAULT_EXTENSION
+                key = f"{subdir}/{name}{ext}"
+                yield key, blob
+
     def start_session(self, session_id: str | None = None) -> str:
         """Start tracking a new session."""
         self._current_session_id = session_id or datetime.now().isoformat()
@@ -306,19 +322,6 @@ class CalcificationEngine:
             vitals=vitals,
         )
 
-    def _iter_all_blobs(self):
-        """Iterate over all blobs from root and subdirs."""
-        from .blob import KNOWN_SUBDIRS
-
-        for name, blob in self.glob.list_blobs():
-            key = f"{name}.blob.xml"
-            yield key, blob
-
-        for subdir in KNOWN_SUBDIRS:
-            for name, blob in self.glob.list_blobs(subdir):
-                key = f"{subdir}/{name}.blob.xml"
-                yield key, blob
-
     def get_candidates(self) -> list[CalcificationScore]:
         """Get polips that are candidates for calcification."""
         candidates = []
@@ -382,14 +385,17 @@ class AdversarialDecay:
     def _iter_all_blobs(self):
         """Iterate over all blobs from root and subdirs."""
         from .blob import KNOWN_SUBDIRS
+        from .constants import extension_for_type, DEFAULT_EXTENSION
 
         for name, blob in self.glob.list_blobs():
-            key = f"{name}.blob.xml"
+            ext = extension_for_type(blob.type.value) if blob.type else DEFAULT_EXTENSION
+            key = f"{name}{ext}"
             yield key, blob
 
         for subdir in KNOWN_SUBDIRS:
             for name, blob in self.glob.list_blobs(subdir):
-                key = f"{subdir}/{name}.blob.xml"
+                ext = extension_for_type(blob.type.value) if blob.type else DEFAULT_EXTENSION
+                key = f"{subdir}/{name}{ext}"
                 yield key, blob
 
     def get_challengers(self) -> list[tuple[str, "Blob", str]]:

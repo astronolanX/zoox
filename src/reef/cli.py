@@ -158,12 +158,14 @@ def cmd_sprout(args):
     )
 
     # Determine subdirectory based on type
+    # New structure: current/ for active, bedrock/ for constraints
+    from reef.constants import TYPE_TO_SUBDIR
     subdir_map = {
-        BlobType.THREAD: "threads",
-        BlobType.DECISION: "decisions",
-        BlobType.CONSTRAINT: "constraints",
-        BlobType.CONTEXT: "contexts",
-        BlobType.FACT: "facts",
+        BlobType.THREAD: TYPE_TO_SUBDIR.get("thread", "current"),
+        BlobType.DECISION: TYPE_TO_SUBDIR.get("decision", "current"),
+        BlobType.CONSTRAINT: TYPE_TO_SUBDIR.get("constraint", "bedrock"),
+        BlobType.CONTEXT: TYPE_TO_SUBDIR.get("context", "current"),
+        BlobType.FACT: TYPE_TO_SUBDIR.get("fact", "current"),
     }
     subdir = args.dir or subdir_map.get(blob_type)
 
@@ -1216,15 +1218,17 @@ def cmd_hook(args):
         existing = glob.get("context")
 
         if existing:
-            # Update existing
-            existing.summary = summary
-            existing.updated = datetime.now()
-            if args.files:
-                existing.files = args.files.split(",")
-            if args.next:
-                existing.next_steps = args.next.split("|")
-            path = glob.claude_dir / "context.blob.xml"
-            existing.save(path)
+            # Update existing - find the actual path it was loaded from
+            from reef.blob import _find_polip_path
+            path = _find_polip_path(glob.reef_dir, "context")
+            if path:
+                existing.summary = summary
+                existing.updated = datetime.now()
+                if args.files:
+                    existing.files = args.files.split(",")
+                if args.next:
+                    existing.next_steps = args.next.split("|")
+                existing.save(path)
         else:
             # Create new context blob
             blob = Blob(
@@ -1308,14 +1312,21 @@ def cmd_hook(args):
             )
             print(f"  Stop (persist): {'✓' if has_persist else '✗'}")
 
-            # Check reef
-            claude_dir = project_dir / ".claude"
-            if claude_dir.exists():
-                blob_count = len(list(claude_dir.glob("*.blob.xml")))
+            # Check reef - support both .reef and .claude directories
+            from reef.blob import POLIP_EXTENSIONS
+            reef_dir = project_dir / ".reef"
+            legacy_dir = project_dir / ".claude"
+            active_dir = reef_dir if reef_dir.exists() else (legacy_dir if legacy_dir.exists() else None)
+
+            if active_dir:
+                blob_count = 0
+                for ext in POLIP_EXTENSIONS:
+                    blob_count += len(list(active_dir.glob(f"*{ext}")))
                 for subdir in KNOWN_SUBDIRS:
-                    subpath = claude_dir / subdir
+                    subpath = active_dir / subdir
                     if subpath.exists():
-                        blob_count += len(list(subpath.glob("*.blob.xml")))
+                        for ext in POLIP_EXTENSIONS:
+                            blob_count += len(list(subpath.glob(f"*{ext}")))
                 print(f"  Reef: {blob_count} polip(s)")
             else:
                 print("  Reef: NOT INITIALIZED")

@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "updated": "2026-01-16T14:44:11.103116",
+  "blobs": {
+    "current/test-statusline.reef": {
+      "type": "thread",
+      "scope": "project",
+      "status": "active",
+      "summary": "test statusline",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-16",
+      "access_count": 0
+    },
+    "current/reef-vitality-implementation-l.reef": {
+      "type": "decision",
+      "scope": "project",
+      "status": null,
+      "summary": "Reef Vitality Implementation: Living System Health Metrics",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-16",
+      "access_count": 0
+    },
+    "current/changelog-system.reef": {
+      "type": "context",
+      "scope": "project",
+      "status": null,
+      "summary": "Changelog system design: vendor introspection of scriv/towncrier/git-cliff with polip-native implementation plan",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-14",
+      "access_count": 0
+    },
+    "current/20260113-context.reef": {
+      "type": "context",
+      "scope": "session",
+      "status": null,
+      "summary": "Fixed three high-priority bugs (XML error handling, verified subdirectory scanning), completed 90% of zoox\u2192reef package rename, designed 6 elegant polip surfacing UX patterns (startup menu, modal ques",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-15",
+      "access_count": 0
+    },
+    "current/20260114-context.reef": {
+      "type": "context",
+      "scope": "session",
+      "status": null,
+      "summary": "Deep research on AI infrastructure landscape (memory as first-class primitive, MCP protocols, OS integration models) followed by biological exploration of reef: calcification triggers (time, usage, ce",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-14",
+      "access_count": 0
+    },
+    "current/reef-ux-design.reef": {
+      "type": "context",
+      "scope": "project",
+      "status": null,
+      "summary": "Reef UX Design: Elegant polip surfacing patterns across terminal, IDE, and web touchpoints without interrupting workflow",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-15",
+      "access_count": 0
+    },
+    "current/context.reef": {
+      "type": "context",
+      "scope": "session",
+      "status": null,
+      "summary": "Fixed 887 tests after migrating reef from .claude/ directory to independent .reef/ structure with new file extensions (.reef, .rock) and directory layout.",
+      "files": [
+        "tests/test_absurd.py",
+        "tests/test_bugs.py",
+        "tests/test_security.py",
+        "tests/test_calcification.py",
+        "src/reef/calcification.py"
+      ],
+      "related": [],
+      "updated": "2026-01-16",
+      "access_count": 0
+    },
+    "current/reef-vitality-ecosystem-health.reef": {
+      "type": "thread",
+      "scope": "project",
+      "status": "active",
+      "summary": "Reef Vitality: Ecosystem Health Through Content Flow",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-16",
+      "access_count": 0
+    },
+    "current/incubator-build.reef": {
+      "type": "context",
+      "scope": "project",
+      "status": null,
+      "summary": "Built global Incubator insight processing engine through Phase 5 (Surfacing). All phases complete. 74 insights processed, 8 promoted, 84 tests passing.",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-15",
+      "access_count": 0
+    },
+    "current/project-communication.reef": {
+      "type": "context",
+      "scope": "project",
+      "status": null,
+      "summary": "Implemented project communication suite: CHANGELOG.md, ROADMAP.md, CONTRIBUTING.md, issue templates, README badges",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-14",
+      "access_count": 0
+    },
+    "current/reef-native-infrastructure.reef": {
+      "type": "thread",
+      "scope": "project",
+      "status": "active",
+      "summary": "Reef as Native AI Infrastructure - Design Thread + Agent SDK Plan",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-15",
+      "access_count": 0
+    },
+    "current/spark-evolution.reef": {
+      "type": "context",
+      "scope": "project",
+      "status": null,
+      "summary": "Spark v3.0: 5D combinatorics, SQLite memory, skill-invocable, normalized naming",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-14",
+      "access_count": 0
+    },
+    "current/spark-test-suite.reef": {
+      "type": "thread",
+      "scope": "project",
+      "status": null,
+      "summary": "Scaffold comprehensive test suite for /spark plugin",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-15",
+      "access_count": 0
+    },
+    "bedrock/never-commit-secrets.rock": {
+      "type": "constraint",
+      "scope": "always",
+      "status": null,
+      "summary": "Never commit secrets",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-08",
+      "access_count": 0
+    },
+    "bedrock/project-rules.rock": {
+      "type": "constraint",
+      "scope": "always",
+      "status": null,
+      "summary": "reef project constraints",
+      "files": [],
+      "related": [],
+      "updated": "2026-01-13",
+      "access_count": 0
+    }
+  }
+}

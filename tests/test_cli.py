@@ -34,15 +34,16 @@ class TestCliSprout:
             assert result.returncode == 0
             assert "Spawned" in result.stdout
 
-            # Verify file exists
-            assert (Path(tmpdir) / ".claude" / "threads" / "test-thread.blob.xml").exists()
+            # Verify file exists (new structure: .reef/current/*.reef)
+            assert (Path(tmpdir) / ".reef" / "current" / "test-thread.reef").exists()
 
     def test_sprout_decision(self):
         """Create a decision blob."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("sprout", "decision", "Use pytest", cwd=tmpdir)
             assert result.returncode == 0
-            assert (Path(tmpdir) / ".claude" / "decisions").is_dir()
+            # Decisions go to current/ with .reef extension
+            assert (Path(tmpdir) / ".reef" / "current").is_dir()
 
     def test_sprout_constraint(self):
         """Create a constraint blob."""
@@ -50,9 +51,9 @@ class TestCliSprout:
             result = run_cli("sprout", "constraint", "No pip allowed", cwd=tmpdir)
             assert result.returncode == 0
 
-            # Verify scope is ALWAYS
+            # Verify scope is ALWAYS (constraints go to bedrock/ with .rock extension)
             glob = Glob(Path(tmpdir))
-            blob = glob.get("no-pip-allowed", subdir="constraints")
+            blob = glob.get("no-pip-allowed", subdir="bedrock")
             assert blob.scope == BlobScope.ALWAYS
 
     def test_sprout_fact(self):
@@ -60,7 +61,8 @@ class TestCliSprout:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("sprout", "fact", "Python 3.10 required", cwd=tmpdir)
             assert result.returncode == 0
-            assert (Path(tmpdir) / ".claude" / "facts").is_dir()
+            # Facts go to current/ with .reef extension
+            assert (Path(tmpdir) / ".reef" / "current").is_dir()
 
     def test_sprout_context_rejected(self):
         """Context type is rejected (auto-created only)."""
@@ -83,7 +85,7 @@ class TestCliSprout:
             assert result.returncode == 0
 
             glob = Glob(Path(tmpdir))
-            blob = glob.get("blocked-thread", subdir="threads")
+            blob = glob.get("blocked-thread", subdir="current")
             assert blob.status == BlobStatus.BLOCKED
 
     def test_sprout_status_only_for_threads(self):
@@ -105,14 +107,14 @@ class TestCliSprout:
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("sprout", "fact", "Test summary", "-n", "custom-name", cwd=tmpdir)
             assert result.returncode == 0
-            assert (Path(tmpdir) / ".claude" / "facts" / "custom-name.blob.xml").exists()
+            assert (Path(tmpdir) / ".reef" / "current" / "custom-name.reef").exists()
 
     def test_sprout_custom_dir(self):
         """Custom directory override."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = run_cli("sprout", "fact", "Test", "-d", "custom-dir", cwd=tmpdir)
             assert result.returncode == 0
-            assert (Path(tmpdir) / ".claude" / "custom-dir").is_dir()
+            assert (Path(tmpdir) / ".reef" / "custom-dir").is_dir()
 
     def test_sprout_name_truncation(self):
         """Long summaries are truncated for name."""
@@ -121,11 +123,11 @@ class TestCliSprout:
             result = run_cli("sprout", "fact", long_summary, cwd=tmpdir)
             assert result.returncode == 0
 
-            # Check filename is max 30 chars (plus .blob.xml)
-            facts_dir = Path(tmpdir) / ".claude" / "facts"
-            blob_files = list(facts_dir.glob("*.blob.xml"))
+            # Check filename is max 30 chars (plus .reef extension)
+            current_dir = Path(tmpdir) / ".reef" / "current"
+            blob_files = list(current_dir.glob("*.reef"))
             assert len(blob_files) == 1
-            name_part = blob_files[0].stem.replace(".blob", "")
+            name_part = blob_files[0].stem
             assert len(name_part) <= 30
 
     def test_sprout_special_chars_in_summary(self):
@@ -135,8 +137,8 @@ class TestCliSprout:
             assert result.returncode == 0
 
             # Name should be cleaned
-            facts_dir = Path(tmpdir) / ".claude" / "facts"
-            blob_files = list(facts_dir.glob("*.blob.xml"))
+            current_dir = Path(tmpdir) / ".reef" / "current"
+            blob_files = list(current_dir.glob("*.reef"))
             assert len(blob_files) == 1
 
 
@@ -192,7 +194,7 @@ class TestCliList:
                 status=BlobStatus.ACTIVE,
                 files=["nonexistent.py"],
             )
-            glob.sprout(blob, "test", subdir="threads")
+            glob.sprout(blob, "test", subdir="current")
 
             result = run_cli("list", cwd=tmpdir)
             assert result.returncode == 0
@@ -262,7 +264,7 @@ class TestCliDecompose:
             # Session blob but recent
             glob = Glob(Path(tmpdir))
             blob = Blob(type=BlobType.CONTEXT, summary="Recent", scope=BlobScope.SESSION)
-            glob.sprout(blob, "recent", subdir="contexts")
+            glob.sprout(blob, "recent", subdir="current")
 
             result = run_cli("decompose", cwd=tmpdir)
             assert result.returncode == 0
@@ -274,7 +276,7 @@ class TestCliDecompose:
             glob = Glob(Path(tmpdir))
             old_time = datetime.now() - timedelta(days=10)
             blob = Blob(type=BlobType.CONTEXT, summary="Old session", scope=BlobScope.SESSION, updated=old_time)
-            glob.sprout(blob, "old-session", subdir="contexts")
+            glob.sprout(blob, "old-session", subdir="current")
 
             result = run_cli("decompose", "--dry-run", cwd=tmpdir)
             assert result.returncode == 0
@@ -287,7 +289,7 @@ class TestCliDecompose:
             glob = Glob(Path(tmpdir))
             three_days_ago = datetime.now() - timedelta(days=3)
             blob = Blob(type=BlobType.CONTEXT, summary="Kinda old", scope=BlobScope.SESSION, updated=three_days_ago)
-            glob.sprout(blob, "kinda-old", subdir="contexts")
+            glob.sprout(blob, "kinda-old", subdir="current")
 
             # Default 7 days - should not find it
             result1 = run_cli("decompose", "--dry-run", cwd=tmpdir)
@@ -303,14 +305,14 @@ class TestCliDecompose:
             glob = Glob(Path(tmpdir))
             old_time = datetime.now() - timedelta(days=10)
             blob = Blob(type=BlobType.CONTEXT, summary="To delete", scope=BlobScope.SESSION, updated=old_time)
-            glob.sprout(blob, "to-delete", subdir="contexts")
+            glob.sprout(blob, "to-delete", subdir="current")
 
             result = run_cli("decompose", cwd=tmpdir)
             assert result.returncode == 0
             assert "Decomposed" in result.stdout
 
             # File should be gone
-            assert not (Path(tmpdir) / ".claude" / "contexts" / "to-delete.blob.xml").exists()
+            assert not (Path(tmpdir) / ".reef" / "current" / "to-delete.reef").exists()
 
     def test_decompose_ignores_project_scope(self):
         """Decompose ignores project-scope blobs."""
@@ -324,7 +326,7 @@ class TestCliDecompose:
             assert "No stale" in result.stdout
 
             # Should still exist
-            assert (Path(tmpdir) / ".claude" / "old-project.blob.xml").exists()
+            assert (Path(tmpdir) / ".reef" / "old-project.reef").exists()
 
 
 class TestCliVersion:
@@ -385,7 +387,7 @@ class TestCliTemplate:
 
             # Verify polip created with template structure
             glob = Glob(Path(tmpdir))
-            blob = glob.get("login-fails-on-safari", subdir="threads")
+            blob = glob.get("login-fails-on-safari", subdir="current")
             assert blob is not None
             assert "Bug:" in blob.summary
             assert blob.status == BlobStatus.ACTIVE
@@ -398,7 +400,7 @@ class TestCliTemplate:
             assert result.returncode == 0
 
             glob = Glob(Path(tmpdir))
-            blob = glob.get("dark-mode", subdir="threads")
+            blob = glob.get("dark-mode", subdir="current")
             assert blob is not None
             assert "Feature:" in blob.summary
 
@@ -409,7 +411,7 @@ class TestCliTemplate:
             assert result.returncode == 0
 
             glob = Glob(Path(tmpdir))
-            blob = glob.get("use-postgresql", subdir="decisions")
+            blob = glob.get("use-postgresql", subdir="current")
             assert blob is not None
             assert "ADR:" in blob.summary
 
@@ -420,7 +422,7 @@ class TestCliTemplate:
             assert result.returncode == 0
 
             glob = Glob(Path(tmpdir))
-            blob = glob.get("no-pip-allowed", subdir="constraints")
+            blob = glob.get("no-pip-allowed", subdir="bedrock")
             assert blob is not None
             assert blob.scope == BlobScope.ALWAYS
 
@@ -470,7 +472,7 @@ class TestCliGraph:
             result = run_cli("graph", "--dot", cwd=tmpdir)
             assert result.returncode == 0
             assert "digraph reef" in result.stdout
-            assert "threads/test-thread" in result.stdout
+            assert "current/test-thread" in result.stdout
 
     def test_graph_shows_status(self):
         """Graph shows polip status."""
@@ -487,11 +489,11 @@ class TestCliGraph:
             glob = Glob(Path(tmpdir))
 
             # Create polips with related links
-            blob1 = Blob(type=BlobType.THREAD, summary="Thread 1", status=BlobStatus.ACTIVE, related=["facts/fact-1"])
+            blob1 = Blob(type=BlobType.THREAD, summary="Thread 1", status=BlobStatus.ACTIVE, related=["current/fact-1"])
             blob2 = Blob(type=BlobType.FACT, summary="Fact 1")
 
-            glob.sprout(blob1, "thread-1", subdir="threads")
-            glob.sprout(blob2, "fact-1", subdir="facts")
+            glob.sprout(blob1, "thread-1", subdir="current")
+            glob.sprout(blob2, "fact-1", subdir="current")
 
             result = run_cli("graph", cwd=tmpdir)
             assert result.returncode == 0
@@ -506,8 +508,8 @@ class TestCliGraph:
             blob1 = Blob(type=BlobType.THREAD, summary="Thread 1", status=BlobStatus.ACTIVE, files=["shared.py"])
             blob2 = Blob(type=BlobType.FACT, summary="Fact 1", files=["shared.py"])
 
-            glob.sprout(blob1, "thread-1", subdir="threads")
-            glob.sprout(blob2, "fact-1", subdir="facts")
+            glob.sprout(blob1, "thread-1", subdir="current")
+            glob.sprout(blob2, "fact-1", subdir="current")
 
             result = run_cli("graph", cwd=tmpdir)
             assert result.returncode == 0
@@ -528,7 +530,7 @@ class TestCliSnapshot:
             assert "Snapshot created" in result.stdout
 
             # Verify file exists
-            snapshot_dir = Path(tmpdir) / ".claude" / "snapshots"
+            snapshot_dir = Path(tmpdir) / ".reef" / "snapshots"
             assert snapshot_dir.exists()
             assert len(list(snapshot_dir.glob("*.snapshot.json"))) == 1
 
@@ -540,7 +542,7 @@ class TestCliSnapshot:
             result = run_cli("snapshot", "create", "--name", "milestone-1", cwd=tmpdir)
             assert result.returncode == 0
 
-            snapshot_dir = Path(tmpdir) / ".claude" / "snapshots"
+            snapshot_dir = Path(tmpdir) / ".reef" / "snapshots"
             files = list(snapshot_dir.glob("*milestone-1*.json"))
             assert len(files) == 1
 
@@ -593,7 +595,7 @@ class TestCliSnapshot:
             run_cli("snapshot", "create", "--name", "before", cwd=tmpdir)
 
             # Remove the fact
-            (Path(tmpdir) / ".claude" / "facts" / "fact-1.blob.xml").unlink()
+            (Path(tmpdir) / ".reef" / "current" / "fact-1.reef").unlink()
 
             result = run_cli("snapshot", "diff", "before", cwd=tmpdir)
             assert result.returncode == 0
@@ -642,7 +644,7 @@ class TestCliStatus:
 
             # Verify change persisted
             glob = Glob(Path(tmpdir))
-            blob = glob.get("test-thread", subdir="threads")
+            blob = glob.get("test-thread", subdir="current")
             assert blob.status == BlobStatus.BLOCKED
 
     def test_status_change_to_done(self):
@@ -663,7 +665,7 @@ class TestCliStatus:
             assert result.returncode == 0
 
             glob = Glob(Path(tmpdir))
-            blob = glob.get("test-thread", subdir="threads")
+            blob = glob.get("test-thread", subdir="current")
             assert blob.blocked_by == "Waiting for API"
 
     def test_status_clears_blocked_by_on_active(self):
@@ -674,7 +676,7 @@ class TestCliStatus:
             run_cli("status", "test-thread", "active", cwd=tmpdir)
 
             glob = Glob(Path(tmpdir))
-            blob = glob.get("test-thread", subdir="threads")
+            blob = glob.get("test-thread", subdir="current")
             assert blob.status == BlobStatus.ACTIVE
             assert blob.blocked_by is None
 
@@ -717,7 +719,7 @@ class TestCliStatus:
         with tempfile.TemporaryDirectory() as tmpdir:
             run_cli("sprout", "thread", "Test thread", cwd=tmpdir)
 
-            result = run_cli("status", "test-thread", "--dir", "threads", cwd=tmpdir)
+            result = run_cli("status", "test-thread", "--dir", "current", cwd=tmpdir)
             assert result.returncode == 0
 
 
@@ -798,7 +800,7 @@ class TestCliHook:
             assert result.returncode == 0
 
             # Verify context blob exists
-            context_path = Path(tmpdir) / ".claude" / "context.blob.xml"
+            context_path = Path(tmpdir) / ".reef" / "context.reef"
             assert context_path.exists()
 
             blob = Blob.load(context_path)
@@ -815,7 +817,7 @@ class TestCliHook:
             run_cli("hook", "persist", "--summary", "Second session", "--quiet", cwd=tmpdir)
 
             # Verify updated
-            context_path = Path(tmpdir) / ".claude" / "context.blob.xml"
+            context_path = Path(tmpdir) / ".reef" / "context.reef"
             blob = Blob.load(context_path)
             assert blob.summary == "Second session"
 
@@ -831,7 +833,7 @@ class TestCliHook:
             )
             assert result.returncode == 0
 
-            blob = Blob.load(Path(tmpdir) / ".claude" / "context.blob.xml")
+            blob = Blob.load(Path(tmpdir) / ".reef" / "context.reef")
             assert blob.files == ["src/main.py", "src/utils.py"]
 
     def test_hook_persist_with_next_steps(self):
@@ -846,7 +848,7 @@ class TestCliHook:
             )
             assert result.returncode == 0
 
-            blob = Blob.load(Path(tmpdir) / ".claude" / "context.blob.xml")
+            blob = Blob.load(Path(tmpdir) / ".reef" / "context.reef")
             assert blob.next_steps == ["Finish tests", "Review code"]
 
     def test_hook_persist_default_summary(self):
@@ -855,7 +857,7 @@ class TestCliHook:
             result = run_cli("hook", "persist", "--quiet", cwd=tmpdir)
             assert result.returncode == 0
 
-            blob = Blob.load(Path(tmpdir) / ".claude" / "context.blob.xml")
+            blob = Blob.load(Path(tmpdir) / ".reef" / "context.reef")
             assert "auto-generated" in blob.summary.lower()
 
     def test_hook_setup_outputs_json(self):
@@ -1018,12 +1020,12 @@ class TestCliDrift:
             run_cli("sprout", "constraint", "Shared rule", cwd=str(proj_b))
 
             # Pull from project-a
-            result = run_cli("drift", "pull", "project-b/constraints/shared-rule", cwd=str(proj_a))
+            result = run_cli("drift", "pull", "project-b/bedrock/shared-rule", cwd=str(proj_a))
             assert result.returncode == 0
             assert "Pulled" in result.stdout
 
             # Verify polip exists locally
-            assert (Path(proj_a) / ".claude" / "constraints" / "shared-rule.blob.xml").exists()
+            assert (Path(proj_a) / ".reef" / "bedrock" / "shared-rule.rock").exists()
 
     def test_drift_pull_not_found(self):
         """Pull fails gracefully for missing polip."""

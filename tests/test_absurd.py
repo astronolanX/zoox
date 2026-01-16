@@ -243,7 +243,7 @@ class TestAbsurdGlobOperations:
                 # Should get a valid blob
 
     def test_list_with_non_xml_files(self):
-        """List when .claude has non-XML files."""
+        """List when .reef has non-polip files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
@@ -251,10 +251,10 @@ class TestAbsurdGlobOperations:
             blob = Blob(type=BlobType.FACT, summary="Valid")
             glob.sprout(blob, "valid")
 
-            # Create non-XML files
-            (Path(tmpdir) / ".claude" / "readme.md").write_text("# Readme")
-            (Path(tmpdir) / ".claude" / "notes.txt").write_text("Notes")
-            (Path(tmpdir) / ".claude" / "fake.blob.xml.bak").write_text("backup")
+            # Create non-polip files
+            (Path(tmpdir) / ".reef" / "readme.md").write_text("# Readme")
+            (Path(tmpdir) / ".reef" / "notes.txt").write_text("Notes")
+            (Path(tmpdir) / ".reef" / "fake.reef.bak").write_text("backup")
 
             blobs = glob.list_blobs()
             assert len(blobs) == 1
@@ -266,10 +266,10 @@ class TestAbsurdGlobOperations:
 
             # Create valid blob
             blob = Blob(type=BlobType.CONSTRAINT, summary="Valid", scope=BlobScope.ALWAYS)
-            glob.sprout(blob, "valid", subdir="constraints")
+            glob.sprout(blob, "valid", subdir="bedrock")
 
             # Create corrupted file
-            (Path(tmpdir) / ".claude" / "constraints" / "corrupted.blob.xml").write_text("garbage")
+            (Path(tmpdir) / ".reef" / "bedrock" / "corrupted.rock").write_text("garbage")
 
             # Should not crash
             relevant = glob.surface_relevant()
@@ -280,8 +280,10 @@ class TestAbsurdGlobOperations:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            # Create a truncated XML
-            (Path(tmpdir) / ".claude" / "partial.blob.xml").write_text(
+            # Create a truncated XML file in the reef directory
+            reef_dir = Path(tmpdir) / ".reef"
+            reef_dir.mkdir(exist_ok=True)
+            (reef_dir / "partial.reef").write_text(
                 '<blob type="fact" scope="project" v="1"><sum'
             )
 
@@ -293,14 +295,17 @@ class TestAbsurdGlobOperations:
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
-            (Path(tmpdir) / ".claude" / "empty.blob.xml").write_text("")
+            # Create an empty file in the reef directory
+            reef_dir = Path(tmpdir) / ".reef"
+            reef_dir.mkdir(exist_ok=True)
+            (reef_dir / "empty.reef").write_text("")
 
             # Should not crash
             blobs = glob.list_blobs()
             # Empty file should be skipped
 
     def test_blob_file_is_directory(self):
-        """What if a .blob.xml path is actually a directory?"""
+        """What if a .reef path is actually a directory?"""
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
@@ -308,8 +313,8 @@ class TestAbsurdGlobOperations:
             blob = Blob(type=BlobType.FACT, summary="Valid")
             glob.sprout(blob, "valid")
 
-            # Create a directory with blob extension (weird but possible)
-            (Path(tmpdir) / ".claude" / "fake.blob.xml").mkdir(parents=True, exist_ok=True)
+            # Create a directory with polip extension (weird but possible)
+            (Path(tmpdir) / ".reef" / "fake.reef").mkdir(parents=True, exist_ok=True)
 
             # Should handle gracefully
             blobs = glob.list_blobs()

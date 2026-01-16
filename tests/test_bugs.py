@@ -95,6 +95,8 @@ class TestBugHunting:
         BUG INVESTIGATION: CLI decompose deletes files directly,
         but Glob.decompose() moves to archive. Inconsistent behavior.
         """
+        from reef.blob import POLIP_EXTENSIONS
+
         with tempfile.TemporaryDirectory() as tmpdir:
             glob = Glob(Path(tmpdir))
 
@@ -103,8 +105,11 @@ class TestBugHunting:
             glob.sprout(blob, "test")
             glob.decompose("test")
 
-            # Should be in archive
-            archive_files = list((Path(tmpdir) / ".claude" / "archive").glob("*.blob.xml"))
+            # Should be in archive (check all polip extensions)
+            archive_dir = Path(tmpdir) / ".reef" / "archive"
+            archive_files = []
+            for ext in POLIP_EXTENSIONS:
+                archive_files.extend(archive_dir.glob(f"*{ext}"))
             assert len(archive_files) == 1, "Glob.decompose should archive, not delete"
 
     def test_name_collision_in_archive(self):
@@ -126,7 +131,7 @@ class TestBugHunting:
             glob.decompose("contested")
 
             # Both should exist in archive with unique names
-            archive_files = list((Path(tmpdir) / ".claude" / "archive").glob("*contested*"))
+            archive_files = list((Path(tmpdir) / ".reef" / "archive").glob("*contested*"))
             print(f"Archive files: {[f.name for f in archive_files]}")
 
             # This might fail if second overwrites first
