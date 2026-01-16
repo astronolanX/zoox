@@ -1018,17 +1018,36 @@ def cmd_surface(args):
     blob = None
     found_path = None
 
-    # Search in all known subdirs
+    # Support full ID format from L1 index (e.g., "constraints-project-rules")
     from reef.blob import KNOWN_SUBDIRS
-    for subdir in [None, *KNOWN_SUBDIRS]:
-        candidate = glob.get(polip_id, subdir=subdir)
+    parsed_subdir = None
+    parsed_id = polip_id
+
+    # Check if ID starts with a known subdir prefix
+    if "-" in polip_id:
+        parts = polip_id.split("-", 1)
+        if parts[0] in KNOWN_SUBDIRS:
+            parsed_subdir = parts[0]
+            parsed_id = parts[1]
+
+    # If we parsed a subdir, try that first
+    if parsed_subdir:
+        candidate = glob.get(parsed_id, subdir=parsed_subdir)
         if candidate:
             blob = candidate
-            if subdir:
-                found_path = glob.claude_dir / subdir / f"{polip_id}.blob.xml"
-            else:
-                found_path = glob.claude_dir / f"{polip_id}.blob.xml"
-            break
+            found_path = glob.claude_dir / parsed_subdir / f"{parsed_id}.blob.xml"
+
+    # Fall back to searching all subdirs with original ID
+    if not blob:
+        for subdir in [None, *KNOWN_SUBDIRS]:
+            candidate = glob.get(polip_id, subdir=subdir)
+            if candidate:
+                blob = candidate
+                if subdir:
+                    found_path = glob.claude_dir / subdir / f"{polip_id}.blob.xml"
+                else:
+                    found_path = glob.claude_dir / f"{polip_id}.blob.xml"
+                break
 
     if not blob:
         print(f"Polip not found: {polip_id}", file=sys.stderr)

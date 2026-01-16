@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="034" date="2026-01-15" model="opus-4.5">
+  <summary>
+    Refactored Vera skill and added coral welcome banner for reef
+  </summary>
+
+  <what-worked>
+    <item>Parallel Task agents for web research on skill best practices</item>
+    <item>Direct comparison: superpowers writing-skills vs old Vera</item>
+    <item>Compressed Vera 391→101 lines following superpowers best practices</item>
+    <item>Proper frontmatter with "Use when..." triggers</item>
+    <item>Coral ASCII banner using Unicode block characters</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Initial Vera review suggestions not applied/tested</item>
+    <item>First coral designs looked like eyes - needed iteration</item>
+  </what-didnt>
+
+  <files-created>
+    <file>.envrc</file>
+    <file>.claude/runs/run-034.xml</file>
+  </files-created>
+
+  <files-modified>
+    <file>~/.claude/skills/content-strategist.md (391→101 lines)</file>
+  </files-modified>
+
+  <next-session>
+    <item>Apply CLAUDE.md fixes from Vera review (terminology placement, P7 rename, tagline sync)</item>
+    <item>Audit other skills in ~/.claude/skills/ for superpowers compliance</item>
+    <item>Test Vera on more documents to verify compression didn't break functionality</item>
+  </next-session>
+</run>

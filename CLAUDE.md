@@ -1,6 +1,6 @@
 # reef
 
-Symbiotic memory for AI.
+Memory that grows.
 
 ## Dev Commands
 
@@ -18,6 +18,21 @@ reef index --search "foo"  # Search polips
 - **Zero dependencies** - stdlib only, no external packages
 - **Local-only** - not published to PyPI (yet)
 - Use `uv` for package management, not pip
+
+## Terminology
+
+| Coral | Legacy | Meaning |
+|-------|--------|---------|
+| polip | blob | Individual memory unit |
+| reef | glob | Project colony |
+| spawn | sprout | Create polip |
+| surface | inject | Bring polip to context |
+| sink | decompose | Archive to deep reef |
+| current | thread | Active work stream |
+| bedrock | constraint | Foundation rules |
+| deposit | decision | Strategic choice |
+| fossil | fact | Preserved knowledge |
+| trench | - | Isolated worktree for parallel agent |
 
 ## Architecture
 
@@ -44,7 +59,7 @@ reef index --search "foo"  # Search polips
 
 ## Progressive Loading (L1/L2/L3)
 
-Polips use token-efficient progressive disclosure:
+Polips load in layers — metadata first, full content on demand:
 
 | Level | Content | When |
 |-------|---------|------|
@@ -67,9 +82,9 @@ Polips use token-efficient progressive disclosure:
 /surface constraints-project-rules  # L2 activation
 ```
 
-## P7 Features
+## Search & Linking
 
-- **TF-IDF search**: Fuzzy semantic search using term frequency-inverse document frequency
+- **TF-IDF search**: Fuzzy matching across polips using term frequency-inverse document frequency
 - **Wiki linking**: Use `[[polip-name]]` in content; auto-populates `related` field
 - **LRU tracking**: Access counts boost frequently-used polips in surfacing
 - **Rich templates**: `{date}`, `{git_branch}`, `{project_name}` in template expansion
@@ -102,18 +117,3 @@ reef trench logs feature-x
 reef trench test feature-x
 reef trench merge feature-x
 ```
-
-## Terminology
-
-| Coral | Legacy | Meaning |
-|-------|--------|---------|
-| polip | blob | Individual memory unit |
-| reef | glob | Project colony |
-| spawn | sprout | Create polip |
-| surface | inject | Bring polip to context |
-| sink | decompose | Archive to deep reef |
-| current | thread | Active work stream |
-| bedrock | constraint | Foundation rules |
-| deposit | decision | Strategic choice |
-| fossil | fact | Preserved knowledge |
-| trench | - | Isolated worktree for parallel agent |
