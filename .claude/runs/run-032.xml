@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="032" date="2026-01-15" duration="~40min">
+  <summary>
+    MCP governance consolidation and /team trench integration.
+    Established global-first MCP management, cleared VS Code duplicates,
+    updated /team to use reef trenches for controlled agent spawning.
+  </summary>
+
+  <what-worked>
+    <item>Reef trench spawning tested end-to-end: agent wrote code in isolated worktree</item>
+    <item>MCP consolidation to global config - single source of truth</item>
+    <item>@latest versioning ensures auto-update on all MCPs</item>
+    <item>Skill-based approach for git (over MCP) validated by research</item>
+    <item>pyright-lsp plugin enabled for Python type checking</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Initial MCP consolidation script cleared global MCPs - had to restore manually</item>
+    <item>Scope creep on feedback loop hints - reverted (reef handles this natively)</item>
+  </what-didnt>
+
+  <files-created>
+    <file>~/.claude/constraints/mcp-governance.md</file>
+  </files-created>
+
+  <files-modified>
+    <file>~/.claude/commands/team.md (trench routing)</file>
+    <file>~/.claude.json (global MCPs, all @latest)</file>
+    <file>~/.claude/settings.json (pyright-lsp enabled)</file>
+    <file>~/Desktop/org-revamp-2026-01-15.xml (MCP governance + /team update)</file>
+    <file>VS Code MCP configs (cleared - CLI authoritative)</file>
+  </files-modified>
+
+  <key-decisions>
+    <decision id="D1">MCPs are global-first - no project-specific MCPs</decision>
+    <decision id="D2">Ask before adding new MCPs - explicit approval required</decision>
+    <decision id="D3">Prefer skills over MCPs when CLI works (git, commits)</decision>
+    <decision id="D4">/team routes: research→Task, implementation→trench, long-running→worker</decision>
+  </key-decisions>
+
+  <mcp-stack>
+    <mcp name="fetcher">Web content fetching</mcp>
+    <mcp name="playwright">Browser automation (a11y tree)</mcp>
+    <mcp name="exa">Intelligent web search</mcp>
+    <mcp name="sequential-thinking">Structured problem-solving</mcp>
+    <mcp name="filesystem">File ops in ~/Users/nolan</mcp>
+    <mcp name="memory">Persistent knowledge graph</mcp>
+    <mcp name="puppeteer">Browser automation (screenshots)</mcp>
+    <mcp name="sqlite">Database interaction</mcp>
+    <mcp name="context7" source="plugin">Library docs</mcp>
+  </mcp-stack>
+
+  <next-session>
+    <item priority="high">Test /team with real implementation task via trench</item>
+    <item priority="medium">Collect tool instrumentation data across sessions</item>
+    <item priority="low">Consider adding GitHub MCP if gh CLI proves insufficient</item>
+  </next-session>
+</run>

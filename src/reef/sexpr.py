@@ -2,14 +2,37 @@
 S-Expression Parser and Serializer for Polips.
 
 AI-native file format - minimal syntax, maximum semantic density.
-Replaces XML with ~60% token reduction.
+Replaces XML with ~40% token reduction (validated by investigation squad).
 
 Grammar:
-    polip      ::= '(' 'polip' type name attrs* content* ')'
-    type       ::= thread | decision | constraint | fact | context
+    polip      ::= '(' 'polip' name? type-sigil? scope-sigil? attrs* content* ')'
+    type-sigil ::= '@' (thread | decision | constraint | fact | context)
+    scope-sigil::= '^' (always | project | session)
     attrs      ::= ':' keyword value
     content    ::= files | decisions | facts | next | related | ctx | decay | vitals
+
+Sigil Sugar:
+    @thread     → :type thread
+    ^always     → :scope always
+    ~"text"     → :summary "text"
+    +active     → :status active
+    #["a" "b"]  → (files "a" "b")
+
+Delta-from-default:
+    Canonical defaults are omitted in output to minimize tokens.
+    - type: thread
+    - scope: project
+    - status: active (for threads)
+    - version: 2
 """
+
+# --- Canonical Defaults (for delta compression) ---
+DEFAULTS = {
+    "type": "thread",
+    "scope": "project",
+    "status": "active",
+    "version": 2,
+}
 
 import re
 from dataclasses import dataclass, field
@@ -23,10 +46,18 @@ from enum import Enum
 class TokenType(Enum):
     LPAREN = "("
     RPAREN = ")"
+    LBRACKET = "["
+    RBRACKET = "]"
     KEYWORD = ":"      # :scope, :status, etc.
     SYMBOL = "symbol"  # thread, my-polip, etc.
     STRING = "string"  # "quoted text"
     NUMBER = "number"  # 42, 3.14
+    # Sigil sugar tokens
+    SIGIL_TYPE = "@"      # @thread → :type thread
+    SIGIL_SCOPE = "^"     # ^always → :scope always
+    SIGIL_SUMMARY = "~"   # ~"text" → :summary "text"
+    SIGIL_STATUS = "+"    # +active → :status active
+    SIGIL_FILES = "#"     # #["a.py"] → (files "a.py")
     EOF = "eof"
 
 
@@ -144,6 +175,12 @@ class Tokenizer:
             elif ch == ')':
                 self._advance()
                 yield Token(TokenType.RPAREN, ')', line, col)
+            elif ch == '[':
+                self._advance()
+                yield Token(TokenType.LBRACKET, '[', line, col)
+            elif ch == ']':
+                self._advance()
+                yield Token(TokenType.RBRACKET, ']', line, col)
             elif ch == ':':
                 self._advance()
                 # Keyword: :name -> we return the name without colon
@@ -152,6 +189,39 @@ class Tokenizer:
                     yield Token(TokenType.KEYWORD, name, line, col)
                 else:
                     raise SyntaxError(f"Expected symbol after ':' at line {line}, col {col}")
+            # --- Sigil sugar ---
+            elif ch == '@':
+                self._advance()
+                if self.SYMBOL_START.match(self._peek()):
+                    sym = self._read_symbol()
+                    yield Token(TokenType.SIGIL_TYPE, sym, line, col)
+                else:
+                    raise SyntaxError(f"Expected symbol after '@' at line {line}, col {col}")
+            elif ch == '^':
+                self._advance()
+                if self.SYMBOL_START.match(self._peek()):
+                    sym = self._read_symbol()
+                    yield Token(TokenType.SIGIL_SCOPE, sym, line, col)
+                else:
+                    raise SyntaxError(f"Expected symbol after '^' at line {line}, col {col}")
+            elif ch == '~':
+                self._advance()
+                if self._peek() == '"':
+                    s = self._read_string()
+                    yield Token(TokenType.SIGIL_SUMMARY, s, line, col)
+                else:
+                    raise SyntaxError(f"Expected string after '~' at line {line}, col {col}")
+            elif ch == '+':
+                self._advance()
+                if self.SYMBOL_START.match(self._peek()):
+                    sym = self._read_symbol()
+                    yield Token(TokenType.SIGIL_STATUS, sym, line, col)
+                else:
+                    # Not a sigil, might be part of something else - error
+                    raise SyntaxError(f"Expected symbol after '+' at line {line}, col {col}")
+            elif ch == '#':
+                self._advance()
+                yield Token(TokenType.SIGIL_FILES, '#', line, col)
             elif ch == '"':
                 s = self._read_string()
                 yield Token(TokenType.STRING, s, line, col)
@@ -238,6 +308,41 @@ class Parser:
                 else:
                     raise SyntaxError(f"Unexpected token after keyword at line {val_tok.line}")
 
+            # --- Sigil sugar handling ---
+            elif tok.type == TokenType.SIGIL_TYPE:
+                # @thread → type: thread
+                expr.attrs["type"] = self._advance().value
+
+            elif tok.type == TokenType.SIGIL_SCOPE:
+                # ^always → scope: always
+                expr.attrs["scope"] = self._advance().value
+
+            elif tok.type == TokenType.SIGIL_SUMMARY:
+                # ~"text" → summary: "text"
+                expr.attrs["summary"] = self._advance().value
+
+            elif tok.type == TokenType.SIGIL_STATUS:
+                # +active → status: active
+                expr.attrs["status"] = self._advance().value
+
+            elif tok.type == TokenType.SIGIL_FILES:
+                # #["a.py" "b.py"] → (files "a.py" "b.py")
+                self._advance()  # consume #
+                files_expr = SExpr(head="files")
+                if self._peek().type == TokenType.LBRACKET:
+                    self._advance()  # consume [
+                    while self._peek().type != TokenType.RBRACKET:
+                        if self._peek().type == TokenType.STRING:
+                            files_expr.items.append(self._advance().value)
+                        elif self._peek().type == TokenType.EOF:
+                            raise SyntaxError("Unterminated file list")
+                        else:
+                            raise SyntaxError(f"Expected string in file list at line {self._peek().line}")
+                    self._advance()  # consume ]
+                else:
+                    raise SyntaxError(f"Expected '[' after '#' at line {self._peek().line}")
+                expr.items.append(files_expr)
+
             elif tok.type == TokenType.LPAREN:
                 # Nested S-expression
                 expr.items.append(self.parse())
@@ -273,18 +378,33 @@ def parse_sexpr(source: str) -> SExpr:
 
 # Import from blob module (avoid circular import by importing at use)
 def sexpr_to_blob(sexpr: SExpr):
-    """Convert parsed S-expression to Blob object."""
+    """Convert parsed S-expression to Blob object.
+
+    Supports two syntaxes:
+    1. Legacy: (polip thread my-name :scope project ...)
+    2. Sigil:  (polip my-name @thread ^project ...)
+
+    With sigils, type/scope/status come from attrs instead of items.
+    """
     from .blob import Blob, BlobType, BlobScope, BlobStatus
 
     if sexpr.head != "polip":
         raise ValueError(f"Expected 'polip', got '{sexpr.head}'")
 
-    # First two items should be type and name
-    if len(sexpr.items) < 2:
-        raise ValueError("Polip requires type and name")
-
-    type_str = sexpr.items[0]
-    name = sexpr.items[1]  # Currently unused in Blob, but available
+    # Determine type - sigil style (attrs) or legacy (items[0])
+    if "type" in sexpr.attrs:
+        # Sigil style: @thread sets attrs["type"]
+        type_str = sexpr.attrs["type"]
+        # Name is items[0] if present
+        name = sexpr.items[0] if sexpr.items else "unnamed"
+        content_start = 1
+    else:
+        # Legacy style: items[0] is type, items[1] is name
+        if len(sexpr.items) < 2:
+            raise ValueError("Polip requires type and name (legacy) or @type sigil")
+        type_str = sexpr.items[0]
+        name = sexpr.items[1]
+        content_start = 2
 
     # Parse type
     blob_type = BlobType(type_str)
@@ -322,7 +442,7 @@ def sexpr_to_blob(sexpr: SExpr):
     related = []
     context = ""
 
-    for item in sexpr.items[2:]:  # Skip type and name
+    for item in sexpr.items[content_start:]:
         if isinstance(item, SExpr):
             if item.head == "files":
                 files = [str(f) for f in item.items]

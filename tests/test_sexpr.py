@@ -110,7 +110,35 @@ class TestTokenizer:
 
     def test_unexpected_char(self):
         with pytest.raises(SyntaxError, match="Unexpected character"):
-            list(Tokenizer("@invalid").tokenize())
+            list(Tokenizer("$invalid").tokenize())
+
+    # --- Sigil sugar tests ---
+    def test_sigil_type(self):
+        tokens = list(Tokenizer("@thread").tokenize())
+        assert tokens[0].type == TokenType.SIGIL_TYPE
+        assert tokens[0].value == "thread"
+
+    def test_sigil_scope(self):
+        tokens = list(Tokenizer("^always").tokenize())
+        assert tokens[0].type == TokenType.SIGIL_SCOPE
+        assert tokens[0].value == "always"
+
+    def test_sigil_summary(self):
+        tokens = list(Tokenizer('~"my summary"').tokenize())
+        assert tokens[0].type == TokenType.SIGIL_SUMMARY
+        assert tokens[0].value == "my summary"
+
+    def test_sigil_status(self):
+        tokens = list(Tokenizer("+active").tokenize())
+        assert tokens[0].type == TokenType.SIGIL_STATUS
+        assert tokens[0].value == "active"
+
+    def test_sigil_files(self):
+        tokens = list(Tokenizer('#["a.py" "b.py"]').tokenize())
+        assert tokens[0].type == TokenType.SIGIL_FILES
+        assert tokens[1].type == TokenType.LBRACKET
+        assert tokens[2].type == TokenType.STRING
+        assert tokens[2].value == "a.py"
 
 
 class TestParser:
@@ -228,6 +256,33 @@ class TestPolipConversion:
         assert blob1.files == blob2.files
         assert blob1.facts == blob2.facts
         assert blob1.context == blob2.context
+
+    def test_sigil_syntax(self):
+        """Test sigil sugar: @type ^scope ~summary +status #files."""
+        source = """
+        (polip my-polip @thread ^always ~"Sigil test" +active
+          #["file.py" "other.py"]
+          (facts "A fact"))
+        """
+        expr = parse_sexpr(source)
+        blob = sexpr_to_blob(expr)
+
+        assert blob.type == BlobType.THREAD
+        assert blob.scope == BlobScope.ALWAYS
+        assert blob.summary == "Sigil test"
+        assert blob.status == BlobStatus.ACTIVE
+        assert blob.files == ["file.py", "other.py"]
+        assert blob.facts == ["A fact"]
+
+    def test_sigil_minimal(self):
+        """Minimal sigil syntax."""
+        source = '(polip test @thread ~"Minimal")'
+        expr = parse_sexpr(source)
+        blob = sexpr_to_blob(expr)
+
+        assert blob.type == BlobType.THREAD
+        assert blob.summary == "Minimal"
+        assert blob.scope == BlobScope.PROJECT  # Default
 
 
 class TestBlobToSexpr:
