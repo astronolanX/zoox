@@ -1,0 +1,23 @@
+<run id="037" date="2026-01-16">
+  <summary>Investigated MCP server startup failures - identified transient npm/npx timeout issue during parallel cold starts</summary>
+
+  <what-worked>
+    <item>Diagnosed root cause: 9 npx -y calls in parallel overwhelm npm registry lookups</item>
+    <item>All servers recovered after initial timeout - transient not permanent</item>
+    <item>Confirmed no IDE MCP server configured in Claude Code (separate from Desktop)</item>
+    <item>Pre-cached several MCP packages to reduce future cold start times</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Some npx packages don't support --version flag cleanly (context7, filesystem)</item>
+  </what-didnt>
+
+  <files-modified>
+    <file>none - diagnostic session</file>
+  </files-modified>
+
+  <next-session>
+    <item>Consider staggering MCP server startup to avoid parallel npm overload</item>
+    <item>Add IDE MCP server to Claude Code if needed for LSP integration</item>
+  </next-session>
+</run>
