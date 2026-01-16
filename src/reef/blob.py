@@ -89,20 +89,21 @@ class PathTraversalError(ValueError):
 
 def _validate_name_safe(name: str) -> str:
     """
-    Validate that a polip name is safe before constructing paths.
+    Validate that a polip name (filename) is safe before constructing paths.
 
     Catches traversal patterns BEFORE they become paths.
+    Names should NOT contain path separators - they're filenames only.
     """
     import urllib.parse
 
     # Decode URL encoding first (catch %2f..%2f patterns)
     decoded = urllib.parse.unquote(name)
 
-    # Patterns that indicate traversal attempts
+    # Patterns that indicate traversal attempts (strict for filenames)
     dangerous_patterns = [
         "..",           # Unix traversal
-        "\\",           # Windows path separator (shouldn't be in names)
-        "/",            # Unix path separator (shouldn't be in names)
+        "\\",           # Windows path separator
+        "/",            # Unix path separator (filenames shouldn't have this)
         "\x00",         # Null byte
         "\n", "\r",     # Newlines (header injection)
     ]
@@ -118,6 +119,38 @@ def _validate_name_safe(name: str) -> str:
         raise PathTraversalError(f"Name '{name}' looks like absolute path")
 
     return name
+
+
+def _validate_subdir_safe(subdir: str) -> str:
+    """
+    Validate that a subdirectory path is safe.
+
+    Subdirs CAN contain '/' for nesting but must NOT contain traversal patterns.
+    """
+    import urllib.parse
+
+    # Decode URL encoding first
+    decoded = urllib.parse.unquote(subdir)
+
+    # Patterns that indicate traversal attempts (allows /)
+    dangerous_patterns = [
+        "..",           # Unix traversal
+        "\\",           # Windows path separator
+        "\x00",         # Null byte
+        "\n", "\r",     # Newlines
+    ]
+
+    for pattern in dangerous_patterns:
+        if pattern in decoded:
+            raise PathTraversalError(
+                f"Subdir '{subdir}' contains dangerous pattern: {repr(pattern)}"
+            )
+
+    # Check for absolute paths
+    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
+        raise PathTraversalError(f"Subdir '{subdir}' looks like absolute path")
+
+    return subdir
 
 
 def _validate_path_safe(base_dir: Path, target_path: Path) -> Path:
@@ -932,7 +965,11 @@ class Glob:
                 if query_lower in summary.lower():
                     score += 2.0
 
-                # Recency boost: prefer recently updated polips
+                # Skip if no relevance to query (before applying boosts)
+                if score == 0.0:
+                    continue
+
+                # Recency boost: prefer recently updated polips (only if matched)
                 updated = entry.get("updated", "")
                 if updated:
                     try:
@@ -947,10 +984,6 @@ class Glob:
                 access_count = entry.get("access_count", 0)
                 if access_count > 0:
                     score += math.log(1 + access_count) * 0.3
-
-                # Skip if no relevance to query
-                if score == 0.0:
-                    continue
             else:
                 # No query = all matching filters get same score
                 score = 1.0
@@ -980,7 +1013,7 @@ class Glob:
         # Validate name BEFORE constructing path (catches traversal patterns)
         _validate_name_safe(name)
         if subdir:
-            _validate_name_safe(subdir)
+            _validate_subdir_safe(subdir)
             target_dir = self.claude_dir / subdir
         else:
             target_dir = self.claude_dir
@@ -1006,7 +1039,7 @@ class Glob:
         # Validate name BEFORE constructing path
         _validate_name_safe(name)
         if subdir:
-            _validate_name_safe(subdir)
+            _validate_subdir_safe(subdir)
             path = self.claude_dir / subdir / f"{name}.blob.xml"
         else:
             path = self.claude_dir / f"{name}.blob.xml"
