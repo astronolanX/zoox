@@ -1,0 +1,24 @@
+<run id="036" date="2026-01-16">
+  <summary>Fixed dual-format polip loading bug - Blob.load() now correctly parses .reef human-readable format</summary>
+
+  <what-worked>
+    <item>Diagnosed format detection issue: .reef files use =prefix format, not S-expression</item>
+    <item>Added Blob._from_polip() converter to bridge format.py Polip to blob.py Blob</item>
+    <item>Fixed decisions field mismatch (list[str] to list[tuple[str,str]])</item>
+    <item>All 823 tests passing</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Status line hook still shows only 5 polips even after fix - may need session restart</item>
+  </what-didnt>
+
+  <files-modified>
+    <file>src/reef/blob.py</file>
+  </files-modified>
+
+  <next-session>
+    <item>Verify status line shows all polips after session restart</item>
+    <item>Consider updating index.json to track .reef files properly</item>
+    <item>Test hook with fresh Claude Code session</item>
+  </next-session>
+</run>
