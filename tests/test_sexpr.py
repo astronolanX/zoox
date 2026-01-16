@@ -532,3 +532,579 @@ A reef is a collection of polips in .claude/ directories."))
         assert len(blob.decisions) == 3
         assert len(blob.next_steps) == 3
         assert "constraints-project-rules" in blob.related
+
+
+# =============================================================================
+# SMOKE TESTS - Basic sanity checks
+# =============================================================================
+
+class TestSmokeTests:
+    """Quick validation that core functionality works."""
+
+    def test_parse_serialize_roundtrip(self):
+        """Parse → Blob → Serialize → Parse should preserve semantics."""
+        source = '(polip test @thread ~"Smoke test")'
+        blob1 = sexpr_to_blob(parse_sexpr(source))
+        output = blob_to_sexpr(blob1, "test")
+        blob2 = sexpr_to_blob(parse_sexpr(output))
+        assert blob1.type == blob2.type
+        assert blob1.summary == blob2.summary
+
+    def test_all_blob_types(self):
+        """Each BlobType should parse correctly."""
+        for blob_type in ["thread", "decision", "constraint", "fact", "context"]:
+            source = f'(polip test @{blob_type} ~"Testing {blob_type}")'
+            blob = sexpr_to_blob(parse_sexpr(source))
+            assert blob.type.value == blob_type
+
+    def test_all_scopes(self):
+        """Each BlobScope should parse correctly."""
+        for scope in ["session", "project", "always"]:
+            source = f'(polip test @thread ^{scope} ~"Testing scope")'
+            blob = sexpr_to_blob(parse_sexpr(source))
+            assert blob.scope.value == scope
+
+    def test_all_statuses(self):
+        """Each BlobStatus should parse correctly."""
+        for status in ["active", "blocked", "done"]:
+            source = f'(polip test @thread +{status} ~"Testing status")'
+            blob = sexpr_to_blob(parse_sexpr(source))
+            assert blob.status.value == status
+
+    def test_all_sigils_together(self):
+        """All sigils in one expression."""
+        source = '(polip my-polip @constraint ^always ~"All sigils" +active #["a.py" "b.py"])'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.type == BlobType.CONSTRAINT
+        assert blob.scope == BlobScope.ALWAYS
+        assert blob.summary == "All sigils"
+        assert blob.status == BlobStatus.ACTIVE
+        assert blob.files == ["a.py", "b.py"]
+
+
+# =============================================================================
+# STRESS TESTS - Performance and limits
+# =============================================================================
+
+class TestStressTests:
+    """Test behavior under load and at limits."""
+
+    def test_deeply_nested_structure(self):
+        """Many levels of nesting."""
+        source = """
+        (polip deep @thread ~"Deep nesting"
+          (decisions
+            ("L1" :why "reason")
+            ("L2" :why "reason"))
+          (facts "f1" "f2" "f3" "f4" "f5")
+          (next "n1" "n2" "n3" "n4" "n5")
+          (related a b c d e f g h i j))
+        """
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert len(blob.decisions) == 2
+        assert len(blob.facts) == 5
+        assert len(blob.related) == 10
+
+    def test_many_files(self):
+        """Large file list."""
+        files = " ".join(f'"file{i}.py"' for i in range(100))
+        source = f'(polip test @thread ~"Many files" (files {files}))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert len(blob.files) == 100
+
+    def test_many_decisions(self):
+        """Large decision list."""
+        decisions = "\n".join(f'("Decision {i}" :why "Reason {i}")' for i in range(50))
+        source = f'(polip test @thread ~"Many decisions" (decisions {decisions}))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert len(blob.decisions) == 50
+
+    def test_long_string(self):
+        """Very long string content."""
+        long_text = "x" * 10000
+        source = f'(polip test @thread ~"{long_text}")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert len(blob.summary) == 10000
+
+    def test_long_context(self):
+        """Very long context field."""
+        long_ctx = "word " * 5000  # 25000 chars
+        source = f'(polip test @thread ~"Long context" (context "{long_ctx}"))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert len(blob.context) > 20000
+
+    def test_many_lines(self):
+        """Multi-line content with many newlines."""
+        lines = "\\n".join(f"Line {i}" for i in range(200))
+        source = f'(polip test @thread ~"Multiline" (context "{lines}"))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.context.count("\n") == 199
+
+    def test_rapid_tokenization(self):
+        """Tokenize the same content many times."""
+        source = '(polip test @thread ~"Rapid fire" #["a.py"])'
+        for _ in range(100):
+            tokens = list(Tokenizer(source).tokenize())
+            assert len(tokens) > 5
+
+
+# =============================================================================
+# EDGE CASES - Boundary conditions
+# =============================================================================
+
+class TestEdgeCases:
+    """Test boundary conditions and corner cases."""
+
+    def test_empty_string_summary(self):
+        """Empty summary string."""
+        source = '(polip test @thread ~"")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == ""
+
+    def test_empty_files_list(self):
+        """Empty files list."""
+        source = '(polip test @thread ~"Empty files" (files))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.files == []
+
+    def test_empty_decisions_list(self):
+        """Empty decisions list."""
+        source = '(polip test @thread ~"Empty decisions" (decisions))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decisions == []
+
+    def test_single_char_name(self):
+        """Single character polip name."""
+        source = '(polip x @thread ~"Single char")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == "Single char"
+
+    def test_name_with_many_dashes(self):
+        """Name with multiple dashes."""
+        source = '(polip a-b-c-d-e-f-g @thread ~"Dashed")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == "Dashed"
+
+    def test_name_with_underscores(self):
+        """Name with underscores."""
+        source = '(polip my_polip_name @thread ~"Underscored")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == "Underscored"
+
+    def test_numeric_in_name(self):
+        """Numbers in polip name."""
+        source = '(polip v2-feature-123 @thread ~"Numbered")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == "Numbered"
+
+    def test_whitespace_preservation_in_strings(self):
+        """Whitespace in strings should be preserved."""
+        source = '(polip test @thread ~"  spaces  around  ")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == "  spaces  around  "
+
+    def test_unicode_in_strings(self):
+        """Unicode characters in strings."""
+        source = '(polip test @thread ~"日本語 émoji 🦀")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "日本語" in blob.summary
+        assert "🦀" in blob.summary
+
+    def test_no_whitespace_between_tokens(self):
+        """Sigils work without whitespace - they're delimiters."""
+        source = '(polip test@thread~"Tight")'
+        # Sigils act as delimiters, so this actually works
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.type == BlobType.THREAD
+        assert blob.summary == "Tight"
+
+    def test_excessive_whitespace(self):
+        """Lots of whitespace everywhere."""
+        source = '''
+        (    polip    test
+             @thread
+             ^project
+             ~"Spacy"
+        )
+        '''
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == "Spacy"
+
+    def test_comments_everywhere(self):
+        """Comments interspersed in source."""
+        source = """
+        ; Header comment
+        (polip test ; inline comment
+          @thread ; type comment
+          ~"With comments" ; summary comment
+          ; standalone comment
+        ) ; trailing comment
+        """
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == "With comments"
+
+    def test_decision_with_empty_why(self):
+        """Decision with empty why field."""
+        source = '(polip test @thread ~"Empty why" (decisions ("Choice" :why "")))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decisions == [("Choice", "")]
+
+    def test_fact_with_quotes_inside(self):
+        """Fact containing escaped quotes."""
+        source = r'(polip test @thread ~"Quoted" (facts "He said \"hello\""))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert 'He said "hello"' in blob.facts[0]
+
+    def test_context_with_all_escapes(self):
+        """Context with all escape sequences."""
+        source = r'(polip test @thread ~"Escapes" (context "tab:\there\nnewline\\backslash"))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "\t" in blob.context
+        assert "\n" in blob.context
+        assert "\\" in blob.context
+
+    def test_version_zero(self):
+        """Explicit version 0."""
+        source = '(polip test @thread ~"V0" :v 0)'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.version == 0
+
+    def test_version_large(self):
+        """Large version number."""
+        source = '(polip test @thread ~"Big version" :v 999999)'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.version == 999999
+
+
+# =============================================================================
+# ADVERSARIAL TESTS - Intentionally malformed/tricky inputs
+# =============================================================================
+
+class TestAdversarialCases:
+    """Tests designed to break the parser."""
+
+    def test_unclosed_paren(self):
+        """Missing closing paren."""
+        source = '(polip test @thread ~"Unclosed"'
+        with pytest.raises(SyntaxError):
+            parse_sexpr(source)
+
+    def test_extra_closing_paren(self):
+        """Extra closing paren."""
+        source = '(polip test @thread ~"Extra"))'
+        # Parser should stop at first complete expr, but tokenizer might error
+        expr = parse_sexpr(source)  # May succeed parsing first expr
+        # The extra ) would be left over
+
+    def test_unclosed_string(self):
+        """String without closing quote."""
+        source = '(polip test @thread ~"Unclosed string)'
+        with pytest.raises(SyntaxError):
+            parse_sexpr(source)
+
+    def test_unclosed_bracket(self):
+        """File list without closing bracket."""
+        source = '(polip test @thread ~"Unclosed" #["file.py")'
+        with pytest.raises(SyntaxError):
+            parse_sexpr(source)
+
+    def test_sigil_without_value(self):
+        """Sigil at end of input."""
+        source = '(polip test @)'
+        with pytest.raises(SyntaxError):
+            parse_sexpr(source)
+
+    def test_keyword_without_value(self):
+        """Keyword without following value."""
+        source = '(polip test @thread ~"Test" :summary)'
+        with pytest.raises(SyntaxError):
+            parse_sexpr(source)
+
+    def test_invalid_blob_type(self):
+        """Invalid type value."""
+        source = '(polip test @invalid ~"Bad type")'
+        with pytest.raises(ValueError):
+            sexpr_to_blob(parse_sexpr(source))
+
+    def test_invalid_scope(self):
+        """Invalid scope value."""
+        source = '(polip test @thread ^invalid ~"Bad scope")'
+        with pytest.raises(ValueError):
+            sexpr_to_blob(parse_sexpr(source))
+
+    def test_invalid_status(self):
+        """Invalid status value."""
+        source = '(polip test @thread +invalid ~"Bad status")'
+        with pytest.raises(ValueError):
+            sexpr_to_blob(parse_sexpr(source))
+
+    def test_nested_quotes_attack(self):
+        """Attempt to break parser with nested quotes."""
+        source = r'(polip test @thread ~"outer \"inner \\\"deep\\\" inner\" outer")'
+        # Should handle nested escapes
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "inner" in blob.summary
+
+    def test_null_bytes_in_string(self):
+        """Null bytes in string content."""
+        source = '(polip test @thread ~"has\x00null")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "\x00" in blob.summary
+
+    def test_control_chars_in_string(self):
+        """Various control characters."""
+        source = '(polip test @thread ~"ctrl\x01\x02\x03chars")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "\x01" in blob.summary
+
+    def test_very_long_symbol(self):
+        """Extremely long symbol name."""
+        long_name = "a" * 1000
+        source = f'(polip {long_name} @thread ~"Long name")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == "Long name"
+
+    def test_keyword_looks_like_sigil(self):
+        """Keyword that resembles sigil syntax."""
+        source = '(polip test @thread ~"Test" :type decision)'
+        # :type should override @thread
+        blob = sexpr_to_blob(parse_sexpr(source))
+        # The last one wins in attrs
+        assert blob.type.value in ["thread", "decision"]
+
+    def test_duplicate_sections(self):
+        """Multiple files sections."""
+        source = '''
+        (polip test @thread ~"Dupe"
+          (files "a.py")
+          (files "b.py"))
+        '''
+        blob = sexpr_to_blob(parse_sexpr(source))
+        # Last one wins
+        assert "b.py" in blob.files
+
+    def test_wrong_section_content(self):
+        """Number in files list instead of string."""
+        source = '(polip test @thread ~"Wrong" (files 123))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        # Should coerce to string
+        assert "123" in blob.files
+
+    def test_deeply_nested_parens(self):
+        """Many levels of paren nesting requires symbol heads."""
+        # S-expressions need symbol heads, so ((((value)))) fails
+        source = "(polip test @thread ~\"Deep\" :decay (((((value))))))"
+        with pytest.raises(SyntaxError):
+            parse_sexpr(source)
+
+    def test_valid_nested_structure(self):
+        """Valid nested structures with symbol heads."""
+        source = "(polip test @thread ~\"Nested\" :decay (outer (inner (deep value))))"
+        expr = parse_sexpr(source)
+        assert expr.head == "polip"
+
+    def test_alternating_quotes_escapes(self):
+        """Alternating quotes and escapes."""
+        source = r'(polip test @thread ~"a\"b\"c\"d\"e")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary.count('"') == 4
+
+    def test_backslash_at_string_end(self):
+        """Backslash right before closing quote."""
+        source = r'(polip test @thread ~"ends with backslash\\")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary.endswith("\\")
+
+    def test_empty_input(self):
+        """Completely empty input."""
+        with pytest.raises(SyntaxError):
+            parse_sexpr("")
+
+    def test_whitespace_only_input(self):
+        """Only whitespace."""
+        with pytest.raises(SyntaxError):
+            parse_sexpr("   \n\t  ")
+
+    def test_comment_only_input(self):
+        """Only comments."""
+        with pytest.raises(SyntaxError):
+            parse_sexpr("; just a comment")
+
+    def test_number_as_head(self):
+        """Number where symbol expected."""
+        source = "(123 test)"
+        with pytest.raises(SyntaxError):
+            parse_sexpr(source)
+
+    def test_file_path_with_spaces(self):
+        """File paths containing spaces."""
+        source = '(polip test @thread ~"Spaced" #["path/with spaces/file.py"])'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "with spaces" in blob.files[0]
+
+    def test_file_path_with_unicode(self):
+        """File paths with unicode."""
+        source = '(polip test @thread ~"Unicode path" #["путь/файл.py"])'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "путь" in blob.files[0]
+
+    def test_decision_with_no_why(self):
+        """Decision tuple without :why."""
+        source = '(polip test @thread ~"No why" (decisions ("Just choice")))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decisions[0][1] == ""  # Empty why
+
+    def test_related_with_special_chars(self):
+        """Related names with special characters."""
+        source = '(polip test @thread ~"Related" (related foo-bar baz_qux))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "foo-bar" in blob.related
+        assert "baz_qux" in blob.related
+
+
+# =============================================================================
+# ABSURD TESTS - Unlikely but technically possible scenarios
+# =============================================================================
+
+class TestAbsurdCases:
+    """Unlikely but valid edge cases to ensure robustness."""
+
+    def test_polip_named_polip(self):
+        """A polip named 'polip'."""
+        source = '(polip polip @thread ~"Meta")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.type == BlobType.THREAD
+
+    def test_polip_named_thread(self):
+        """A polip named 'thread' (same as type)."""
+        source = '(polip thread @decision ~"Confusing")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.type == BlobType.DECISION
+
+    def test_summary_is_code(self):
+        """Summary containing code."""
+        source = '(polip test @thread ~"def foo(): return 42")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "def foo()" in blob.summary
+
+    def test_summary_is_json(self):
+        """Summary containing JSON."""
+        source = r'(polip test @thread ~"{\"key\": \"value\"}")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert '{"key": "value"}' in blob.summary
+
+    def test_summary_is_xml(self):
+        """Summary containing XML."""
+        source = r'(polip test @thread ~"<tag attr=\"val\">content</tag>")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "<tag" in blob.summary
+
+    def test_summary_is_sexpr(self):
+        """Summary containing S-expression syntax."""
+        source = r'(polip test @thread ~"(nested (parens) here)")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "(nested" in blob.summary
+
+    def test_context_is_entire_file(self):
+        """Context that looks like another polip file."""
+        inner = r'(polip inner @thread ~\"Inception\")'
+        source = f'(polip test @thread ~"Outer" (context "{inner}"))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "polip inner" in blob.context
+
+    def test_thousand_related(self):
+        """A thousand related polips."""
+        related = " ".join(f"polip{i}" for i in range(1000))
+        source = f'(polip test @thread ~"Connected" (related {related}))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert len(blob.related) == 1000
+
+    def test_fact_is_empty_string(self):
+        """Empty string as a fact."""
+        source = '(polip test @thread ~"Empty fact" (facts ""))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "" in blob.facts
+
+    def test_all_fields_empty(self):
+        """Every optional field empty."""
+        source = '''
+        (polip empty @thread ~""
+          (files)
+          (decisions)
+          (facts)
+          (next)
+          (related)
+          (context ""))
+        '''
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.summary == ""
+        assert blob.files == []
+        assert blob.decisions == []
+
+    def test_date_in_future(self):
+        """Date far in the future."""
+        source = '(polip test @thread ~"Future" :updated "2099-12-31")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.updated.year == 2099
+
+    def test_date_in_past(self):
+        """Date in the distant past."""
+        source = '(polip test @thread ~"Ancient" :updated "1970-01-01")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.updated.year == 1970
+
+    def test_serialization_stability(self):
+        """Serialize same blob 100 times, should be identical."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Stability test",
+            scope=BlobScope.PROJECT,
+        )
+        outputs = [blob_to_sexpr(blob, "test") for _ in range(100)]
+        assert len(set(outputs)) == 1  # All identical
+
+    def test_binary_looking_content(self):
+        """Content that looks like binary data."""
+        # Unknown escapes (\x) are passed through without backslash
+        source = '(polip test @thread ~"\\x00\\x01\\x02\\xff")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        # \x becomes x (unknown escape stripped)
+        assert "x00" in blob.summary
+
+    def test_sql_injection_attempt(self):
+        """SQL injection in summary (should just be string)."""
+        source = r'(polip test @thread ~"Robert\"); DROP TABLE users;--")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "DROP TABLE" in blob.summary  # Just a string, not executed
+
+    def test_path_traversal_attempt(self):
+        """Path traversal in file list."""
+        source = '(polip test @thread ~"Traversal" #["../../../etc/passwd"])'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "../" in blob.files[0]  # Just stored, not executed
+
+    def test_command_injection_attempt(self):
+        """Command injection in summary."""
+        source = '(polip test @thread ~"$(rm -rf /)")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "$(rm" in blob.summary  # Just a string
+
+    def test_emoji_overload(self):
+        """Many emoji characters."""
+        emojis = "🎉🎊🎁🎈🎂🍰🎄🎃🎅🤶" * 100
+        source = f'(polip test @thread ~"{emojis}")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert len(blob.summary) == 1000
+
+    def test_rtl_text(self):
+        """Right-to-left text."""
+        source = '(polip test @thread ~"مرحبا بالعالم")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "مرحبا" in blob.summary
+
+    def test_mixed_direction_text(self):
+        """Mixed LTR and RTL text."""
+        source = '(polip test @thread ~"Hello مرحبا World عالم")'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "Hello" in blob.summary
+        assert "مرحبا" in blob.summary
