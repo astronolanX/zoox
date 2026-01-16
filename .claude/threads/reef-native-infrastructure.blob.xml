@@ -35,7 +35,7 @@
     <step status="done">Phase 7: Worktree harness - parallel Claude agents with model routing</step>
     <step status="done">Phase 8: Integration polish + documentation</step>
   </next>
-  <spec-phase-7>
+  <spec-phase-7><![CDATA[
 ## Phase 7: Worktree Harness - Parallel Claude Development
 
 Enable multiple Claude agents to work on isolated features simultaneously, each in its own git worktree with independent testing before upstream merge.
@@ -87,11 +87,11 @@ Each spawned Claude inherits:
 ✓ Each runs independent tests (no shared state pollution)
 ✓ Orchestrator merges successfully when both report green
 ✓ Resume next session: child can continue work, parent can continue orchestration
-  </spec-phase-7>
+]]></spec-phase-7>
   <related>
     <ref>constraints-project-rules</ref>
   </related>
-  <context>
+  <context><![CDATA[
 ## Session Summary (2026-01-15)
 
 Deep brainstorming session exploring reef as native AI infrastructure. Key insight: reef enables AI to grow its own databases organically, rather than conforming to human-designed schemas.
@@ -289,5 +289,5 @@ uv run pytest -v                    # All 536 tests pass
 reef sync                           # Reef integrity
 reef health                         # Ecosystem health
 ```
-  </context>
+]]></context>
 </blob>

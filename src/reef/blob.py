@@ -1462,8 +1462,8 @@ class Glob:
         indexed_keys = set(index.get("blobs", {}).keys())
         found_keys = set()
 
-        # Scan all polips
-        for subdir in [None, *KNOWN_SUBDIRS]:
+        # Scan all polips (including archive)
+        for subdir in [None, *KNOWN_SUBDIRS, "archive"]:
             for blob_name, blob in self.list_blobs(subdir):
                 key = f"{subdir}/{blob_name}" if subdir else blob_name
                 key_with_ext = f"{key}.blob.xml"
