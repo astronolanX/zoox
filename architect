@@ -1,0 +1,4 @@
+#!/bin/bash
+# Invoke the reef format architect agent
+cd /Users/nolan/Desktop/reef
+claude --agents "$(cat .claude/agents/reef-format-architect.json)" --agent reef-format-architect "$@"
