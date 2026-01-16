@@ -1108,3 +1108,178 @@ class TestAbsurdCases:
         blob = sexpr_to_blob(parse_sexpr(source))
         assert "Hello" in blob.summary
         assert "مرحبا" in blob.summary
+
+
+# =============================================================================
+# DECAY PROTOCOL TESTS
+# =============================================================================
+
+class TestDecayProtocol:
+    """Tests for decay protocol fields in S-expression format."""
+
+    def test_decay_minimal(self):
+        """Minimal decay protocol with rate only."""
+        source = '(polip test @thread ~"Decay test" (decay :rate 0.5))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decay_rate == 0.5
+        assert blob.half_life is None
+        assert blob.compost_to is None
+
+    def test_decay_full(self):
+        """Full decay protocol with all fields."""
+        source = '''
+        (polip test @thread ~"Full decay"
+          (decay :rate 0.3 :half_life 30 :compost_to archive
+            (immune "system-update" "user-reference")
+            (challenged "new-feature" "refactor")))
+        '''
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decay_rate == 0.3
+        assert blob.half_life == 30
+        assert blob.compost_to == "archive"
+        assert len(blob.immune_to) == 2
+        assert "system-update" in blob.immune_to
+        assert len(blob.challenged_by) == 2
+        assert "new-feature" in blob.challenged_by
+
+    def test_decay_roundtrip(self):
+        """Decay fields survive roundtrip."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Decay roundtrip",
+            decay_rate=0.7,
+            half_life=60,
+            compost_to="deep-archive",
+            immune_to=["critical", "manual"],
+            challenged_by=["contradiction", "superseded"],
+        )
+        sexpr = blob_to_sexpr(blob, "test")
+        restored = sexpr_to_blob(parse_sexpr(sexpr))
+
+        assert restored.decay_rate == 0.7
+        assert restored.half_life == 60
+        assert restored.compost_to == "deep-archive"
+        assert restored.immune_to == ["critical", "manual"]
+        assert restored.challenged_by == ["contradiction", "superseded"]
+
+    def test_decay_only_rate(self):
+        """Decay with only rate attribute."""
+        source = '(polip test @thread ~"Rate only" (decay :rate 0.8))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decay_rate == 0.8
+        assert blob.half_life is None
+
+    def test_decay_only_half_life(self):
+        """Decay with only half_life attribute."""
+        source = '(polip test @thread ~"Half-life only" (decay :half_life 90))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decay_rate is None
+        assert blob.half_life == 90
+
+    def test_decay_only_compost_to(self):
+        """Decay with only compost_to attribute."""
+        source = '(polip test @thread ~"Compost only" (decay :compost_to archive-bin))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.compost_to == "archive-bin"
+
+    def test_decay_immune_empty(self):
+        """Decay with empty immune list."""
+        source = '(polip test @thread ~"Empty immune" (decay :rate 0.5 (immune)))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.immune_to == []
+
+    def test_decay_challenged_empty(self):
+        """Decay with empty challenged list."""
+        source = '(polip test @thread ~"Empty challenged" (decay :rate 0.5 (challenged)))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.challenged_by == []
+
+    def test_decay_float_rate(self):
+        """Decay rate as float."""
+        source = '(polip test @thread ~"Float rate" (decay :rate 0.123))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decay_rate == 0.123
+
+    def test_decay_unicode_in_lists(self):
+        """Unicode in immune and challenged lists."""
+        source = '''
+        (polip test @thread ~"Unicode decay"
+          (decay :rate 0.5
+            (immune "系统更新" "手动审核")
+            (challenged "矛盾" "过时")))
+        '''
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert "系统更新" in blob.immune_to
+        assert "矛盾" in blob.challenged_by
+
+    def test_decay_serialization_omitted_if_empty(self):
+        """Decay section omitted if no fields set."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="No decay",
+        )
+        sexpr = blob_to_sexpr(blob, "test")
+        assert "(decay" not in sexpr
+
+    def test_decay_serialization_structure(self):
+        """Decay serialization has correct structure."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Decay structure",
+            decay_rate=0.5,
+            immune_to=["event1"],
+        )
+        sexpr = blob_to_sexpr(blob, "test")
+        assert "(decay" in sexpr
+        assert ":rate 0.5" in sexpr
+        assert "(immune" in sexpr
+
+    def test_decay_many_immune(self):
+        """Many immune events."""
+        events = [f"event-{i}" for i in range(50)]
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Many immune",
+            decay_rate=0.5,
+            immune_to=events,
+        )
+        sexpr = blob_to_sexpr(blob, "test")
+        restored = sexpr_to_blob(parse_sexpr(sexpr))
+        assert len(restored.immune_to) == 50
+
+    def test_decay_many_challenged(self):
+        """Many challenged-by entries."""
+        challengers = [f"challenger-{i}" for i in range(50)]
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Many challengers",
+            decay_rate=0.5,
+            challenged_by=challengers,
+        )
+        sexpr = blob_to_sexpr(blob, "test")
+        restored = sexpr_to_blob(parse_sexpr(sexpr))
+        assert len(restored.challenged_by) == 50
+
+    def test_decay_special_chars_in_compost_to(self):
+        """Special characters in compost_to."""
+        source = '(polip test @thread ~"Special compost" (decay :compost_to deep-archive_2026))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.compost_to == "deep-archive_2026"
+
+    def test_decay_zero_rate(self):
+        """Zero decay rate (no decay)."""
+        source = '(polip test @thread ~"No decay" (decay :rate 0))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decay_rate == 0
+
+    def test_decay_high_rate(self):
+        """Very high decay rate."""
+        source = '(polip test @thread ~"Fast decay" (decay :rate 0.999))'
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.decay_rate == 0.999
+
+    def test_decay_long_half_life(self):
+        """Very long half-life."""
+        source = '(polip test @thread ~"Long life" (decay :half_life 36500))'  # 100 years
+        blob = sexpr_to_blob(parse_sexpr(source))
+        assert blob.half_life == 36500

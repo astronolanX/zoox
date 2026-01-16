@@ -443,6 +443,12 @@ def sexpr_to_blob(sexpr: SExpr):
     next_steps = []
     related = []
     context = ""
+    # Decay protocol fields
+    decay_rate = None
+    half_life = None
+    compost_to = None
+    immune_to = []
+    challenged_by = []
 
     for item in sexpr.items[content_start:]:
         if isinstance(item, SExpr):
@@ -475,6 +481,23 @@ def sexpr_to_blob(sexpr: SExpr):
             elif item.head == "related":
                 related = [str(r) for r in item.items]
 
+            elif item.head == "decay":
+                # Parse decay protocol fields from attributes
+                if "rate" in item.attrs:
+                    decay_rate = float(item.attrs["rate"])
+                if "half_life" in item.attrs:
+                    half_life = int(item.attrs["half_life"])
+                if "compost_to" in item.attrs:
+                    compost_to = item.attrs["compost_to"]
+
+                # Parse sub-items for immune and challenged lists
+                for sub in item.items:
+                    if isinstance(sub, SExpr):
+                        if sub.head == "immune":
+                            immune_to = [str(e) for e in sub.items]
+                        elif sub.head == "challenged":
+                            challenged_by = [str(e) for e in sub.items]
+
             elif item.head == "context":
                 # Context can be a single string child
                 if item.items:
@@ -494,6 +517,11 @@ def sexpr_to_blob(sexpr: SExpr):
         next_steps=next_steps,
         facts=facts,
         related=related,
+        decay_rate=decay_rate,
+        half_life=half_life,
+        compost_to=compost_to,
+        immune_to=immune_to,
+        challenged_by=challenged_by,
     )
 
 
@@ -600,6 +628,34 @@ def blob_to_sexpr(blob, name: str = "unnamed", use_sigils: bool = True, delta: b
     if blob.related:
         related_strs = " ".join(blob.related)
         lines.append(f"{indent}(related {related_strs})")
+
+    # Decay protocol fields
+    if blob.decay_rate is not None or blob.half_life is not None or blob.compost_to or blob.immune_to or blob.challenged_by:
+        decay_parts = ["(decay"]
+        if blob.decay_rate is not None:
+            decay_parts.append(f':rate {blob.decay_rate}')
+        if blob.half_life is not None:
+            decay_parts.append(f':half_life {blob.half_life}')
+        if blob.compost_to:
+            decay_parts.append(f':compost_to {blob.compost_to}')
+
+        lines.append(f"{indent}{' '.join(decay_parts)}")
+
+        # Immune-to list
+        if blob.immune_to:
+            lines.append(f"{indent}{indent}(immune")
+            for event in blob.immune_to:
+                lines.append(f'{indent}{indent}{indent}"{_escape_string(event)}"')
+            lines.append(f"{indent}{indent})")
+
+        # Challenged-by list
+        if blob.challenged_by:
+            lines.append(f"{indent}{indent}(challenged")
+            for by in blob.challenged_by:
+                lines.append(f'{indent}{indent}{indent}"{_escape_string(by)}"')
+            lines.append(f"{indent}{indent})")
+
+        lines.append(f"{indent})")
 
     # Context
     if blob.context:

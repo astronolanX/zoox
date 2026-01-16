@@ -511,6 +511,13 @@ class Blob:
     facts: list[str] = field(default_factory=list)
     related: list[str] = field(default_factory=list)  # Links to other blobs
 
+    # Decay protocol fields
+    decay_rate: Optional[float] = None  # Rate at which polip relevance decays
+    half_life: Optional[int] = None  # Days until relevance halves
+    compost_to: Optional[str] = None  # Polip to merge into when decayed
+    immune_to: list[str] = field(default_factory=list)  # Decay events to ignore
+    challenged_by: list[str] = field(default_factory=list)  # Polips that challenge this one
+
     def needs_migration(self) -> bool:
         """Check if this blob needs schema migration."""
         return self.version < BLOB_VERSION
@@ -618,6 +625,30 @@ class Blob:
                 ref_el = ET.SubElement(related_el, "ref")
                 ref_el.text = ref
 
+        # Decay protocol fields
+        if self.decay_rate is not None or self.half_life is not None or self.compost_to or self.immune_to or self.challenged_by:
+            decay_el = ET.SubElement(root, "decay")
+            if self.decay_rate is not None:
+                decay_el.set("rate", str(self.decay_rate))
+            if self.half_life is not None:
+                decay_el.set("half_life", str(self.half_life))
+            if self.compost_to:
+                decay_el.set("compost_to", self.compost_to)
+
+            # Immune-to list
+            if self.immune_to:
+                immune_el = ET.SubElement(decay_el, "immune")
+                for item in self.immune_to:
+                    item_el = ET.SubElement(immune_el, "event")
+                    item_el.text = item
+
+            # Challenged-by list
+            if self.challenged_by:
+                challenged_el = ET.SubElement(decay_el, "challenged")
+                for item in self.challenged_by:
+                    item_el = ET.SubElement(challenged_el, "by")
+                    item_el.text = item
+
         # Free-form context (last, as catch-all)
         if self.context:
             context_el = ET.SubElement(root, "context")
@@ -689,6 +720,33 @@ class Blob:
         if related_el is not None:
             related = [r.text for r in related_el.findall("ref") if r.text]
 
+        # Parse decay protocol fields
+        decay_rate = None
+        half_life = None
+        compost_to = None
+        immune_to = []
+        challenged_by = []
+        decay_el = root.find("decay")
+        if decay_el is not None:
+            # Parse attributes
+            rate_str = decay_el.get("rate")
+            if rate_str:
+                decay_rate = float(rate_str)
+            half_life_str = decay_el.get("half_life")
+            if half_life_str:
+                half_life = int(half_life_str)
+            compost_to = decay_el.get("compost_to")
+
+            # Parse immune-to list
+            immune_el = decay_el.find("immune")
+            if immune_el is not None:
+                immune_to = [e.text for e in immune_el.findall("event") if e.text]
+
+            # Parse challenged-by list
+            challenged_el = decay_el.find("challenged")
+            if challenged_el is not None:
+                challenged_by = [e.text for e in challenged_el.findall("by") if e.text]
+
         # Parse context
         context_el = root.find("context")
         context = context_el.text if context_el is not None and context_el.text else ""
@@ -707,6 +765,11 @@ class Blob:
             next_steps=next_steps,
             facts=facts,
             related=related,
+            decay_rate=decay_rate,
+            half_life=half_life,
+            compost_to=compost_to,
+            immune_to=immune_to,
+            challenged_by=challenged_by,
         )
 
     def save(self, path: Path):

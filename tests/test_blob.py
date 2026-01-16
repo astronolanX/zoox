@@ -496,3 +496,143 @@ class TestBlobFromXmlEdgeCases:
         xml = '<blob type="thread" status="invalid_status" scope="project" v="2"><summary>Test</summary></blob>'
         with pytest.raises(ValueError):
             Blob.from_xml(xml)
+
+
+class TestBlobDecayProtocol:
+    """Tests for decay protocol fields."""
+
+    def test_decay_fields_minimal(self):
+        """Blob with minimal decay fields."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Decay test",
+            decay_rate=0.5,
+        )
+        assert blob.decay_rate == 0.5
+        assert blob.half_life is None
+        assert blob.compost_to is None
+        assert blob.immune_to == []
+        assert blob.challenged_by == []
+
+    def test_decay_fields_full(self):
+        """Blob with all decay fields."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Full decay test",
+            decay_rate=0.3,
+            half_life=30,
+            compost_to="archive-polip",
+            immune_to=["system-update", "user-reference"],
+            challenged_by=["new-feature", "refactor"],
+        )
+        assert blob.decay_rate == 0.3
+        assert blob.half_life == 30
+        assert blob.compost_to == "archive-polip"
+        assert len(blob.immune_to) == 2
+        assert len(blob.challenged_by) == 2
+
+    def test_decay_xml_roundtrip_minimal(self):
+        """Decay fields survive XML serialization (minimal)."""
+        original = Blob(
+            type=BlobType.THREAD,
+            summary="Decay roundtrip",
+            decay_rate=0.7,
+        )
+        xml = original.to_xml()
+        restored = Blob.from_xml(xml)
+
+        assert restored.decay_rate == 0.7
+        assert restored.half_life is None
+
+    def test_decay_xml_roundtrip_full(self):
+        """Decay fields survive XML serialization (full)."""
+        original = Blob(
+            type=BlobType.THREAD,
+            summary="Full decay roundtrip",
+            decay_rate=0.4,
+            half_life=60,
+            compost_to="deep-archive",
+            immune_to=["critical-event", "manual-review"],
+            challenged_by=["contradiction", "superseded"],
+        )
+        xml = original.to_xml()
+        restored = Blob.from_xml(xml)
+
+        assert restored.decay_rate == 0.4
+        assert restored.half_life == 60
+        assert restored.compost_to == "deep-archive"
+        assert restored.immune_to == ["critical-event", "manual-review"]
+        assert restored.challenged_by == ["contradiction", "superseded"]
+
+    def test_decay_xml_structure(self):
+        """Decay XML has correct structure."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Decay structure",
+            decay_rate=0.5,
+            half_life=30,
+            immune_to=["event1"],
+            challenged_by=["by1"],
+        )
+        xml = blob.to_xml()
+        root = ET.fromstring(xml)
+
+        decay_el = root.find("decay")
+        assert decay_el is not None
+        assert decay_el.get("rate") == "0.5"
+        assert decay_el.get("half_life") == "30"
+
+        immune_el = decay_el.find("immune")
+        assert immune_el is not None
+        assert len(immune_el.findall("event")) == 1
+
+        challenged_el = decay_el.find("challenged")
+        assert challenged_el is not None
+        assert len(challenged_el.findall("by")) == 1
+
+    def test_decay_no_decay_element_if_empty(self):
+        """No decay element if no decay fields set."""
+        blob = Blob(type=BlobType.THREAD, summary="No decay")
+        xml = blob.to_xml()
+        root = ET.fromstring(xml)
+
+        decay_el = root.find("decay")
+        assert decay_el is None
+
+    def test_decay_save_and_load(self):
+        """Decay fields persist through file save/load."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "decay.blob.xml"
+            blob = Blob(
+                type=BlobType.THREAD,
+                summary="Decay persist",
+                decay_rate=0.6,
+                half_life=45,
+                compost_to="compost-heap",
+                immune_to=["keep-alive"],
+                challenged_by=["challenger"],
+            )
+            blob.save(path)
+
+            loaded = Blob.load(path)
+            assert loaded.decay_rate == 0.6
+            assert loaded.half_life == 45
+            assert loaded.compost_to == "compost-heap"
+            assert loaded.immune_to == ["keep-alive"]
+            assert loaded.challenged_by == ["challenger"]
+
+    def test_decay_fields_with_unicode(self):
+        """Decay fields handle unicode."""
+        blob = Blob(
+            type=BlobType.THREAD,
+            summary="Unicode decay",
+            compost_to="归档-polip",
+            immune_to=["系统更新", "手动审核"],
+            challenged_by=["矛盾", "过时"],
+        )
+        xml = blob.to_xml()
+        restored = Blob.from_xml(xml)
+
+        assert restored.compost_to == "归档-polip"
+        assert "系统更新" in restored.immune_to
+        assert "矛盾" in restored.challenged_by
