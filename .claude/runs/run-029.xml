@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="029" date="2026-01-15" duration="~45min">
+  <summary>
+    MCP infrastructure expansion and token instrumentation harness.
+    Installed 9 powerful MCPs with lazy loading, built PostToolUse hook
+    for comparing tool efficiency across MCP vs CLI vs native approaches.
+  </summary>
+
+  <what-worked>
+    <item>ENABLE_TOOL_SEARCH confirmed working - MCPs lazy-load on demand</item>
+    <item>Package names at @modelcontextprotocol/* for official servers</item>
+    <item>Parallel agent research (5 agents) gathered comprehensive MCP data</item>
+    <item>Token efficiency discussion clarified MCP vs CLI tradeoffs</item>
+    <item>PostToolUse hook pattern for global instrumentation</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Several @anthropic/* package names deprecated - had to fix to @modelcontextprotocol/*</item>
+    <item>postgres MCP needs connection string - removed until db exists</item>
+    <item>git, time MCPs don't exist on npm (Python only?)</item>
+    <item>mcp-agent package doesn't exist - removed</item>
+  </what-didnt>
+
+  <files-created>
+    <file>~/.claude/hooks/tool_instrumentation.py</file>
+    <file>~/.claude/scripts/tool_stats.py</file>
+    <file>~/.claude/logs/ (directory)</file>
+  </files-created>
+
+  <files-modified>
+    <file>~/.claude/settings.json (PostToolUse hook added)</file>
+    <file>~/Desktop/org-revamp-2026-01-15.xml (instrumentation docs)</file>
+    <file>~/.claude.json (9 MCPs added)</file>
+    <file>.gitignore (mydatabase.db)</file>
+  </files-modified>
+
+  <mcps-installed>
+    <mcp name="sequential-thinking" status="connected">Structured problem-solving</mcp>
+    <mcp name="filesystem" status="connected">File ops in ~/Users/nolan</mcp>
+    <mcp name="memory" status="connected">Persistent knowledge graph</mcp>
+    <mcp name="playwright" status="connected">Browser automation (a11y tree)</mcp>
+    <mcp name="puppeteer" status="connected">Browser automation (screenshots)</mcp>
+    <mcp name="exa" status="connected">Intelligent web search</mcp>
+    <mcp name="sqlite" status="connected">Database interaction</mcp>
+    <mcp name="context7" status="connected">Real-time library docs</mcp>
+    <mcp name="fetcher" status="connected">Web content fetching</mcp>
+  </mcps-installed>
+
+  <key-insight>
+    MCP vs CLI token efficiency depends on reliability:
+    - CLI wins if command nailed first try
+    - MCP wins on average due to lower variance (typed params, clear errors)
+    - Instrumentation harness will provide empirical data to settle this
+  </key-insight>
+
+  <next-session>
+    <item>Review tool_stats.py output after a few sessions</item>
+    <item>Add API-gated MCPs (GitHub, Brave, Notion) if keys available</item>
+    <item>Consider adding workflow/swarm MCPs (claude-flow, mcp-agent)</item>
+  </next-session>
+</run>
