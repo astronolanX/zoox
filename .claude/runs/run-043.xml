@@ -1,0 +1,45 @@
+<run id="043" date="2026-01-16" model="opus">
+  <summary>MCP debugging, AI-native format exploration, trench lifecycle automation</summary>
+
+  <what-worked>
+    +Diagnosed reef MCP connection failure (LSP-style headers vs MCP newline-delimited JSON)
+    +Created `./architect` agent for AI-native format design - successfully invoked and created .current spec
+    +Automated trench lifecycle: spawn → task → test → auto-merge/abort
+    +Added SessionStart hook for auto-pruning stale trenches (1 day threshold)
+    +Locked in constraint: NO markdown, NO yaml frontmatter in reef formats
+    +Sparked AI-native syntax exploration - 5th consecutive spark landing on "syntax is wrong problem"
+  </what-worked>
+
+  <what-didnt>
+    -reef MCP still fails to connect even with warnings suppressed - needs protocol fix (LSP→MCP framing)
+    -Karen validation agent was interrupted before completing
+  </what-didnt>
+
+  <files-created>
+    .reef/bedrock/no-human-formats.rock
+    .claude/agents/reef-format-architect.json
+    .claude/formats/current.spec
+    architect (shell script)
+    src/reef/trench_harness.sh
+    ~/.claude/hooks/trench_autoprune.py
+  </files-created>
+
+  <files-modified>
+    src/reef/trench.py (harness integration)
+    ~/.claude/settings.json (SessionStart hook)
+    .claude/sparks/reef-format/!SPARKS.md
+  </files-modified>
+
+  <decisions>
+    =AI-native formats over human formats (markdown, yaml, json forbidden)
+    =Trenches auto-merge on test pass, auto-abort on fail
+    =Stale trenches auto-prune after 1 day
+  </decisions>
+
+  <next-session>
+    *Fix reef MCP protocol: switch from Content-Length headers to newline-delimited JSON
+    *Test .current format with real polips - migrate existing XML
+    *Run architect agent to design more reef-native formats (.signal, .drift)
+    *Implement "format-less reef" prototype - prose in, structure inferred
+  </next-session>
+</run>
