@@ -873,6 +873,89 @@ def cmd_index(args):
             print(f"  {s}: {c}")
 
 
+def cmd_surface(args):
+    """Surface polips from reef with intelligent prioritization."""
+    from reef.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    polip_id = getattr(args, "polip_id", None)
+
+    if not polip_id:
+        # No args - show L1 index (metadata only, token-efficient)
+        index = glob.get_index()
+        blobs = index.get("blobs", {})
+
+        if not blobs:
+            print("Reef is empty - no polips to surface")
+            return
+
+        # Group by type and show priority ordering
+        by_type = {}
+        for key, entry in blobs.items():
+            t = entry.get("type", "unknown")
+            if t not in by_type:
+                by_type[t] = []
+            by_type[t].append((key, entry))
+
+        # Priority: constraints > threads > decisions > facts > contexts
+        priority_order = ["constraint", "thread", "decision", "fact", "context"]
+
+        print("L1 Index (Polips in Reef)")
+        print("=" * 50)
+        print()
+
+        shown = 0
+        for ptype in priority_order:
+            if ptype not in by_type:
+                continue
+            items = by_type[ptype]
+            items.sort(key=lambda x: x[1].get("updated", ""), reverse=True)
+
+            print(f"{ptype.upper()} ({len(items)})")
+            for key, entry in items[:5]:  # Show top 5 per type
+                scope_tag = f"[{entry.get('scope', '?')}]"
+                summary = entry.get('summary', '')[:40]
+                print(f"  {key} {scope_tag}")
+                if summary:
+                    print(f"    {summary}")
+                shown += 1
+
+            if len(items) > 5:
+                print(f"  ... and {len(items) - 5} more")
+            print()
+
+        print(f"Total: {len(blobs)} polips")
+        print()
+        print("Use: /surface <polip-id> to load full content (L2)")
+        return
+
+    # Load full polip content (L2 activation)
+    blob = None
+    found_path = None
+
+    # Search in all known subdirs
+    from reef.blob import KNOWN_SUBDIRS
+    for subdir in [None, *KNOWN_SUBDIRS]:
+        candidate = glob.get(polip_id, subdir=subdir)
+        if candidate:
+            blob = candidate
+            if subdir:
+                found_path = glob.claude_dir / subdir / f"{polip_id}.blob.xml"
+            else:
+                found_path = glob.claude_dir / f"{polip_id}.blob.xml"
+            break
+
+    if not blob:
+        print(f"Polip not found: {polip_id}", file=sys.stderr)
+        print(f"Use '/surface' (no args) to see available polips", file=sys.stderr)
+        sys.exit(1)
+
+    # Output full polip content
+    print(blob.to_xml())
+
+
 def cmd_hook(args):
     """Claude Code hook integration."""
     import json
@@ -2049,6 +2132,15 @@ def main():
     cleanup_parser.add_argument("--archive-days", type=int, help="Days before pruning archives (default: 30)")
     cleanup_parser.add_argument("--dry-run", action="store_true", help="Preview without applying")
     cleanup_parser.set_defaults(func=cmd_cleanup)
+
+    # surface (L1/L2 activation)
+    surface_parser = subparsers.add_parser(
+        "surface",
+        help="Surface polips from reef",
+        description="Show L1 index (all polips, metadata only) or L2 full content of specific polip"
+    )
+    surface_parser.add_argument("polip_id", nargs="?", help="Polip ID to load (L2). Omit for L1 index.")
+    surface_parser.set_defaults(func=cmd_surface)
 
     # index
     index_parser = subparsers.add_parser(
