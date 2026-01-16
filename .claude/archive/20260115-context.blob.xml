@@ -1,8 +1,5 @@
-<blob type="context" scope="session" updated="2026-01-15" v="2">
+<blob type="context" scope="session" updated="2026-01-16" v="2">
   <summary>Investigated skill tool error messaging limitations, submitted GitHub issue, then built stale worktree/agent detection into statusline command.</summary>
-  <files>
-    <file>.claude/statusline-command.sh</file>
-  </files>
   <decisions>
     <decision why="bad UX - no suggestions on skill failure">Submitted GitHub issue to anthropics/claude-code for better skill error messages (fuzzy matching, alternatives)</decision>
     <decision why="reef surpasses generic escalate design">Confirmed reef's L1/L2/L3 polip architecture is superior to static /escalate context loading</decision>

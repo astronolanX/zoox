@@ -1,0 +1,44 @@
+<run id="041" date="2026-01-16">
+  <summary>
+    MCP MVP shipped: lifecycle tools + security hardening. Team investigation
+    (architect, visionary, karen) validated MCP-first strategy with synthesis:
+    "MCP for distribution, daemon for evolution, lifecycle for differentiation."
+  </summary>
+
+  <what-worked>
+    - Three-agent investigation produced clear strategic synthesis
+    - Lifecycle tools expose reef's differentiator (calcification stages)
+    - Input validation caught early via Karen's security concerns
+    - MCP server now exposes 11 tools, 3 resources
+  </what-worked>
+
+  <what-didnt>
+    - Reef health shows "declining" due to low quality/resonance scores
+    - Need to enrich polips with facts/decisions/links
+    - Karen's concerns about protocol risk remain valid but accepted
+  </what-didnt>
+
+  <files-created>
+    <file>.claude/runs/run-041.xml</file>
+  </files-created>
+
+  <files-modified>
+    <file>src/reef/mcp/handlers.py - lifecycle handlers + validation</file>
+    <file>src/reef/mcp/server.py - new tools + resources</file>
+    <file>.claude/threads/reef-native-infrastructure.reef - Session 10 added</file>
+  </files-modified>
+
+  <decisions>
+    <decision>MCP-first but expose lifecycle tools as differentiator</decision>
+    <decision>Input validation mandatory before public release</decision>
+    <decision>Keep hooks for Claude Code, MCP for Claude Desktop</decision>
+    <decision>Strategy: MCP distribution → daemon evolution → platform</decision>
+  </decisions>
+
+  <next-session>
+    <item>PyPI publication: pip install reef</item>
+    <item>Enrich local reef with facts/decisions to improve health</item>
+    <item>Consider reef-daemon for background evolution</item>
+    <item>Demo GIF showing lifecycle in action</item>
+  </next-session>
+</run>
