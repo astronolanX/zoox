@@ -34,7 +34,11 @@ def _validate_int(value: int | None, max_val: int, name: str, default: int = 10)
         return default
     if not isinstance(value, int):
         raise ValueError(f"{name} must be an integer")
-    return min(max(1, value), max_val)
+    if value > max_val:
+        raise ValueError(f"{name} exceeds maximum of {max_val}")
+    if value < 1:
+        raise ValueError(f"{name} must be at least 1")
+    return value
 
 
 class ReefToolHandlers:
@@ -326,6 +330,15 @@ class ReefToolHandlers:
         Returns:
             Matching polips from index
         """
+        # Validate inputs
+        if query is not None:
+            query = _validate_string(query, MAX_QUERY_LENGTH, "query")
+        if type is not None:
+            type = _validate_string(type, 50, "type")
+        if scope is not None:
+            scope = _validate_string(scope, 50, "scope")
+        limit = _validate_int(limit, MAX_LIMIT, "limit", default=20)
+
         results = self.glob.search_index(
             query=query,
             blob_type=type,
@@ -367,6 +380,12 @@ class ReefToolHandlers:
         Returns:
             List of audit entries
         """
+        # Validate inputs
+        if since is not None:
+            since = _validate_string(since, 20, "since")
+        if op_type is not None:
+            op_type = _validate_string(op_type, 50, "op_type")
+
         entries = self.audit_log.query(since=since, op_type=op_type, limit=50)
 
         return [
@@ -390,6 +409,11 @@ class ReefToolHandlers:
         Returns:
             Restored polip metadata
         """
+        # Validate inputs
+        polip_id = _validate_string(polip_id, 200, "polip_id")
+        if not polip_id:
+            raise ValueError("polip_id is required")
+
         success, message = self.undo_buffer.restore(polip_id)
 
         return {
