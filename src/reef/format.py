@@ -80,9 +80,23 @@ class Polip:
         return "\n".join(lines)
 
     @classmethod
+    def _validate_id(cls, polip_id: str) -> None:
+        """Validate polip ID to prevent path traversal."""
+        if not polip_id:
+            raise ValueError("Polip ID cannot be empty")
+        if ".." in polip_id:
+            raise ValueError(f"Path traversal detected in ID: {polip_id}")
+        if polip_id.startswith("/") or polip_id.startswith("\\"):
+            raise ValueError(f"Absolute path not allowed in ID: {polip_id}")
+        # Only allow alphanumeric, dash, underscore
+        allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+        if not all(c in allowed for c in polip_id):
+            raise ValueError(f"Invalid characters in ID: {polip_id}")
+
+    @classmethod
     def from_reef(cls, content: str) -> "Polip":
         """Parse .reef format."""
-        lines = content.strip().split("\n")
+        lines = content.strip().splitlines()  # Handles CRLF, LF, CR
         if not lines:
             raise ValueError("Empty polip")
 
@@ -101,13 +115,14 @@ class Polip:
 
         polip_type, scope = type_scope
         polip_id = parts[1]
+        cls._validate_id(polip_id)
         updated = date.fromisoformat(parts[2])
         status = parts[3] if len(parts) > 3 else None
 
         # Summary is line 2
         summary = lines[1] if len(lines) > 1 else ""
 
-        # Parse content
+        # Parse content - unknown lines continue previous context
         facts = []
         decisions = []
         questions = []
@@ -125,14 +140,20 @@ class Polip:
                 decisions.append(line[1:])
             elif line.startswith("?"):
                 questions.append(line[1:])
-            elif line.startswith("[x] "):
-                steps.append((True, line[4:]))
-            elif line.startswith("[ ] "):
-                steps.append((False, line[4:]))
+            elif line.startswith("[x]"):
+                steps.append((True, line[4:].lstrip()))
+            elif line.startswith("[ ]"):
+                steps.append((False, line[4:].lstrip()))
             elif line.startswith("@"):
                 links.append(line[1:])
             elif line.startswith("~"):
                 context.append(line[1:])
+            else:
+                # Continuation line - append to last context or create new
+                if context:
+                    context[-1] = context[-1] + "\n" + line
+                else:
+                    context.append(line)
 
         return cls(
             id=polip_id,
@@ -174,16 +195,17 @@ class Reef:
 
     def all(self) -> list[Polip]:
         """Load all polips."""
+        if not self.reef_dir.exists():
+            return []
         polips = []
         for reef_file in self.reef_dir.rglob("*.reef"):
-            try:
-                polips.append(Polip.load(reef_file))
-            except Exception:
-                continue
+            polips.append(Polip.load(reef_file))
         return polips
 
     def get(self, polip_id: str) -> Optional[Polip]:
         """Get polip by ID."""
+        # Validate ID before using in path
+        Polip._validate_id(polip_id)
         for reef_file in self.reef_dir.rglob(f"{polip_id}.reef"):
             try:
                 return Polip.load(reef_file)

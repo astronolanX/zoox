@@ -87,6 +87,39 @@ class PathTraversalError(ValueError):
     pass
 
 
+def _validate_name_safe(name: str) -> str:
+    """
+    Validate that a polip name is safe before constructing paths.
+
+    Catches traversal patterns BEFORE they become paths.
+    """
+    import urllib.parse
+
+    # Decode URL encoding first (catch %2f..%2f patterns)
+    decoded = urllib.parse.unquote(name)
+
+    # Patterns that indicate traversal attempts
+    dangerous_patterns = [
+        "..",           # Unix traversal
+        "\\",           # Windows path separator (shouldn't be in names)
+        "/",            # Unix path separator (shouldn't be in names)
+        "\x00",         # Null byte
+        "\n", "\r",     # Newlines (header injection)
+    ]
+
+    for pattern in dangerous_patterns:
+        if pattern in decoded:
+            raise PathTraversalError(
+                f"Name '{name}' contains dangerous pattern: {repr(pattern)}"
+            )
+
+    # Also check for absolute paths
+    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
+        raise PathTraversalError(f"Name '{name}' looks like absolute path")
+
+    return name
+
+
 def _validate_path_safe(base_dir: Path, target_path: Path) -> Path:
     """
     Validate that target_path is safely contained within base_dir.
@@ -232,6 +265,104 @@ def _tfidf_score(query_tokens: list[str], doc_tokens: list[str], all_docs: list[
             score += query_tf[term] * doc_tf[term] * idf * idf
 
     return score
+
+
+# BM25 parameters (tuned for short documents like polip summaries)
+BM25_K1 = 1.2  # Term frequency saturation
+BM25_B = 0.75  # Document length normalization
+
+
+def _bm25_score(
+    query_tokens: list[str],
+    doc_tokens: list[str],
+    all_docs: list[list[str]],
+    avgdl: float = 0.0,
+) -> float:
+    """
+    Compute BM25 score - improved ranking over raw TF-IDF.
+
+    BM25 adds:
+    1. Term frequency saturation (diminishing returns for repeated terms)
+    2. Document length normalization (shorter docs don't get penalized)
+    """
+    if not query_tokens or not doc_tokens:
+        return 0.0
+
+    # Compute average document length if not provided
+    if avgdl == 0.0:
+        avgdl = sum(len(doc) for doc in all_docs) / len(all_docs) if all_docs else 1.0
+
+    doc_len = len(doc_tokens)
+    doc_counts = Counter(doc_tokens)
+    n_docs = len(all_docs)
+
+    score = 0.0
+    for term in query_tokens:
+        if term not in doc_counts:
+            continue
+
+        # Document frequency
+        df = sum(1 for doc in all_docs if term in doc)
+        if df == 0:
+            continue
+
+        # IDF component (BM25 variant)
+        idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1.0)
+
+        # Term frequency with saturation
+        tf = doc_counts[term]
+        tf_component = (tf * (BM25_K1 + 1)) / (
+            tf + BM25_K1 * (1 - BM25_B + BM25_B * doc_len / avgdl)
+        )
+
+        score += idf * tf_component
+
+    return score
+
+
+# Field weights for precision improvement
+FIELD_WEIGHTS = {
+    "summary": 3.0,      # Title/summary is most important
+    "type": 2.0,         # Type name often matches intent
+    "facts": 1.5,        # Facts are secondary content
+    "status": 1.0,       # Status sometimes relevant
+    "context": 1.0,      # Context is background
+}
+
+
+def _weighted_bm25_score(
+    query_tokens: list[str],
+    entry: dict,
+    all_docs: list[list[str]],
+    avgdl: float = 0.0,
+) -> float:
+    """
+    BM25 with field weighting - different fields have different importance.
+
+    This significantly improves precision by boosting matches in summary/type
+    over matches in general content.
+    """
+    if not query_tokens:
+        return 0.0
+
+    total_score = 0.0
+
+    # Score each field with its weight
+    for field, weight in FIELD_WEIGHTS.items():
+        field_value = entry.get(field, "")
+        if isinstance(field_value, list):
+            field_value = " ".join(str(v) for v in field_value)
+        if not field_value:
+            continue
+
+        field_tokens = _tokenize(str(field_value))
+        if not field_tokens:
+            continue
+
+        field_score = _bm25_score(query_tokens, field_tokens, all_docs, avgdl)
+        total_score += field_score * weight
+
+    return total_score
 
 
 def _get_git_info(project_dir: Path) -> dict[str, str]:
@@ -765,16 +896,20 @@ class Glob:
         results = []
         blobs_dict = index.get("blobs", {})
 
-        # Pre-compute document tokens for TF-IDF if query provided
+        # Pre-compute document tokens for BM25 if query provided
         all_docs = []
         all_keys = []
+        avgdl = 0.0
         if query:
             for key, entry in blobs_dict.items():
-                summary = entry.get("summary", "")
-                all_docs.append(_tokenize(summary))
+                # Combine all searchable fields for corpus statistics
+                doc_text = f"{entry.get('summary', '')} {entry.get('type', '')} {' '.join(entry.get('facts', []))}"
+                all_docs.append(_tokenize(doc_text))
                 all_keys.append(key)
             query_tokens = _tokenize(query)
             query_lower = query.lower()
+            # Pre-compute average document length for BM25
+            avgdl = sum(len(doc) for doc in all_docs) / len(all_docs) if all_docs else 1.0
 
         for key, entry in blobs_dict.items():
             # Apply type/scope/status filters
@@ -788,16 +923,30 @@ class Glob:
             score = 0.0
             if query:
                 summary = entry.get("summary", "")
-                doc_idx = all_keys.index(key) if key in all_keys else -1
 
-                if doc_idx >= 0:
-                    # TF-IDF score
-                    tfidf = _tfidf_score(query_tokens, all_docs[doc_idx], all_docs)
-                    score = tfidf * 10.0
+                # Use BM25 with field weighting for better precision
+                bm25 = _weighted_bm25_score(query_tokens, entry, all_docs, avgdl)
+                score = bm25
 
-                    # Bonus for exact substring match
-                    if query_lower in summary.lower():
-                        score += 5.0
+                # Bonus for exact substring match in summary
+                if query_lower in summary.lower():
+                    score += 2.0
+
+                # Recency boost: prefer recently updated polips
+                updated = entry.get("updated", "")
+                if updated:
+                    try:
+                        from datetime import datetime
+                        days_old = (datetime.now() - datetime.strptime(updated, "%Y-%m-%d")).days
+                        recency_boost = max(0, 1.0 - days_old / 30)  # Decay over 30 days
+                        score += recency_boost * 0.5
+                    except (ValueError, TypeError):
+                        pass
+
+                # LRU boost: frequently accessed polips are probably useful
+                access_count = entry.get("access_count", 0)
+                if access_count > 0:
+                    score += math.log(1 + access_count) * 0.3
 
                 # Skip if no relevance to query
                 if score == 0.0:
@@ -828,14 +977,17 @@ class Glob:
         Raises:
             PathTraversalError: If name or subdir attempts directory traversal
         """
+        # Validate name BEFORE constructing path (catches traversal patterns)
+        _validate_name_safe(name)
         if subdir:
+            _validate_name_safe(subdir)
             target_dir = self.claude_dir / subdir
         else:
             target_dir = self.claude_dir
 
         path = target_dir / f"{name}.blob.xml"
 
-        # Validate path is safely within .claude directory
+        # Also validate constructed path (defense in depth)
         _validate_path_safe(self.claude_dir, path)
 
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -851,12 +1003,15 @@ class Glob:
         Raises:
             PathTraversalError: If name or subdir attempts directory traversal
         """
+        # Validate name BEFORE constructing path
+        _validate_name_safe(name)
         if subdir:
+            _validate_name_safe(subdir)
             path = self.claude_dir / subdir / f"{name}.blob.xml"
         else:
             path = self.claude_dir / f"{name}.blob.xml"
 
-        # Validate path is safely within .claude directory
+        # Also validate constructed path (defense in depth)
         _validate_path_safe(self.claude_dir, path)
 
         return self._get_cached(path)

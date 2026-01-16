@@ -1,16 +1,22 @@
 """
-Migrate .blob.xml to .reef format.
+Migrate .blob.xml to .reef format with backup and rollback.
 
 Usage:
     reef migrate --to-reef      # Convert all .blob.xml to .reef
     reef migrate --dry-run      # Show what would be converted
+    reef migrate --rollback     # Restore from last backup
+    reef migrate --list-backups # Show available backups
 """
 
+import shutil
 import xml.etree.ElementTree as ET
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from reef.format import Polip
+
+
+BACKUP_DIR = ".claude/.migrate-backups"
 
 
 def blob_to_polip(blob_path: Path) -> Polip:
@@ -102,14 +108,101 @@ def blob_to_polip(blob_path: Path) -> Polip:
     )
 
 
-def migrate_reef(root: Path, dry_run: bool = True) -> list[tuple[Path, Path]]:
+def create_backup(root: Path) -> Path:
+    """Create backup of all .blob.xml files before migration.
+
+    Returns path to backup directory.
+    """
+    claude_dir = root / ".claude"
+    backup_base = root / BACKUP_DIR
+    backup_base.mkdir(parents=True, exist_ok=True)
+
+    # Create timestamped backup
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    backup_dir = backup_base / f"backup-{timestamp}"
+    backup_dir.mkdir()
+
+    # Copy all .blob.xml files preserving directory structure
+    for blob_path in claude_dir.rglob("*.blob.xml"):
+        rel_path = blob_path.relative_to(claude_dir)
+        dest_path = backup_dir / rel_path
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(blob_path, dest_path)
+
+    # Write manifest
+    manifest = backup_dir / "MANIFEST"
+    manifest.write_text(f"Backup created: {timestamp}\nSource: {claude_dir}\n")
+
+    return backup_dir
+
+
+def list_backups(root: Path) -> list[tuple[Path, str]]:
+    """List available backups.
+
+    Returns list of (backup_path, timestamp) tuples.
+    """
+    backup_base = root / BACKUP_DIR
+    if not backup_base.exists():
+        return []
+
+    backups = []
+    for backup_dir in sorted(backup_base.iterdir(), reverse=True):
+        if backup_dir.is_dir() and backup_dir.name.startswith("backup-"):
+            timestamp = backup_dir.name.replace("backup-", "")
+            backups.append((backup_dir, timestamp))
+
+    return backups
+
+
+def rollback(root: Path, backup_path: Path = None) -> int:
+    """Restore from backup.
+
+    If backup_path is None, uses most recent backup.
+    Returns number of files restored.
+    """
+    claude_dir = root / ".claude"
+
+    if backup_path is None:
+        backups = list_backups(root)
+        if not backups:
+            raise ValueError("No backups found")
+        backup_path = backups[0][0]
+
+    if not backup_path.exists():
+        raise ValueError(f"Backup not found: {backup_path}")
+
+    restored = 0
+    for blob_path in backup_path.rglob("*.blob.xml"):
+        rel_path = blob_path.relative_to(backup_path)
+        dest_path = claude_dir / rel_path
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(blob_path, dest_path)
+        restored += 1
+
+    return restored
+
+
+def migrate_reef(root: Path, dry_run: bool = True, with_backup: bool = True) -> list[tuple[Path, Path]]:
     """Migrate all .blob.xml files to .reef format.
+
+    Args:
+        root: Project root directory
+        dry_run: If True, don't actually modify files
+        with_backup: If True, create backup before migrating
 
     Returns list of (old_path, new_path) tuples.
     """
     claude_dir = root / ".claude"
     if not claude_dir.exists():
         return []
+
+    # Create backup before migration
+    backup_path = None
+    if not dry_run and with_backup:
+        blob_files = list(claude_dir.rglob("*.blob.xml"))
+        if blob_files:
+            backup_path = create_backup(root)
+            print(f"Created backup at: {backup_path}")
 
     migrations = []
 
@@ -129,6 +222,8 @@ def migrate_reef(root: Path, dry_run: bool = True) -> list[tuple[Path, Path]]:
 
         except Exception as e:
             print(f"Failed to migrate {blob_path}: {e}")
+            if not dry_run and backup_path:
+                print(f"Rollback available: reef migrate --rollback")
 
     return migrations
 
@@ -136,15 +231,46 @@ def migrate_reef(root: Path, dry_run: bool = True) -> list[tuple[Path, Path]]:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Migrate .blob.xml to .reef")
+    parser = argparse.ArgumentParser(description="Migrate .blob.xml to .reef with backup/rollback")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be migrated")
     parser.add_argument("--execute", "-x", action="store_true", help="Actually perform migration")
+    parser.add_argument("--no-backup", action="store_true", help="Skip backup before migration")
+    parser.add_argument("--rollback", action="store_true", help="Restore from most recent backup")
+    parser.add_argument("--rollback-from", metavar="PATH", help="Restore from specific backup")
+    parser.add_argument("--list-backups", action="store_true", help="List available backups")
     args = parser.parse_args()
 
     root = Path.cwd()
-    dry_run = not args.execute
 
-    migrations = migrate_reef(root, dry_run=dry_run)
+    # List backups
+    if args.list_backups:
+        backups = list_backups(root)
+        if not backups:
+            print("No backups found")
+        else:
+            print("Available backups:\n")
+            for backup_path, timestamp in backups:
+                file_count = len(list(backup_path.rglob("*.blob.xml")))
+                print(f"  {timestamp}  ({file_count} files)")
+                print(f"    Path: {backup_path}")
+                print()
+        return
+
+    # Rollback
+    if args.rollback or args.rollback_from:
+        backup_path = Path(args.rollback_from) if args.rollback_from else None
+        try:
+            restored = rollback(root, backup_path)
+            print(f"Restored {restored} files from backup")
+        except ValueError as e:
+            print(f"Rollback failed: {e}")
+        return
+
+    # Normal migration
+    dry_run = not args.execute
+    with_backup = not args.no_backup
+
+    migrations = migrate_reef(root, dry_run=dry_run, with_backup=with_backup)
 
     if not migrations:
         print("No .blob.xml files found")
@@ -161,6 +287,9 @@ def main():
 
     if dry_run:
         print("Run with --execute to perform migration")
+        print("(Backup created automatically unless --no-backup)")
+    else:
+        print("\nTo rollback: reef migrate --rollback")
 
 
 if __name__ == "__main__":

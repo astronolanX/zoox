@@ -1,0 +1,31 @@
+<run id="035" date="2026-01-16">
+  <summary>
+    Filed Claude Code skill resolution issue, updated statusline with stale detection
+  </summary>
+
+  <what-worked>
+    <item>Investigated skill resolution failure → filed GitHub issue #18490</item>
+    <item>Updated statusline to track stale trenches/worktrees/agents</item>
+    <item>Plain text, comma-separated, ZERO principle (nothing shown when clean)</item>
+    <item>Proper pluralization for counts</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>Skill tool doesn't provide fuzzy match suggestions on failure (Anthropic issue)</item>
+  </what-didnt>
+
+  <files-modified>
+    <file>~/.claude/statusline-command.sh</file>
+  </files-modified>
+
+  <commits>
+    <commit repo="reef">fc74ab4 feat: add reef shell REPL and format migration utilities</commit>
+    <commit repo="claude-runtime">98a9ccc feat: statusline shows stale trenches/worktrees/agents</commit>
+  </commits>
+
+  <next-session>
+    <item>Phase 9: dual-format auto-detection in Glob.load()</item>
+    <item>Phase 9: decay protocol support in Blob class</item>
+    <item>Claude Code Plugin hooks (SessionStart, Stop)</item>
+  </next-session>
+</run>
