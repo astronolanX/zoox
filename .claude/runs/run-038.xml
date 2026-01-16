@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<run id="038" date="2026-01-16">
+  <summary>Completed dual-format auto-detection and decay protocol implementation using trench harness</summary>
+
+  <what-worked>
+    <item>Dual-format auto-detection: Blob.load() now handles both .reef and .blob.xml seamlessly</item>
+    <item>Trench harness parallel execution: 3 trenches spawned for decay-protocol, plugin-hooks, trench-tests</item>
+    <item>Format efficiency benchmarks: .reef achieves ~40% token savings over XML</item>
+    <item>Decay protocol fields: decay_rate, half_life, compost_to, immune_to, challenged_by added to Blob</item>
+    <item>Test count: 823 → 853 (30 new tests for dual-format and decay protocol)</item>
+  </what-worked>
+
+  <what-didnt>
+    <item>plugin-hooks trench didn't complete its work (no logs, only test fix)</item>
+    <item>Flaky test when running inside trench worktrees (signal_ready detecting parent trench)</item>
+  </what-didnt>
+
+  <files-created>
+    <file>tests/test_trench.py additions (trench harness integration tests)</file>
+  </files-created>
+
+  <files-modified>
+    <file>src/reef/blob.py - dual-format detection, helper functions, decay protocol fields</file>
+    <file>src/reef/sexpr.py - decay protocol serialization</file>
+    <file>tests/test_blob.py - dual-format and decay tests</file>
+    <file>tests/test_glob.py - dual-format detection tests</file>
+    <file>tests/test_sexpr.py - decay protocol tests</file>
+    <file>.claude/threads/reef-native-infrastructure.reef - updated next steps</file>
+  </files-modified>
+
+  <commits>
+    <commit hash="12807bc">fix: search scoring and subdir path validation</commit>
+    <commit hash="f710f08">feat: dual-format auto-detection for .reef and .blob.xml</commit>
+    <commit hash="4b753d6">fix: make trench signal_ready test environment-agnostic</commit>
+    <commit hash="8a97d05">feat: add decay protocol fields to Blob class</commit>
+  </commits>
+
+  <next-session>
+    <step>Plugin hooks - SessionStart to auto-inject L1 index, Stop to persist context</step>
+    <step>Test coverage gaps - cli.py, blob.py edge cases, trench.py lifecycle</step>
+    <step>Phase 9 complete - all .reef format features implemented</step>
+  </next-session>
+</run>

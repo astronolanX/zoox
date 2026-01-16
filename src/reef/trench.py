@@ -187,6 +187,69 @@ class TrenchHarness:
         except (json.JSONDecodeError, KeyError, ValueError):
             return None
 
+    def _detect_dead_process_completion(self, info: TrenchInfo) -> TrenchInfo:
+        """
+        Detect if a trench with a dead process actually completed its work.
+
+        When a `claude -p` session exits, it doesn't update the status file.
+        This method checks artifacts to determine if work was completed.
+        """
+        # Only check if status is running/testing and we have a PID
+        if info.status not in (TrenchStatus.RUNNING, TrenchStatus.TESTING):
+            return info
+        if not info.pid:
+            return info
+
+        # Check if process is still alive
+        try:
+            os.kill(info.pid, 0)
+            return info  # Process still running, no change
+        except OSError:
+            pass  # Process is dead, check for completion
+
+        # Check session log for completion indicators
+        log_file = info.worktree_path / ".claude-session.log"
+        completed = False
+        if log_file.exists():
+            try:
+                log_content = log_file.read_text()
+                # Common completion indicators in claude -p output
+                completion_markers = [
+                    "Tests passed", "tests pass", "All tests pass",
+                    "✅", "Successfully", "completed", "implemented",
+                    "Changes Made", "Summary", "Done"
+                ]
+                for marker in completion_markers:
+                    if marker.lower() in log_content.lower():
+                        completed = True
+                        break
+            except Exception:
+                pass
+
+        # Check for context.blob.xml updates (indicates session was productive)
+        context_file = info.worktree_path / ".claude" / "context.blob.xml"
+        if context_file.exists():
+            try:
+                # If context was updated after trench creation, likely completed
+                context_mtime = datetime.fromtimestamp(context_file.stat().st_mtime)
+                if context_mtime > info.created:
+                    completed = True
+            except Exception:
+                pass
+
+        # Update status based on findings
+        if completed:
+            info.status = TrenchStatus.READY
+            info.last_updated = datetime.now()
+            self._write_trench_status(info)
+        else:
+            info.status = TrenchStatus.FAILED
+            info.error = f"Process {info.pid} died without signaling completion"
+            info.last_updated = datetime.now()
+            self._write_trench_status(info)
+
+        return info
+
     def _write_trench_status(self, info: TrenchInfo) -> None:
         """Write the status file to a trench worktree."""
         status_file = info.worktree_path / self.STATUS_FILE
@@ -452,6 +515,9 @@ class TrenchHarness:
         """
         Get status of trenches.
 
+        Automatically detects dead processes and updates their status based
+        on work artifacts (session logs, context files).
+
         Args:
             name: Specific trench name, or None for all trenches
 
@@ -460,6 +526,8 @@ class TrenchHarness:
         """
         if name:
             info = self._read_trench_status(name)
+            if info:
+                info = self._detect_dead_process_completion(info)
             return [info] if info else []
 
         if not self.trenches_dir.exists():
@@ -470,6 +538,8 @@ class TrenchHarness:
             if entry.is_dir():
                 info = self._read_trench_status(entry.name)
                 if info:
+                    # Check for dead processes with stale status
+                    info = self._detect_dead_process_completion(info)
                     trenches.append(info)
 
         return sorted(trenches, key=lambda t: t.created, reverse=True)
