@@ -43,13 +43,26 @@ def get_reef_hint() -> Optional[str]:
         with open(status_file) as f:
             state = json.load(f)
 
+        # Priority 1: Active trenches
+        trenches = state.get("trenches", [])
+        if trenches:
+            active = [t for t in trenches if t.get("status") in ["running", "testing"]]
+            if active:
+                return f"{len(active)} trench{'es' if len(active) > 1 else ''} active"
+            ready = [t for t in trenches if t.get("status") == "ready"]
+            if ready:
+                return f"{len(ready)} trench{'es' if len(ready) > 1 else ''} ready to merge"
+
+        # Priority 2: Active thread
         thread = state.get("active_thread")
         if thread:
             return f"Continue: {thread}"
 
+        # Priority 3: Show token savings
         count = state.get("count", 0)
+        savings_pct = state.get("token_savings_pct", 0)
         if count > 0:
-            return f"{count} polips loaded"
+            return f"{count} polips • {savings_pct}% token savings"
 
         return None
     except:
@@ -193,12 +206,40 @@ def run_claude(message: str, conversation_id: Optional[str] = None) -> tuple[str
 
 def print_banner():
     """Print reef shell banner."""
+    project_dir = Path.cwd()
+    status_file = Path(f"/tmp/reef-{project_dir.name}.status")
+
     hint = get_reef_hint()
     steps = get_next_steps()
 
     print(f"{CYAN}reef shell{RESET}")
-    if hint:
-        print(f"{DIM}{hint}{RESET}")
+
+    # Show detailed stats if available
+    try:
+        with open(status_file) as f:
+            state = json.load(f)
+            count = state.get("count", 0)
+            types = state.get("types", {})
+            trenches = state.get("trenches", [])
+            savings_pct = state.get("token_savings_pct", 0)
+
+            if count > 0:
+                type_summary = ", ".join(f"{v} {k}" for k, v in sorted(types.items())[:3])
+                print(f"{DIM}{count} polips ({type_summary}){RESET}")
+                print(f"{DIM}Token savings: {savings_pct}%{RESET}")
+
+            if trenches:
+                by_status = {}
+                for t in trenches:
+                    s = t.get("status", "unknown")
+                    by_status[s] = by_status.get(s, 0) + 1
+                trench_summary = ", ".join(f"{v} {k}" for k, v in sorted(by_status.items()))
+                print(f"{DIM}Trenches: {trench_summary}{RESET}")
+    except:
+        # Fall back to simple hint
+        if hint:
+            print(f"{DIM}{hint}{RESET}")
+
     if steps:
         print(f"{DIM}Next: {steps[0]}{RESET}")
     print()

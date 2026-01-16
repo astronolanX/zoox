@@ -1,0 +1,18 @@
+# reef manifest
+# native AI memory - any LLM swims here
+# by Nolan Figueroa
+
+version: 1
+created: 2026-01-16
+
+# reef doesn't impose structure
+# polips exist, relationships emerge
+# this manifest is the only metadata
+
+# projections generate LLM-specific views:
+#   reef project claude  → CLAUDE.md
+#   reef project ollama  → ollama context
+#   reef project gpt     → system prompt
+
+# the reef is the source
+# everything else is projection

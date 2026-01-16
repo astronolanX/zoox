@@ -1933,21 +1933,30 @@ class Glob:
 
         # Count by type and calculate tokens
         type_counts = {}
-        total_tokens = 0
-        l1_tokens = 0  # Tokens if only loading L1 metadata
+        total_tokens = 0  # Full L2 content
+        l1_tokens = 0     # Just L1 metadata (summary + overhead)
 
         for key, entry in blobs_dict.items():
             blob_type = entry.get("type", "unknown")
             type_counts[blob_type] = type_counts.get(blob_type, 0) + 1
 
-            # Estimate tokens (actual value from polip or estimate)
-            tokens = entry.get("tokens", len(entry.get("summary", "").split()) * 1.3)
-            total_tokens += tokens
+            # Get actual token count if stored, else estimate from summary
+            summary = entry.get("summary", "")
+            summary_words = len(summary.split())
 
-            # L1 is just summary + metadata (roughly 1/10th)
-            l1_tokens += len(entry.get("summary", "").split()) * 1.3 + 20
+            # L1 tokens: just summary + minimal metadata
+            l1_tokens += int(summary_words * 1.3) + 20  # ~20 tokens for XML overhead
 
-        # Token savings calculation
+            # L2 tokens: use stored value or estimate 10x summary as content
+            # (Context polips have facts/next-steps, threads have full details)
+            stored_tokens = entry.get("tokens")
+            if stored_tokens:
+                total_tokens += stored_tokens
+            else:
+                # Estimate: summary is ~10% of full content
+                total_tokens += int(summary_words * 1.3 * 10) + 50
+
+        # Token savings calculation (savings from using L1 vs L2)
         token_savings_pct = 0
         if total_tokens > 0:
             token_savings_pct = int((1 - l1_tokens / total_tokens) * 100)

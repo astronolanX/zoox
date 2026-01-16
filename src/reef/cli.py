@@ -1906,9 +1906,11 @@ def cmd_decay(args):
 def cmd_trench(args):
     """Manage parallel Claude sessions in git worktrees."""
     from reef.trench import TrenchHarness, TrenchStatus
+    from reef.blob import Glob
 
     project_dir = Path.cwd()
     harness = TrenchHarness(project_dir)
+    glob = Glob(project_dir)
 
     # Default to status
     if not args.trench_cmd or args.trench_cmd == "status":
@@ -2013,6 +2015,8 @@ def cmd_trench(args):
                     print(f"  {result.error}")
                 sys.exit(1)
 
+        # Update statusline after spawn
+        glob.write_status()
         return
 
     # test
@@ -2041,6 +2045,8 @@ def cmd_trench(args):
                     print(line)
             sys.exit(1)
 
+        # Update statusline after test
+        glob.write_status()
         return
 
     # merge
@@ -2056,6 +2062,8 @@ def cmd_trench(args):
                 print(f"  {result.error}")
             sys.exit(1)
 
+        # Update statusline after merge
+        glob.write_status()
         return
 
     # abort
@@ -2071,6 +2079,8 @@ def cmd_trench(args):
                 print(f"  {result.error}")
             sys.exit(1)
 
+        # Update statusline after abort
+        glob.write_status()
         return
 
     # prune
@@ -2099,6 +2109,8 @@ def cmd_trench(args):
             print()
             print(f"Run 'reef trench prune --execute' to prune these trenches")
 
+        # Update statusline after prune
+        glob.write_status()
         return
 
     # cleanup
@@ -2191,6 +2203,165 @@ def cmd_shell(args):
         sys.argv = ["reef-shell"]
 
     shell_main()
+
+
+def cmd_project(args):
+    """
+    Generate LLM-specific projections from .reef.
+
+    .reef is the universal AI memory source.
+    Projections are derived views optimized for specific LLMs.
+    Any AI swims in reef - this generates the view they see.
+    """
+    from reef.blob import Glob
+
+    project_dir = Path.cwd()
+    reef_dir = project_dir / ".reef"
+
+    if not reef_dir.exists():
+        print("No .reef found. Run 'reef init' first.")
+        return
+
+    # Read reef state (currently from .claude, will migrate)
+    glob = Glob(project_dir)
+    index = glob.get_index()
+    blobs = index.get("blobs", {})
+
+    # Compute vitality for filtering (simplified for now)
+    def get_vitality(entry):
+        # Higher priority = higher vitality for now
+        return entry.get("priority", 50)
+
+    # Filter to high-vitality unless --full
+    if not args.full:
+        blobs = {k: v for k, v in blobs.items() if get_vitality(v) >= 50}
+
+    # Generate projection based on target
+    if args.target == "claude":
+        output = _project_claude(project_dir, blobs, glob)
+    elif args.target == "ollama":
+        output = _project_ollama(project_dir, blobs, glob)
+    elif args.target == "gpt":
+        output = _project_gpt(project_dir, blobs, glob)
+    elif args.target == "gemini":
+        output = _project_gemini(project_dir, blobs, glob)
+    elif args.target == "raw":
+        output = _project_raw(project_dir, blobs, glob)
+    else:
+        print(f"Unknown target: {args.target}")
+        return
+
+    # Output
+    if args.output:
+        Path(args.output).write_text(output)
+        print(f"Projected to {args.output}")
+    else:
+        print(output)
+
+
+def _project_claude(project_dir: Path, blobs: dict, glob) -> str:
+    """Generate CLAUDE.md from reef state."""
+    lines = [
+        f"# {project_dir.name}",
+        "",
+        "<!-- Projected from .reef - do not edit directly -->",
+        "<!-- Source: reef | Target: Claude -->",
+        "",
+    ]
+
+    # Constraints first (bedrock)
+    constraints = [(k, v) for k, v in blobs.items() if v.get("type") == "constraint"]
+    if constraints:
+        lines.append("## Constraints")
+        lines.append("")
+        for key, entry in sorted(constraints, key=lambda x: -x[1].get("priority", 0)):
+            lines.append(f"- **{key}**: {entry.get('summary', '')}")
+        lines.append("")
+
+    # Active threads
+    threads = [(k, v) for k, v in blobs.items() if v.get("type") == "thread"]
+    if threads:
+        lines.append("## Active Threads")
+        lines.append("")
+        for key, entry in sorted(threads, key=lambda x: -x[1].get("priority", 0)):
+            lines.append(f"- **{key}**: {entry.get('summary', '')}")
+        lines.append("")
+
+    # Facts
+    facts = [(k, v) for k, v in blobs.items() if v.get("type") == "fact"]
+    if facts:
+        lines.append("## Facts")
+        lines.append("")
+        for key, entry in facts:
+            lines.append(f"- {entry.get('summary', '')}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def _project_ollama(project_dir: Path, blobs: dict, glob) -> str:
+    """Generate Ollama-optimized system prompt from reef."""
+    lines = [
+        f"You are working in the {project_dir.name} project.",
+        "",
+        "Key constraints:",
+    ]
+    for key, entry in blobs.items():
+        if entry.get("type") == "constraint":
+            lines.append(f"- {entry.get('summary', '')}")
+
+    lines.append("")
+    lines.append("Current context:")
+    for key, entry in blobs.items():
+        if entry.get("type") in ("thread", "context"):
+            lines.append(f"- {entry.get('summary', '')}")
+
+    return "\n".join(lines)
+
+
+def _project_gpt(project_dir: Path, blobs: dict, glob) -> str:
+    """Generate GPT-optimized system prompt from reef."""
+    # GPT prefers structured system prompts
+    sections = {
+        "Project": project_dir.name,
+        "Constraints": [],
+        "Context": [],
+    }
+
+    for key, entry in blobs.items():
+        if entry.get("type") == "constraint":
+            sections["Constraints"].append(entry.get("summary", ""))
+        elif entry.get("type") in ("thread", "context"):
+            sections["Context"].append(entry.get("summary", ""))
+
+    lines = [f"Project: {sections['Project']}", ""]
+    if sections["Constraints"]:
+        lines.append("Constraints:")
+        for c in sections["Constraints"]:
+            lines.append(f"- {c}")
+        lines.append("")
+    if sections["Context"]:
+        lines.append("Context:")
+        for c in sections["Context"]:
+            lines.append(f"- {c}")
+
+    return "\n".join(lines)
+
+
+def _project_gemini(project_dir: Path, blobs: dict, glob) -> str:
+    """Generate Gemini-optimized context from reef."""
+    # Similar to GPT for now
+    return _project_gpt(project_dir, blobs, glob)
+
+
+def _project_raw(project_dir: Path, blobs: dict, glob) -> str:
+    """Raw reef state as JSON."""
+    import json
+    return json.dumps({
+        "project": project_dir.name,
+        "reef_version": 1,
+        "polips": blobs,
+    }, indent=2)
 
 
 def main():
@@ -2562,6 +2733,21 @@ def main():
     )
     shell_parser.add_argument("--hint", action="store_true", help="Show current hint and exit")
     shell_parser.set_defaults(func=cmd_shell)
+
+    # Project command - generate LLM-specific projections from .reef
+    project_parser = subparsers.add_parser(
+        "project",
+        help="Generate LLM-specific views from .reef",
+        description="Project reef state into format optimized for specific LLMs. Reef is the source, projections are derived.",
+    )
+    project_parser.add_argument(
+        "target",
+        choices=["claude", "ollama", "gpt", "gemini", "raw"],
+        help="Target LLM for projection",
+    )
+    project_parser.add_argument("--output", "-o", help="Output file (default: stdout)")
+    project_parser.add_argument("--full", action="store_true", help="Include all polips, not just high-vitality")
+    project_parser.set_defaults(func=cmd_project)
 
     args = parser.parse_args()
     args.func(args)
