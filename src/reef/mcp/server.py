@@ -191,6 +191,43 @@ class ReefMCPServer:
                     "properties": {},
                 },
             },
+            # ========== LIFECYCLE TOOLS (reef differentiators) ==========
+            {
+                "name": "reef_lifecycle",
+                "description": "Get lifecycle status for all polips. Shows calcification stages: drifting (new), attached (growing), calcified (permanent), fossil (archived). This is reef's unique value - organic memory that evolves.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum polips to return",
+                            "default": 20,
+                        },
+                    },
+                },
+            },
+            {
+                "name": "reef_calcify_candidates",
+                "description": "Get polips ready for calcification. These have proven value through usage patterns and are candidates for promotion to permanent knowledge.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum candidates to return",
+                            "default": 10,
+                        },
+                    },
+                },
+            },
+            {
+                "name": "reef_decay_status",
+                "description": "Check which polips are at risk of decay due to low usage. Returns recommendations for maintaining reef health.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
         ]
 
     def _get_resources(self) -> list[dict[str, Any]]:
@@ -199,13 +236,19 @@ class ReefMCPServer:
             {
                 "uri": "reef://polips",
                 "name": "Polip Index",
-                "description": "List all polips with metadata",
+                "description": "List polips with metadata (summaries only, not full content)",
                 "mimeType": "application/json",
             },
             {
                 "uri": "reef://health",
                 "name": "Reef Health",
                 "description": "Current reef health metrics",
+                "mimeType": "application/json",
+            },
+            {
+                "uri": "reef://lifecycle",
+                "name": "Lifecycle Status",
+                "description": "Polip lifecycle stages and calcification status",
                 "mimeType": "application/json",
             },
         ]
@@ -290,6 +333,13 @@ class ReefMCPServer:
             result = self.handlers.handle_undo(**arguments)
         elif tool_name == "reef_list_quarantine":
             result = self.handlers.handle_list_quarantine()
+        # Lifecycle tools (reef differentiators)
+        elif tool_name == "reef_lifecycle":
+            result = self.handlers.handle_lifecycle(**arguments)
+        elif tool_name == "reef_calcify_candidates":
+            result = self.handlers.handle_calcify_candidates(**arguments)
+        elif tool_name == "reef_decay_status":
+            result = self.handlers.handle_decay_status()
         else:
             raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -306,6 +356,8 @@ class ReefMCPServer:
             result = self.handlers.handle_index()
         elif uri == "reef://health":
             result = self.handlers.handle_health()
+        elif uri == "reef://lifecycle":
+            result = self.handlers.handle_lifecycle()
         else:
             raise ValueError(f"Unknown resource: {uri}")
 

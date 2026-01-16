@@ -8,6 +8,34 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+# Input validation constants
+MAX_QUERY_LENGTH = 500
+MAX_SUMMARY_LENGTH = 500
+MAX_CONTENT_LENGTH = 10000
+MAX_LIMIT = 100
+MAX_FILES = 20
+
+
+def _validate_string(value: str | None, max_length: int, name: str) -> str:
+    """Validate and sanitize string input."""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string")
+    if len(value) > max_length:
+        raise ValueError(f"{name} exceeds maximum length of {max_length}")
+    # Basic sanitization - remove control characters except newlines/tabs
+    return "".join(c for c in value if c.isprintable() or c in "\n\t")
+
+
+def _validate_int(value: int | None, max_val: int, name: str, default: int = 10) -> int:
+    """Validate integer input."""
+    if value is None:
+        return default
+    if not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer")
+    return min(max(1, value), max_val)
+
 
 class ReefToolHandlers:
     """Handlers for reef MCP tools."""
@@ -63,6 +91,12 @@ class ReefToolHandlers:
         Returns:
             List of matching polips with metadata
         """
+        # Validate inputs
+        query = _validate_string(query, MAX_QUERY_LENGTH, "query")
+        if not query:
+            raise ValueError("query is required")
+        limit = _validate_int(limit, MAX_LIMIT, "limit", default=5)
+
         results = self.glob.search_index(query=query, limit=limit)
 
         polips = []
@@ -100,6 +134,16 @@ class ReefToolHandlers:
             Created polip metadata
         """
         from reef.blob import Blob, BlobType, BlobScope, BlobStatus
+
+        # Validate inputs
+        summary = _validate_string(summary, MAX_SUMMARY_LENGTH, "summary")
+        if not summary:
+            raise ValueError("summary is required")
+        content = _validate_string(content, MAX_CONTENT_LENGTH, "content")
+        if files:
+            if len(files) > MAX_FILES:
+                raise ValueError(f"files exceeds maximum of {MAX_FILES}")
+            files = [_validate_string(f, 500, "file path") for f in files[:MAX_FILES]]
 
         # Map type string to enum
         type_map = {
@@ -373,3 +417,152 @@ class ReefToolHandlers:
             }
             for item in quarantined
         ]
+
+    # ========== LIFECYCLE TOOLS (reef differentiators) ==========
+
+    def handle_lifecycle(self, limit: int = 20) -> dict[str, Any]:
+        """
+        Get lifecycle status for all polips.
+
+        Exposes reef's unique value: calcification stages.
+
+        Returns:
+            Lifecycle breakdown by stage with polip details
+        """
+        from reef.calcification import CalcificationEngine
+
+        limit = _validate_int(limit, MAX_LIMIT, "limit", default=20)
+
+        engine = CalcificationEngine(self.glob)
+        scores = engine.get_all_scores()
+
+        # Group by lifecycle stage
+        by_stage: dict[str, list] = {
+            "drifting": [],    # Not yet attached (low score)
+            "attached": [],    # Starting to calcify (medium score)
+            "calcified": [],   # Fully calcified (high score)
+            "fossil": [],      # Preserved knowledge
+        }
+
+        for score in scores[:limit]:
+            entry = {
+                "id": score.polip_key,
+                "score": round(score.total, 3),
+                "stage": score.lifecycle_stage,
+                "should_calcify": score.should_calcify,
+                "breakdown": {
+                    "intensity": round(score.intensity_score, 2),
+                    "persistence": round(score.persistence_score, 2),
+                    "depth": round(score.depth_score, 2),
+                    "consensus": round(score.consensus_score, 2),
+                },
+            }
+            stage = score.lifecycle_stage
+            if stage in by_stage:
+                by_stage[stage].append(entry)
+            else:
+                by_stage["drifting"].append(entry)
+
+        return {
+            "total_polips": len(scores),
+            "by_stage": {k: len(v) for k, v in by_stage.items()},
+            "polips": by_stage,
+            "thresholds": {
+                "calcification": 0.7,
+                "attached": 0.4,
+            },
+        }
+
+    def handle_calcify_candidates(self, limit: int = 10) -> dict[str, Any]:
+        """
+        Get polips ready for calcification.
+
+        These polips have proven value through usage patterns
+        and are candidates for promotion to permanent knowledge.
+
+        Returns:
+            List of calcification candidates with scores
+        """
+        from reef.calcification import CalcificationEngine
+
+        limit = _validate_int(limit, MAX_LIMIT, "limit", default=10)
+
+        engine = CalcificationEngine(self.glob)
+        candidates = engine.get_candidates()
+
+        return {
+            "count": len(candidates),
+            "candidates": [
+                {
+                    "id": c.polip_key,
+                    "score": round(c.total, 3),
+                    "breakdown": c.to_dict()["breakdown"],
+                    "recommendation": "Ready for calcification" if c.total >= 0.8 else "Nearly ready",
+                }
+                for c in candidates[:limit]
+            ],
+            "threshold": 0.7,
+            "message": f"{len(candidates)} polips ready for calcification" if candidates else "No candidates yet - keep using your reef!",
+        }
+
+    def handle_decay_status(self) -> dict[str, Any]:
+        """
+        Get decay status and recommendations.
+
+        Identifies polips at risk of decay due to low usage.
+
+        Returns:
+            Decay risk assessment and recommendations
+        """
+        from reef.calcification import CalcificationEngine
+
+        engine = CalcificationEngine(self.glob)
+        scores = engine.get_all_scores()
+
+        # Find at-risk polips (low scores, not already fossil)
+        at_risk = []
+        healthy = []
+
+        for score in scores:
+            if score.lifecycle_stage == "fossil":
+                continue  # Fossils don't decay
+
+            if score.total < 0.3:
+                at_risk.append({
+                    "id": score.polip_key,
+                    "score": round(score.total, 3),
+                    "risk": "high" if score.total < 0.15 else "medium",
+                    "reason": self._decay_reason(score),
+                })
+            else:
+                healthy.append(score.polip_key)
+
+        return {
+            "at_risk_count": len(at_risk),
+            "healthy_count": len(healthy),
+            "at_risk": at_risk[:20],  # Limit output
+            "recommendations": self._decay_recommendations(at_risk),
+        }
+
+    def _decay_reason(self, score) -> str:
+        """Generate human-readable decay reason."""
+        reasons = []
+        if score.intensity_score < 0.1:
+            reasons.append("not referenced recently")
+        if score.persistence_score < 0.1:
+            reasons.append("only used in one session")
+        if score.consensus_score < 0.1:
+            reasons.append("not linked to other polips")
+        return "; ".join(reasons) if reasons else "low overall engagement"
+
+    def _decay_recommendations(self, at_risk: list) -> list[str]:
+        """Generate recommendations based on at-risk polips."""
+        recommendations = []
+        if len(at_risk) > 5:
+            recommendations.append("Consider reviewing and pruning low-value polips")
+        if len(at_risk) > 0:
+            recommendations.append("Reference valuable polips in your work to prevent decay")
+            recommendations.append("Link related polips together to increase consensus scores")
+        if len(at_risk) == 0:
+            recommendations.append("Your reef is healthy - polips are being used effectively")
+        return recommendations
