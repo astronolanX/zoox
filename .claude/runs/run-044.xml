@@ -1,0 +1,17 @@
+<run id="044" date="2026-01-16">
+  <summary>Session orientation - reviewed project state and next steps</summary>
+  <what-worked>
+    <item>L1 polip index provides quick project overview</item>
+    <item>Surface commands load full context on demand</item>
+  </what-worked>
+  <what-didnt>
+    <item>Polip ID mismatch between index and CLI (threads-X vs current/X.reef)</item>
+  </what-didnt>
+  <files-created/>
+  <files-modified/>
+  <next-session>
+    <step>Fix MCP protocol: Content-Length → newline-delimited JSON</step>
+    <step>Test .current format with real polips</step>
+    <step>Address vitality system backlog (6 steps queued)</step>
+  </next-session>
+</run>
