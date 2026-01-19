@@ -1,0 +1,38 @@
+~ type: thread
+~ id: polip-lifecycle
+~ version: 2
+~ status: active
+@ 2026-01-19
+! 80
+# 152
+
+--- surface
+Polips sprout from context and drift into decay.
+Memory as lifecycle, not storage.
+
+The sparks revealed: polips are verbs, not nouns.
+Surfacing IS the polip, not the file being surfaced.
+
+--- decide
+- Decay is intelligence, not loss
+- Files are fossils, surfacing is the polip
+- Reef exists for humans to see what AI is doing
+
+--- fact
+- 100% contrarian: silence is the true polip
+- 95% contrarian: decay is actually preservation
+- 85% contrarian: AI needs reef to forget, not remember
+
+--- next
+- [ ] Prototype stateless polip surfacing
+- [ ] Measure what surfacing does, not what polips contain
+- [x] Define .reef format v2
+
+--- link
+[[threads-reef-native-infrastructure]]
+[[constraints-project-rules]]
+
+--- drift
+heat: 0.8
+touched: 5
+decay: 0.1

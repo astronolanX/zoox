@@ -18,7 +18,7 @@ from reef.format import Polip, Reef
 def create_test_reef(reef_dir: Path) -> list[Polip]:
     """Build a test reef with known content as .reef files."""
     polips = [
-        Polip(
+        Polip.create(
             id="auth-system",
             type="thread",
             scope="project",
@@ -37,7 +37,7 @@ def create_test_reef(reef_dir: Path) -> list[Polip]:
             ],
             status="active",
         ),
-        Polip(
+        Polip.create(
             id="database-schema",
             type="context",
             scope="project",
@@ -51,7 +51,7 @@ def create_test_reef(reef_dir: Path) -> list[Polip]:
             decisions=["Soft delete over hard delete"],
             context=["Migration system using alembic"],
         ),
-        Polip(
+        Polip.create(
             id="api-versioning",
             type="decision",
             scope="project",
@@ -64,7 +64,7 @@ def create_test_reef(reef_dir: Path) -> list[Polip]:
             ],
             context=["Breaking changes require major version bump"],
         ),
-        Polip(
+        Polip.create(
             id="testing-strategy",
             type="context",
             scope="project",
@@ -78,7 +78,7 @@ def create_test_reef(reef_dir: Path) -> list[Polip]:
             decisions=["Mock external APIs in unit tests"],
             context=["CI runs full suite on every PR"],
         ),
-        Polip(
+        Polip.create(
             id="no-secrets",
             type="constraint",
             scope="always",
@@ -91,7 +91,7 @@ def create_test_reef(reef_dir: Path) -> list[Polip]:
             decisions=[],
             context=[],
         ),
-        Polip(
+        Polip.create(
             id="memory-leak-debug",
             type="thread",
             scope="session",

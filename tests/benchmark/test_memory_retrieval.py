@@ -59,7 +59,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
     polips = {}
 
     # Auth-related polips
-    polips["auth-tokens"] = Polip(
+    polips["auth-tokens"] = Polip.create(
         id="auth-tokens",
         type="thread",
         scope="project",
@@ -75,7 +75,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         status="active",
     )
 
-    polips["jwt-config"] = Polip(
+    polips["jwt-config"] = Polip.create(
         id="jwt-config",
         type="context",
         scope="project",
@@ -89,7 +89,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         context=["Config in settings/auth.py"],
     )
 
-    polips["session-mgmt"] = Polip(
+    polips["session-mgmt"] = Polip.create(
         id="session-mgmt",
         type="decision",
         scope="project",
@@ -100,7 +100,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
     )
 
     # API-related polips
-    polips["api-conventions"] = Polip(
+    polips["api-conventions"] = Polip.create(
         id="api-conventions",
         type="constraint",
         scope="always",
@@ -114,7 +114,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         decisions=["URL versioning", "Pagination via cursor"],
     )
 
-    polips["user-model"] = Polip(
+    polips["user-model"] = Polip.create(
         id="user-model",
         type="context",
         scope="project",
@@ -129,7 +129,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
     )
 
     # Database-related polips
-    polips["database-schema"] = Polip(
+    polips["database-schema"] = Polip.create(
         id="database-schema",
         type="context",
         scope="project",
@@ -143,7 +143,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         decisions=["UUID over serial for PKs"],
     )
 
-    polips["migration-strategy"] = Polip(
+    polips["migration-strategy"] = Polip.create(
         id="migration-strategy",
         type="decision",
         scope="project",
@@ -154,7 +154,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
     )
 
     # Debug-related polips
-    polips["memory-debug"] = Polip(
+    polips["memory-debug"] = Polip.create(
         id="memory-debug",
         type="thread",
         scope="session",
@@ -170,7 +170,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         status="active",
     )
 
-    polips["worker-pool"] = Polip(
+    polips["worker-pool"] = Polip.create(
         id="worker-pool",
         type="context",
         scope="project",
@@ -184,7 +184,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         context=["Config in celery_app.py"],
     )
 
-    polips["monitoring"] = Polip(
+    polips["monitoring"] = Polip.create(
         id="monitoring",
         type="context",
         scope="project",
@@ -198,7 +198,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
     )
 
     # Misc polips (often irrelevant)
-    polips["ui-styling"] = Polip(
+    polips["ui-styling"] = Polip.create(
         id="ui-styling",
         type="context",
         scope="project",
@@ -207,7 +207,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         facts=["Tailwind CSS", "Dark mode support", "Responsive breakpoints"],
     )
 
-    polips["deployment"] = Polip(
+    polips["deployment"] = Polip.create(
         id="deployment",
         type="context",
         scope="project",
@@ -216,7 +216,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         facts=["Kubernetes on GKE", "Helm charts", "Blue-green deploys"],
     )
 
-    polips["ci-pipeline"] = Polip(
+    polips["ci-pipeline"] = Polip.create(
         id="ci-pipeline",
         type="context",
         scope="project",
@@ -225,7 +225,7 @@ def create_comprehensive_reef(reef_dir: Path) -> dict[str, Polip]:
         facts=["GitHub Actions", "Tests on every PR", "Auto-deploy on main"],
     )
 
-    polips["testing-strategy"] = Polip(
+    polips["testing-strategy"] = Polip.create(
         id="testing-strategy",
         type="constraint",
         scope="always",
@@ -413,7 +413,7 @@ class TestMemoryDecay:
         from datetime import date, timedelta
 
         polips = [
-            Polip(
+            Polip.create(
                 id=f"polip-{i}",
                 type="context",
                 scope="project",
@@ -449,11 +449,11 @@ class TestMemoryDecay:
     def test_type_based_priority(self):
         """Constraints always surface, others decay."""
         polips = [
-            Polip(id="constraint", type="constraint", scope="always",
+            Polip.create(id="constraint", type="constraint", scope="always",
                   updated=date.today() - timedelta(days=30), summary="Old constraint"),
-            Polip(id="active-thread", type="thread", scope="project",
+            Polip.create(id="active-thread", type="thread", scope="project",
                   updated=date.today() - timedelta(days=30), summary="Old thread", status="active"),
-            Polip(id="old-context", type="context", scope="project",
+            Polip.create(id="old-context", type="context", scope="project",
                   updated=date.today() - timedelta(days=30), summary="Old context"),
         ]
 

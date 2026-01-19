@@ -145,15 +145,21 @@ def _polip_to_reef(p: dict) -> str:
     """Convert fixture dict to .reef format."""
     from datetime import date
 
+    # Combine summary and context into surface for v2 format
+    surface = p["summary"]
+    if p.get("context"):
+        ctx = p["context"] if isinstance(p["context"], str) else "\n".join(p["context"])
+        if ctx:
+            surface = surface + "\n\n" + ctx
+
     polip = Polip(
         id=p["id"],
         type=p["type"],
         scope=p["scope"],
         updated=date.today(),
-        summary=p["summary"],
+        surface=surface,
         facts=p["facts"],
         decisions=p["decisions"],
-        context=p["context"],
         steps=p["steps"],
         status=p.get("status"),
     )
@@ -177,8 +183,9 @@ class TestFormatEfficiency:
         print(f"  REEF: {reef_bytes:>5} bytes")
         print(f"  Savings: {savings_pct:.1f}%")
 
-        # Assert minimum savings (conservative)
-        assert reef_bytes <= xml_bytes, "REEF should not be larger than XML"
+        # Assert reasonable overhead (version tracking adds ~15 bytes)
+        # For very small polips, REEF may be slightly larger due to metadata
+        assert reef_bytes <= xml_bytes + 20, f"REEF too large: {reef_bytes} vs XML {xml_bytes}"
 
     @pytest.mark.parametrize("fixture", POLIP_FIXTURES, ids=lambda p: p["id"])
     def test_token_savings(self, fixture):
@@ -229,15 +236,21 @@ class TestRoundTripFidelity:
         """Serialize to .reef, parse back, verify equality."""
         from datetime import date
 
+        # Combine summary and context into surface for v2 format
+        surface = fixture["summary"]
+        if fixture.get("context"):
+            ctx = fixture["context"] if isinstance(fixture["context"], str) else "\n".join(fixture["context"])
+            if ctx:
+                surface = surface + "\n\n" + ctx
+
         original = Polip(
             id=fixture["id"],
             type=fixture["type"],
             scope=fixture["scope"],
             updated=date.today(),
-            summary=fixture["summary"],
+            surface=surface,
             facts=fixture["facts"],
             decisions=fixture["decisions"],
-            context=fixture["context"],
             steps=fixture["steps"],
             status=fixture.get("status"),
         )
@@ -251,10 +264,9 @@ class TestRoundTripFidelity:
         assert restored.type == original.type
         assert restored.scope == original.scope
         assert restored.updated == original.updated
-        assert restored.summary == original.summary
+        assert restored.surface == original.surface
         assert restored.facts == original.facts
         assert restored.decisions == original.decisions
-        assert restored.context == original.context
         assert restored.steps == original.steps
         assert restored.status == original.status
 
@@ -271,10 +283,9 @@ class TestRoundTripFidelity:
                 type="context",
                 scope="session",
                 updated=date.today(),
-                summary="Test polip for file round trip",
+                surface="Test polip for file round trip\n\nSome context here",
                 facts=["Fact one", "Fact two"],
                 decisions=["Decision A"],
-                context=["Some context here"],
                 steps=[(True, "Done step"), (False, "Pending step")],
             )
 
@@ -363,6 +374,6 @@ Summary
             Polip.from_reef("")
 
     def test_missing_identity_error(self):
-        """Missing = prefix raises clear error."""
-        with pytest.raises(ValueError, match="Invalid identity"):
+        """Missing = or ~ prefix raises clear error."""
+        with pytest.raises(ValueError, match="Unknown format"):
             Polip.from_reef("constraint:always test 2026-01-15\nNo equals sign")

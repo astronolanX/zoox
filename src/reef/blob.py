@@ -297,6 +297,17 @@ def _find_polip_path(base_dir: Path, name: str, subdir: str = None) -> Path | No
     return None
 
 
+def _parse_decision(decision_str: str) -> tuple[str, str]:
+    """Parse decision string to (choice, reason) tuple.
+
+    Format: "choice: reason" or just "choice"
+    """
+    if ": " in decision_str:
+        choice, reason = decision_str.split(": ", 1)
+        return (choice, reason)
+    return (decision_str, "")
+
+
 def _tokenize(text: str) -> list[str]:
     """Tokenize text into lowercase words for TF-IDF."""
     return re.findall(r'\b[a-z0-9]+\b', text.lower())
@@ -782,9 +793,71 @@ class Blob:
             challenged_by=challenged_by,
         )
 
-    def save(self, path: Path):
-        """Save blob to file atomically."""
-        _atomic_write(path, self.to_xml())
+    def save(self, path: Path, format: str = "auto"):
+        """Save blob to file atomically.
+
+        Args:
+            path: Destination file path
+            format: "xml", "reef", or "auto" (detect from extension)
+        """
+        if format == "auto":
+            # Detect format from extension
+            if path.suffix == ".reef" or path.suffix == ".rock" or path.suffix == ".sed":
+                format = "reef"
+            else:
+                format = "xml"
+
+        if format == "reef":
+            _atomic_write(path, self.to_reef())
+        else:
+            _atomic_write(path, self.to_xml())
+
+    def to_polip(self) -> "Polip":
+        """Convert Blob to Polip for .reef format serialization."""
+        from .format import Polip
+        from datetime import date
+
+        # Map BlobType enum to string
+        type_str = self.type.value
+
+        # Map BlobScope enum to string
+        scope_str = self.scope.value
+
+        # Map BlobStatus enum to string
+        status_str = self.status.value if self.status else None
+
+        # Convert decisions from (choice, why) tuples to strings
+        # Format: "choice: reason" if reason exists, otherwise just "choice"
+        decisions = []
+        for choice, why in self.decisions:
+            if why:
+                decisions.append(f"{choice}: {why}")
+            else:
+                decisions.append(choice)
+
+        # Convert next_steps to steps format (all pending)
+        steps = [(False, step) for step in self.next_steps]
+
+        return Polip(
+            id="",  # Will be set from filename when saving
+            type=type_str,
+            scope=scope_str,
+            updated=self.updated.date() if self.updated else date.today(),
+            version=self.version,
+            surface=self.summary + ("\n\n" + self.context if self.context else ""),
+            facts=self.facts,
+            decisions=decisions,
+            steps=steps,
+            links=self.related,
+            files=self.files,
+            status=status_str,
+            blocked_by=self.blocked_by,
+            decay_rate=self.decay_rate if self.decay_rate else 0.1,
+        )
+
+    def to_reef(self) -> str:
+        """Serialize blob to .reef format v2."""
+        return self.to_polip().to_reef()
 
     @classmethod
     def _from_polip(cls, polip: "Polip") -> "Blob":
@@ -818,24 +891,45 @@ class Blob:
         }
         blob_status = status_map.get(polip.status) if polip.status else None
 
-        # Combine context lines into single string
-        context_text = "\n".join(polip.context) if polip.context else ""
+        # Handle surface content: first line → summary, rest → context
+        # Also append legacy context if present
+        if polip.surface:
+            surface_lines = polip.surface.split('\n', 1)
+            summary_text = surface_lines[0]
+            context_text = surface_lines[1] if len(surface_lines) > 1 else ""
+        else:
+            summary_text = ""
+            context_text = ""
+
+        # Append legacy context if present
+        if polip.context:
+            legacy_context = "\n".join(polip.context)
+            context_text = (context_text + "\n\n" + legacy_context).strip() if context_text else legacy_context
 
         # Convert steps to next_steps (just the text, not done status for now)
         next_steps = [step_text for done, step_text in polip.steps if not done]
 
+        # Handle optional updated date
+        if polip.updated:
+            updated_dt = datetime.combine(polip.updated, datetime.min.time())
+        else:
+            updated_dt = datetime.now()
+
         return cls(
             type=blob_type,
-            summary=polip.summary,
+            summary=summary_text,
             scope=blob_scope,
             status=blob_status,
-            files=[],  # Polip format doesn't have files
+            version=polip.version,
+            files=polip.files,
             related=polip.links,
             context=context_text,
             facts=polip.facts,
-            decisions=[(d, "") for d in polip.decisions],  # Convert to (choice, why) tuples
+            decisions=[_parse_decision(d) for d in polip.decisions],  # Convert to (choice, why) tuples
             next_steps=next_steps,
-            updated=datetime.combine(polip.updated, datetime.min.time()),
+            updated=updated_dt,
+            decay_rate=polip.decay_rate if polip.decay_rate != 0.1 else None,  # Map drift metadata
+            blocked_by=polip.blocked_by,
         )
 
     @classmethod
@@ -857,8 +951,9 @@ class Blob:
         stripped = content.lstrip()
 
         # Auto-detect format based on content prefix
-        # Human-readable .reef format starts with =
-        if stripped.startswith("="):
+        # .reef format v2 starts with ~ (sigil-based)
+        # .reef format v1 starts with = (legacy)
+        if stripped.startswith("~") or stripped.startswith("="):
             from .format import Polip
             try:
                 polip = Polip.from_reef(content)
