@@ -238,26 +238,30 @@ def cmd_decompose(args):
 
 def cmd_migrate(args):
     """Migrate polips to current schema version."""
-    from reef.blob import Glob, BLOB_VERSION
+    from reef.blob import Glob
+    from reef.format import polip_version
 
     project_dir = Path.cwd()
     glob = Glob(project_dir)
 
     outdated = glob.check_migrations()
+    current_version = polip_version()  # e.g., "2.1"
 
     if not outdated:
-        print(f"All polips are at current version (v{BLOB_VERSION})")
+        print(f"All polips are at current version (v{current_version})")
         return
 
     if args.dry_run:
         print(f"Found {len(outdated)} polip(s) needing migration:")
         for path, blob in outdated:
-            print(f"  {path.name} (v{blob.version} -> v{BLOB_VERSION})")
+            # Show version as stored (could be int or string)
+            old_ver = f"{blob.version}.0" if isinstance(blob.version, int) else blob.version
+            print(f"  {path.name} (v{old_ver} -> v{current_version})")
         print("\nRun without --dry-run to migrate")
         return
 
     count = glob.migrate_all()
-    print(f"Migrated {count} polip(s) to v{BLOB_VERSION}")
+    print(f"Migrated {count} polip(s) to v{current_version}")
 
 
 def cmd_format(args):

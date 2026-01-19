@@ -340,6 +340,7 @@ class Polip:
             type=polip_type,
             scope=scope,
             updated=updated,
+            version="1.0",  # v1 format = epoch 1
             surface=summary,
             facts=facts,
             decisions=decisions,
