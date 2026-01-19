@@ -808,12 +808,18 @@ class Blob:
                 format = "xml"
 
         if format == "reef":
-            _atomic_write(path, self.to_reef())
+            # Extract id from filename (e.g., "project-rules.rock" -> "project-rules")
+            polip_id = path.stem
+            _atomic_write(path, self.to_reef(polip_id=polip_id))
         else:
             _atomic_write(path, self.to_xml())
 
-    def to_polip(self) -> "Polip":
-        """Convert Blob to Polip for .reef format serialization."""
+    def to_polip(self, polip_id: str = "") -> "Polip":
+        """Convert Blob to Polip for .reef format serialization.
+
+        Args:
+            polip_id: The polip identifier (usually derived from filename)
+        """
         from .format import Polip
         from datetime import date
 
@@ -839,7 +845,7 @@ class Blob:
         steps = [(False, step) for step in self.next_steps]
 
         return Polip(
-            id="",  # Will be set from filename when saving
+            id=polip_id,
             type=type_str,
             scope=scope_str,
             updated=self.updated.date() if self.updated else date.today(),
@@ -855,9 +861,13 @@ class Blob:
             decay_rate=self.decay_rate if self.decay_rate else 0.1,
         )
 
-    def to_reef(self) -> str:
-        """Serialize blob to .reef format v2."""
-        return self.to_polip().to_reef()
+    def to_reef(self, polip_id: str = "") -> str:
+        """Serialize blob to .reef format v2.
+
+        Args:
+            polip_id: The polip identifier (usually derived from filename)
+        """
+        return self.to_polip(polip_id=polip_id).to_reef()
 
     @classmethod
     def _from_polip(cls, polip: "Polip") -> "Blob":

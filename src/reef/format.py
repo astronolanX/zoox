@@ -270,9 +270,10 @@ class Polip:
             raise ValueError(f"Path traversal detected in ID: {polip_id}")
         if polip_id.startswith("/") or polip_id.startswith("\\"):
             raise ValueError(f"Absolute path not allowed in ID: {polip_id}")
-        # Only allow alphanumeric, dash, underscore
-        allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
-        if not all(c in allowed for c in polip_id):
+        # Block known dangerous characters (path separators, shell metacharacters)
+        # Allow alphanumeric, dash, underscore, dot, and unicode (for international names)
+        dangerous = set("/\\;|&$`'\"\n\r\t<>")
+        if any(c in dangerous for c in polip_id):
             raise ValueError(f"Invalid characters in ID: {polip_id}")
 
     @classmethod
