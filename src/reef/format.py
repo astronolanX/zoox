@@ -1,5 +1,9 @@
 """
-.reef format v2 - native AI memory format
+.reef format v2.1 - native AI memory format
+
+Versioning: EPOCH.SCHEMA (e.g., "2.1")
+- EPOCH: Format syntax version (1=XML, 2=sigils, 3=markdown future)
+- SCHEMA: Field/section changes within an epoch
 
 Sigil-based sections:
 
@@ -21,6 +25,10 @@ Sigil-based sections:
     --- fact
     - Fact one
     - Fact two
+
+    --- question
+    - Question one
+    - Question two
 
     --- next
     - [ ] Pending step
@@ -52,8 +60,43 @@ from pathlib import Path
 from typing import Optional
 
 
-# Current polip format version
-POLIP_VERSION = 2
+# Reef versioning: EPOCH.SCHEMA
+# EPOCH = format syntax (1=XML, 2=sigils, 3=markdown someday)
+# SCHEMA = field/section changes within an epoch
+POLIP_EPOCH = 2
+POLIP_SCHEMA = 1  # 2.1: Added questions serialization, forward compat
+
+
+def polip_version() -> str:
+    """Current polip version as EPOCH.SCHEMA string."""
+    return f"{POLIP_EPOCH}.{POLIP_SCHEMA}"
+
+
+def parse_version(version_str: str) -> tuple[int, int]:
+    """Parse version string to (epoch, schema) tuple.
+
+    Handles both new "2.1" format and legacy integer "2" format.
+    """
+    if isinstance(version_str, int):
+        return (version_str, 0)
+    if "." in str(version_str):
+        parts = str(version_str).split(".")
+        return (int(parts[0]), int(parts[1]))
+    # Legacy integer version
+    return (int(version_str), 0)
+
+
+def version_can_read(reader_version: str, polip_version: str) -> bool:
+    """Check if reader can parse polip (same or older epoch)."""
+    reader_epoch, _ = parse_version(reader_version)
+    polip_epoch, _ = parse_version(polip_version)
+    return polip_epoch <= reader_epoch
+
+
+def version_needs_migration(polip_version: str) -> bool:
+    """Check if polip needs schema migration."""
+    epoch, schema = parse_version(polip_version)
+    return epoch < POLIP_EPOCH or (epoch == POLIP_EPOCH and schema < POLIP_SCHEMA)
 
 
 @dataclass
@@ -65,7 +108,7 @@ class Polip:
     updated: Optional[date] = None
     priority: int = 50  # 0-100
     tokens: int = 0
-    version: int = POLIP_VERSION  # schema version for migration
+    version: str = field(default_factory=polip_version)  # EPOCH.SCHEMA format
 
     # Sections
     surface: str = ""  # main content
@@ -85,6 +128,9 @@ class Polip:
     status: Optional[str] = None  # active, blocked, done (for threads)
     blocked_by: Optional[str] = None  # reason for blocked status
 
+    # Forward compatibility: preserve unknown sections from newer versions
+    unknown_sections: dict = field(default_factory=dict)
+
     # Legacy
     context: list[str] = field(default_factory=list)
 
@@ -94,6 +140,15 @@ class Polip:
         if self.surface:
             return self.surface.split('\n')[0]
         return ""
+
+    def needs_migration(self) -> bool:
+        """Check if this polip needs schema migration."""
+        return version_needs_migration(self.version)
+
+    def migrate(self) -> "Polip":
+        """Migrate polip to current schema version."""
+        self.version = polip_version()
+        return self
 
     @classmethod
     def create(cls, *, summary: str = "", context: list = None, **kwargs) -> "Polip":
@@ -161,6 +216,13 @@ class Polip:
                 lines.append(f"- {f}")
             lines.append("")
 
+        # Question section (P0 fix: was missing in v2.0)
+        if self.questions:
+            lines.append("--- question")
+            for q in self.questions:
+                lines.append(f"- {q}")
+            lines.append("")
+
         # Next steps section
         if self.steps:
             lines.append("--- next")
@@ -189,6 +251,13 @@ class Polip:
             lines.append(f"heat: {self.heat}")
             lines.append(f"touched: {self.touched}")
             lines.append(f"decay: {self.decay_rate}")
+            lines.append("")
+
+        # Forward compatibility: preserve unknown sections from newer versions
+        for section_name, section_content in self.unknown_sections.items():
+            lines.append(f"--- {section_name}")
+            lines.append(section_content)
+            lines.append("")
 
         return "\n".join(lines).rstrip() + "\n"
 
@@ -293,7 +362,7 @@ class Polip:
         updated = None
         priority = 50
         tokens = 0
-        version = POLIP_VERSION
+        version = polip_version()  # Default to current version
         status = None
         blocked_by = None
 
@@ -311,12 +380,18 @@ class Polip:
         touched = 0
         decay_rate = 0.1
 
+        # Forward compatibility: preserve unknown sections
+        unknown_sections = {}
+
+        # Known section names (for forward compat)
+        KNOWN_SECTIONS = {"surface", "decide", "fact", "question", "next", "link", "file", "drift"}
+
         current_section = None
         section_lines = []
 
         def save_section():
             nonlocal surface, facts, decisions, questions, steps, links, files
-            nonlocal heat, touched, decay_rate
+            nonlocal heat, touched, decay_rate, unknown_sections
             if not current_section:
                 return
             content = "\n".join(section_lines).strip()
@@ -327,6 +402,8 @@ class Polip:
                 decisions = cls._parse_list_items(section_lines)
             elif current_section == "fact":
                 facts = cls._parse_list_items(section_lines)
+            elif current_section == "question":
+                questions = cls._parse_list_items(section_lines)
             elif current_section == "next":
                 steps = cls._parse_steps(section_lines)
             elif current_section == "link":
@@ -355,6 +432,9 @@ class Polip:
                                 decay_rate = float(v)
                             except ValueError:
                                 pass
+            elif current_section not in KNOWN_SECTIONS:
+                # Forward compatibility: preserve unknown sections
+                unknown_sections[current_section] = content
 
         for line in lines:
             stripped = line.strip()
@@ -373,10 +453,8 @@ class Polip:
                     elif k == "status":
                         status = v
                     elif k == "version":
-                        try:
-                            version = int(v)
-                        except ValueError:
-                            pass
+                        # Handle both "2.1" (new) and "2" (legacy) formats
+                        version = v  # Keep as string
                     elif k == "blocked":
                         blocked_by = v
                 continue
@@ -446,6 +524,7 @@ class Polip:
             decay_rate=decay_rate,
             status=status,
             blocked_by=blocked_by,
+            unknown_sections=unknown_sections,
         )
 
     @classmethod

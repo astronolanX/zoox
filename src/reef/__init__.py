@@ -27,15 +27,25 @@ from reef.blob import (
     BLOB_VERSION,
     KNOWN_SUBDIRS,
 )
+from reef.format import (
+    POLIP_EPOCH,
+    POLIP_SCHEMA,
+    polip_version,
+    parse_version,
+    version_can_read,
+    version_needs_migration,
+    Polip as FormatPolip,
+    Reef as FormatReef,
+)
 from reef import cli
 
 # Coral-branded type aliases (recommended API)
-Polip = Blob            # Individual memory unit
-Reef = Glob             # Project colony
+Polip = Blob            # Individual memory unit (legacy XML-based)
+Reef = Glob             # Project colony (legacy)
 PolipType = BlobType    # Type enum
 PolipScope = BlobScope  # Scope enum
 PolipStatus = BlobStatus  # Status enum
-POLIP_VERSION = BLOB_VERSION  # Schema version
+POLIP_VERSION = BLOB_VERSION  # Legacy schema version (use polip_version() for new format)
 
 __all__ = [
     # Coral API (recommended)
@@ -45,6 +55,15 @@ __all__ = [
     "PolipScope",
     "PolipStatus",
     "POLIP_VERSION",
+    # New versioning (EPOCH.SCHEMA)
+    "POLIP_EPOCH",
+    "POLIP_SCHEMA",
+    "polip_version",
+    "parse_version",
+    "version_can_read",
+    "version_needs_migration",
+    "FormatPolip",
+    "FormatReef",
     # Legacy API (backward compatible)
     "Blob",
     "BlobType",

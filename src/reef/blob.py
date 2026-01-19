@@ -915,12 +915,21 @@ class Blob:
         else:
             updated_dt = datetime.now()
 
+        # Convert EPOCH.SCHEMA version to integer for Blob compatibility
+        # "2.1" → 2, "2" → 2, 2 → 2
+        if isinstance(polip.version, str) and "." in polip.version:
+            blob_version = int(polip.version.split(".")[0])
+        elif isinstance(polip.version, str):
+            blob_version = int(polip.version)
+        else:
+            blob_version = polip.version
+
         return cls(
             type=blob_type,
             summary=summary_text,
             scope=blob_scope,
             status=blob_status,
-            version=polip.version,
+            version=blob_version,
             files=polip.files,
             related=polip.links,
             context=context_text,
