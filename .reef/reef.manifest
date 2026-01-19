@@ -20,3 +20,7 @@ created: 2026-01-16
 # memory strategy - experiments in forgetting
 # options: default, decay, resurrect, inverse, empty
 strategy: empty
+
+# surfacing mode - how much context to inject
+# options: full, index, presence
+mode: presence
