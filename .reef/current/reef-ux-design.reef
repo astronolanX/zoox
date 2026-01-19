@@ -1,222 +1,233 @@
-=context:project reef-ux-design 2026-01-15
+~ type: context
+~ id: reef-ux-design
+~ version: 2
+@ 2026-01-19
+
+--- surface
 Reef UX Design: Elegant polip surfacing patterns across terminal, IDE, and web touchpoints without interrupting workflow
-!Session startup menu has 5s timeout and defaults to skip - never blocks user
-!Inline polip annotations use emoji for visual scanning without reading full text
-!Constraint violations interrupt proactively rather than reactively - saves rework
-!All polip references include (type:name) link format for IDE clickability
-!Unified emoji mapping across all touchpoints (⚓📌🧭📚🌊) for instant recognition
-[ ] Implement SessionStart hook with reef surface_relevant menu
-[ ] Build PreToolUse constraint checker for Write/Edit tools
-[ ] Design and test polip link syntax in terminal + IDE
-[ ] Create VS Code extension prototype for reef sidebar
-[ ] Add intelligent surfacing triggers based on file/keyword matching
-~Design exploration for how reef polips can surface contextually in Claude sessions - treating reef as part of the LLM interface rather than separate tooling.
-~## Core Problem
-~Polips contain valuable context (constraints, decisions, active threads) but currently require explicit commands to surface. How do we make them ambient and accessible without disrupting flow?
-~## Design Principles
-~1. **Non-blocking by default** - Polips enhance but never obstruct
-~2. **Contextually relevant** - Surface what matters for current task
-~3. **Quick to dismiss** - Single keystroke to skip/hide
-~4. **Traceable** - Always show polip source with links
-~5. **Cross-platform consistent** - Adapt format, preserve semantics
-~## UX Pattern 1: Session Startup Menu
-~**When:** Claude session starts in a reef-enabled project
-~**What:** Numbered menu of most relevant polips (ALWAYS scope + ACTIVE threads)
-~```
-~$ claude
-~[Reef Context]
-~1. reef project constraints (always)
-~2. PEP 541 transfer pending (decision)
-~3. /whatif skill architecture (context)
-~Load: [1,2,3 / all / skip] █
-~```
-~**Interaction:**
-~- `1,2,3` → Load specific polips
-~- `all` → Load all shown polips
-~- `skip` or Enter → Continue without loading
-~- 5-second timeout defaults to skip
-~**Config:**
-~```yaml
-~# .claude/config/reef.yaml
-~session_startup:
-~enabled: true
-~max_polips: 5
-~timeout_seconds: 5
-~default_action: skip
-~format: compact
-~```
-~## UX Pattern 2: Modal Questions with Polip Context
-~**When:** Claude needs user input (via AskUserQuestion)
-~**What:** Inject relevant polip context into the question modal
-~```
-~[Decision Required]
-~┌────────────────────────────────────┐
-~│ Should I use JWT or sessions?      │
-~│                                    │
-~│ Context from reef:                 │
-~│ ⚓ Zero dependencies (constraint)  │
-~│ 📌 Use JWT for auth (prior decision)│
-~│                                    │
-~│ [J]WT / [S]essions / [E]xplain    │
-~└────────────────────────────────────┘
-~```
-~**Enhancement:**
-~1. Extract keywords from question
-~2. `reef.surface_relevant(query=keywords)`
-~3. Inject top 2-3 polips into question context
-~4. Auto-create deposit polip from user's decision
-~## UX Pattern 3: Inline Annotations
-~**When:** Claude makes decisions or references prior context
-~**What:** Inline polip citations with emoji + link
-~```
-~I'll implement authentication with JWT tokens.
-~⚓ Constraint: Zero dependencies (bedrock:project-rules)
-~📌 Decision: Use JWT for auth (deposit:auth-tokens)
-~🧭 Thread: Implement user authentication (current:auth-thread)
-~```
-~**Emoji Mapping:**
-~- ⚓ Bedrock (constraint)
-~- 📌 Deposit (decision)
-~- 🧭 Current (active thread)
-~- 📚 Fossil (fact)
-~- 🌊 Context
-~**Link Format:** `(type:polip-name)` becomes clickable in IDEs
-~## UX Pattern 4: Constraint Violation Interrupts
-~**When:** User/Claude about to violate bedrock constraint
-~**What:** Proactive interrupt with alternatives
-~```
-~⚠️  Constraint Violation Detected
-~You're about to add "requests" dependency, but:
-~⚓ Zero dependencies (bedrock:project-rules)
-~Alternatives:
-~1. Use stdlib urllib (follows constraint)
-~2. Update constraint (edit bedrock)
-~3. Proceed anyway (override)
-~Choice: █
-~```
-~**Implementation:** PreToolUse hook that checks Write/Edit against constraints
-~## UX Pattern 5: IDE Sidebar Panel
-~**Platform:** VS Code, Cursor, JetBrains
-~**What:** Live polip sidebar grouped by scope/status
-~```
-~┌─ Explorer ──────┬─ Reef ──────────┐
-~│ src/            │ ALWAYS (2)      │
-~│   reef/         │ • Zero deps     │
-~│     blob.py     │ • Use uv        │
-~│     cli.py      │                 │
-~│                 │ PROJECT (3)     │
-~│                 │ 📌 JWT auth     │
-~│                 │ 📌 TF-IDF cache │
-~│                 │ 🌊 /whatif arch │
-~│                 │                 │
-~│                 │ ACTIVE (1)      │
-~│                 │ 🧭 Auth thread  │
-~│                 │    ↳ blocked-by │
-~└─────────────────┴─────────────────┘
-~```
-~**Features:**
-~- Click polip → Open .blob.xml file
-~- Right-click → Surface in context
-~- Drag polip → Add to message
-~- Search/filter by type/scope
-~- Auto-refresh on file change
-~## UX Pattern 6: Graph Visualization
-~**Platform:** Web interface, rich terminals
-~**What:** Interactive polip relationship graph
-~```
-~┌─────────────┐
-~│  Zero deps  │ ⚓ constraint
-~└──────┬──────┘
-~│ blocks
-~↓
-~┌─────────────┐
-~│  Add cache  │ 📌 decision
-~└──────┬──────┘
-~│ related
-~↓
-~┌─────────────┐
-~│  TF-IDF opt │ 🧭 thread:active
-~└─────────────┘
-~```
-~**Interactions:**
-~- Click node → Show polip details
-~- Click edge → Show relationship type
-~- Hover → Show summary
-~- Filter → By type/scope/status
-~- Export → SVG/PNG/DOT format
-~## Cross-Touchpoint Translation
-~### Terminal (80-col, ANSI colors)
-~- Compact numbered menus
-~- Box drawing for modals
-~- Emoji + text for inline
-~- Keyboard shortcuts (no mouse)
-~### VS Code (variable width, full color)
-~- Sidebar tree view
-~- Clickable polip links
-~- Hover tooltips
-~- File system integration
-~### Web (responsive, interactive)
-~- Card-based layout
-~- Graph visualization
-~- Search and filters
-~- Timeline view of polip evolution
-~### Claude Desktop (native UI)
-~- Persistent reef pane
-~- Session memory across chats
-~- Notification badges for ACTIVE
-~- Timeline of session polips
-~## Implementation Hooks
-~### SessionStart Hook
-~```bash
-~# .claude/hooks/session-start.sh
-~reef surface_relevant \
-~| format-menu \
-~| prompt-user --timeout 5s
-~```
-~### PreToolUse Hook
-~```bash
-~# .claude/hooks/pre-tool-use.sh
-~if [[ $TOOL == "Write" || $TOOL == "Edit" ]]; then
-~reef check-constraints "$TOOL_PARAMS"
-~fi
-~```
-~### PostToolUse Hook
-~```bash
-~# .claude/hooks/post-tool-use.sh
-~if [[ $TOOL == "AskUserQuestion" ]]; then
-~# Auto-create deposit from decision
-~reef sprout decision "$USER_RESPONSE"
-~fi
-~```
-~## Polip Link Syntax
-~**Format:** `emoji Type: summary (scope:name)`
-~**Examples:**
-~- `⚓ Constraint: Zero dependencies (bedrock:project-rules)`
-~- `📌 Decision: Use JWT tokens (deposit:auth-tokens)`
-~- `🧭 Thread: Implement auth (current:auth-thread)`
-~**Rendering:**
-~- Terminal: Plain text with ANSI colors
-~- IDE: Clickable link to .blob.xml
-~- Web: Hover card with polip details
-~## Intelligent Surfacing Triggers
-~| Trigger | Action | Polips Surfaced |
-~|---------|--------|-----------------|
-~| Session start | Show menu | ALWAYS + ACTIVE |
-~| Edit file X | Inline hint | Polips with files=[X] |
-~| Mention "auth" | Related context | Polips matching "auth" |
-~| Add dependency | Interrupt | Constraints about deps |
-~| Ask question | Inject context | Relevant decisions/facts |
-~| Complete task | Suggest archive | Related ACTIVE threads |
-~## Success Metrics
-~**Workflow Efficiency:**
-~- Time to access relevant context: <2s (from session start menu)
-~- Constraint violations prevented: 80%+ (via interrupts)
-~- User skips: <20% (indicates relevance is good)
-~**Adoption:**
-~- Session startup menu used: 60%+ of sessions
-~- Inline annotations clicked: 40%+ when present
-~- IDE sidebar opened: Daily active users
-~**Context Quality:**
-~- Decisions linked to constraints: 90%+
-~- Threads show related polips: 100%
-~- Polip citations in responses: 3-5 per decision
+
+
+Design exploration for how reef polips can surface contextually in Claude sessions - treating reef as part of the LLM interface rather than separate tooling.
+## Core Problem
+Polips contain valuable context (constraints, decisions, active threads) but currently require explicit commands to surface. How do we make them ambient and accessible without disrupting flow?
+## Design Principles
+1. **Non-blocking by default** - Polips enhance but never obstruct
+2. **Contextually relevant** - Surface what matters for current task
+3. **Quick to dismiss** - Single keystroke to skip/hide
+4. **Traceable** - Always show polip source with links
+5. **Cross-platform consistent** - Adapt format, preserve semantics
+## UX Pattern 1: Session Startup Menu
+**When:** Claude session starts in a reef-enabled project
+**What:** Numbered menu of most relevant polips (ALWAYS scope + ACTIVE threads)
+```
+$ claude
+[Reef Context]
+1. reef project constraints (always)
+2. PEP 541 transfer pending (decision)
+3. /whatif skill architecture (context)
+Load: [1,2,3 / all / skip] █
+```
+**Interaction:**
+- `1,2,3` → Load specific polips
+- `all` → Load all shown polips
+- `skip` or Enter → Continue without loading
+- 5-second timeout defaults to skip
+**Config:**
+```yaml
+# .claude/config/reef.yaml
+session_startup:
+enabled: true
+max_polips: 5
+timeout_seconds: 5
+default_action: skip
+format: compact
+```
+## UX Pattern 2: Modal Questions with Polip Context
+**When:** Claude needs user input (via AskUserQuestion)
+**What:** Inject relevant polip context into the question modal
+```
+[Decision Required]
+┌────────────────────────────────────┐
+│ Should I use JWT or sessions?      │
+│                                    │
+│ Context from reef:                 │
+│ ⚓ Zero dependencies (constraint)  │
+│ 📌 Use JWT for auth (prior decision)│
+│                                    │
+│ [J]WT / [S]essions / [E]xplain    │
+└────────────────────────────────────┘
+```
+**Enhancement:**
+1. Extract keywords from question
+2. `reef.surface_relevant(query=keywords)`
+3. Inject top 2-3 polips into question context
+4. Auto-create deposit polip from user's decision
+## UX Pattern 3: Inline Annotations
+**When:** Claude makes decisions or references prior context
+**What:** Inline polip citations with emoji + link
+```
+I'll implement authentication with JWT tokens.
+⚓ Constraint: Zero dependencies (bedrock:project-rules)
+📌 Decision: Use JWT for auth (deposit:auth-tokens)
+🧭 Thread: Implement user authentication (current:auth-thread)
+```
+**Emoji Mapping:**
+- ⚓ Bedrock (constraint)
+- 📌 Deposit (decision)
+- 🧭 Current (active thread)
+- 📚 Fossil (fact)
+- 🌊 Context
+**Link Format:** `(type:polip-name)` becomes clickable in IDEs
+## UX Pattern 4: Constraint Violation Interrupts
+**When:** User/Claude about to violate bedrock constraint
+**What:** Proactive interrupt with alternatives
+```
+⚠️  Constraint Violation Detected
+You're about to add "requests" dependency, but:
+⚓ Zero dependencies (bedrock:project-rules)
+Alternatives:
+1. Use stdlib urllib (follows constraint)
+2. Update constraint (edit bedrock)
+3. Proceed anyway (override)
+Choice: █
+```
+**Implementation:** PreToolUse hook that checks Write/Edit against constraints
+## UX Pattern 5: IDE Sidebar Panel
+**Platform:** VS Code, Cursor, JetBrains
+**What:** Live polip sidebar grouped by scope/status
+```
+┌─ Explorer ──────┬─ Reef ──────────┐
+│ src/            │ ALWAYS (2)      │
+│   reef/         │ • Zero deps     │
+│     blob.py     │ • Use uv        │
+│     cli.py      │                 │
+│                 │ PROJECT (3)     │
+│                 │ 📌 JWT auth     │
+│                 │ 📌 TF-IDF cache │
+│                 │ 🌊 /whatif arch │
+│                 │                 │
+│                 │ ACTIVE (1)      │
+│                 │ 🧭 Auth thread  │
+│                 │    ↳ blocked-by │
+└─────────────────┴─────────────────┘
+```
+**Features:**
+- Click polip → Open .blob.xml file
+- Right-click → Surface in context
+- Drag polip → Add to message
+- Search/filter by type/scope
+- Auto-refresh on file change
+## UX Pattern 6: Graph Visualization
+**Platform:** Web interface, rich terminals
+**What:** Interactive polip relationship graph
+```
+┌─────────────┐
+│  Zero deps  │ ⚓ constraint
+└──────┬──────┘
+│ blocks
+↓
+┌─────────────┐
+│  Add cache  │ 📌 decision
+└──────┬──────┘
+│ related
+↓
+┌─────────────┐
+│  TF-IDF opt │ 🧭 thread:active
+└─────────────┘
+```
+**Interactions:**
+- Click node → Show polip details
+- Click edge → Show relationship type
+- Hover → Show summary
+- Filter → By type/scope/status
+- Export → SVG/PNG/DOT format
+## Cross-Touchpoint Translation
+### Terminal (80-col, ANSI colors)
+- Compact numbered menus
+- Box drawing for modals
+- Emoji + text for inline
+- Keyboard shortcuts (no mouse)
+### VS Code (variable width, full color)
+- Sidebar tree view
+- Clickable polip links
+- Hover tooltips
+- File system integration
+### Web (responsive, interactive)
+- Card-based layout
+- Graph visualization
+- Search and filters
+- Timeline view of polip evolution
+### Claude Desktop (native UI)
+- Persistent reef pane
+- Session memory across chats
+- Notification badges for ACTIVE
+- Timeline of session polips
+## Implementation Hooks
+### SessionStart Hook
+```bash
+# .claude/hooks/session-start.sh
+reef surface_relevant \
+| format-menu \
+| prompt-user --timeout 5s
+```
+### PreToolUse Hook
+```bash
+# .claude/hooks/pre-tool-use.sh
+if [[ $TOOL == "Write" || $TOOL == "Edit" ]]; then
+reef check-constraints "$TOOL_PARAMS"
+fi
+```
+### PostToolUse Hook
+```bash
+# .claude/hooks/post-tool-use.sh
+if [[ $TOOL == "AskUserQuestion" ]]; then
+# Auto-create deposit from decision
+reef sprout decision "$USER_RESPONSE"
+fi
+```
+## Polip Link Syntax
+**Format:** `emoji Type: summary (scope:name)`
+**Examples:**
+- `⚓ Constraint: Zero dependencies (bedrock:project-rules)`
+- `📌 Decision: Use JWT tokens (deposit:auth-tokens)`
+- `🧭 Thread: Implement auth (current:auth-thread)`
+**Rendering:**
+- Terminal: Plain text with ANSI colors
+- IDE: Clickable link to .blob.xml
+- Web: Hover card with polip details
+## Intelligent Surfacing Triggers
+| Trigger | Action | Polips Surfaced |
+|---------|--------|-----------------|
+| Session start | Show menu | ALWAYS + ACTIVE |
+| Edit file X | Inline hint | Polips with files=[X] |
+| Mention "auth" | Related context | Polips matching "auth" |
+| Add dependency | Interrupt | Constraints about deps |
+| Ask question | Inject context | Relevant decisions/facts |
+| Complete task | Suggest archive | Related ACTIVE threads |
+## Success Metrics
+**Workflow Efficiency:**
+- Time to access relevant context: <2s (from session start menu)
+- Constraint violations prevented: 80%+ (via interrupts)
+- User skips: <20% (indicates relevance is good)
+**Adoption:**
+- Session startup menu used: 60%+ of sessions
+- Inline annotations clicked: 40%+ when present
+- IDE sidebar opened: Daily active users
+**Context Quality:**
+- Decisions linked to constraints: 90%+
+- Threads show related polips: 100%
+- Polip citations in responses: 3-5 per decision
+
+--- decide
+- Session startup menu has 5s timeout and defaults to skip - never blocks user
+- Inline polip annotations use emoji for visual scanning without reading full text
+- Constraint violations interrupt proactively rather than reactively - saves rework
+- All polip references include (type:name) link format for IDE clickability
+- Unified emoji mapping across all touchpoints (⚓📌🧭📚🌊) for instant recognition
+
+--- next
+- [ ] Implement SessionStart hook with reef surface_relevant menu
+- [ ] Build PreToolUse constraint checker for Write/Edit tools
+- [ ] Design and test polip link syntax in terminal + IDE
+- [ ] Create VS Code extension prototype for reef sidebar
+- [ ] Add intelligent surfacing triggers based on file/keyword matching

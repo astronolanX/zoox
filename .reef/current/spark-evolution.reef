@@ -1,2 +1,7 @@
-=context:project spark-evolution 2026-01-14
+~ type: context
+~ id: spark-evolution
+~ version: 2
+@ 2026-01-19
+
+--- surface
 Spark v3.0: 5D combinatorics, SQLite memory, skill-invocable, normalized naming

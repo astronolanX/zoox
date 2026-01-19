@@ -1,40 +1,51 @@
-=context:project changelog-system 2026-01-14
+~ type: context
+~ id: changelog-system
+~ version: 2
+@ 2026-01-19
+
+--- surface
 Changelog system design: vendor introspection of scriv/towncrier/git-cliff with polip-native implementation plan
-!Build polip-native changelog instead of depending on scriv/towncrier
-!Use reef's own polip system as changelog fragments
-!Cherry-picked best qualities from scriv (workflow), towncrier (CI), git-cliff (SemVer), keepachangelog (format)
-!Implementation postponed - this is design reference only
-[ ] When ready: implement Phase 1 (CHANGELOG.md bootstrap)
-[ ] Then Phase 2 (CLI commands)
-[ ] Phase 3 (polip schema) and Phase 4 (automation) can follow
-~Design research for reef's PyPI release changelog system. Uses introspection pattern to analyze vendor tools and cherry-pick their best qualities while maintaining zero-dependency constraint.
-~## Core Insight
-~Polips ARE changelog fragments. Session context polips already capture what changed, why, and what's next. A `reef changelog` command aggregates these into keepachangelog format.
-~## Vendor Quality Extraction
-~| Vendor | Quality | Adopt? |
-~|--------|---------|--------|
-~| scriv | Fragment-per-PR workflow | Yes - polips = fragments |
-~| scriv | create/collect/github-release | Yes - CLI commands |
-~| towncrier | CI check command | Yes - `reef changelog check` |
-~| towncrier | Issue linking | Optional - `--issue` flag |
-~| git-cliff | SemVer detection | Yes - from change categories |
-~| git-cliff | PR metadata fetching | Yes - `--fetch-prs` |
-~| keepachangelog | Standard format | Yes - output format |
-~## Proposed CLI
-~```bash
-~reef changelog create         # Create changelog polip
-~reef changelog                # Show unreleased
-~reef changelog collect        # Aggregate to CHANGELOG.md
-~reef changelog check          # CI: require changelog
-~reef changelog release        # Collect + tag + bump
-~```
-~## Polip Schema Addition
-~Optional `<changelog>` element with Added/Changed/Fixed/Removed sections.
-~Falls back to summary + decisions if missing.
-~## Configuration
-~```toml
-~[tool.reef.changelog]
-~categories = ["Added", "Changed", "Fixed", "Removed"]
-~fragment_directory = ".claude/changelog"
-~output_file = "CHANGELOG.md"
-~```
+
+
+Design research for reef's PyPI release changelog system. Uses introspection pattern to analyze vendor tools and cherry-pick their best qualities while maintaining zero-dependency constraint.
+## Core Insight
+Polips ARE changelog fragments. Session context polips already capture what changed, why, and what's next. A `reef changelog` command aggregates these into keepachangelog format.
+## Vendor Quality Extraction
+| Vendor | Quality | Adopt? |
+|--------|---------|--------|
+| scriv | Fragment-per-PR workflow | Yes - polips = fragments |
+| scriv | create/collect/github-release | Yes - CLI commands |
+| towncrier | CI check command | Yes - `reef changelog check` |
+| towncrier | Issue linking | Optional - `--issue` flag |
+| git-cliff | SemVer detection | Yes - from change categories |
+| git-cliff | PR metadata fetching | Yes - `--fetch-prs` |
+| keepachangelog | Standard format | Yes - output format |
+## Proposed CLI
+```bash
+reef changelog create         # Create changelog polip
+reef changelog                # Show unreleased
+reef changelog collect        # Aggregate to CHANGELOG.md
+reef changelog check          # CI: require changelog
+reef changelog release        # Collect + tag + bump
+```
+## Polip Schema Addition
+Optional `<changelog>` element with Added/Changed/Fixed/Removed sections.
+Falls back to summary + decisions if missing.
+## Configuration
+```toml
+[tool.reef.changelog]
+categories = ["Added", "Changed", "Fixed", "Removed"]
+fragment_directory = ".claude/changelog"
+output_file = "CHANGELOG.md"
+```
+
+--- decide
+- Build polip-native changelog instead of depending on scriv/towncrier
+- Use reef's own polip system as changelog fragments
+- Cherry-picked best qualities from scriv (workflow), towncrier (CI), git-cliff (SemVer), keepachangelog (format)
+- Implementation postponed - this is design reference only
+
+--- next
+- [ ] When ready: implement Phase 1 (CHANGELOG.md bootstrap)
+- [ ] Then Phase 2 (CLI commands)
+- [ ] Phase 3 (polip schema) and Phase 4 (automation) can follow

@@ -1,3 +1,7 @@
-<blob type="decision" scope="project" updated="2026-01-16" v="2">
-  <summary>Reef Vitality Implementation: Living System Health Metrics</summary>
-</blob>
+~ type: decision
+~ id: reef-vitality-implementation-l
+~ version: 2
+@ 2026-01-16
+
+--- surface
+Reef Vitality Implementation: Living System Health Metrics

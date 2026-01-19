@@ -1,10 +1,20 @@
-=context:session 20260114-context 2026-01-14
+~ type: context
+~ id: 20260114-context
+~ version: 2
+~ scope: session
+@ 2026-01-19
+
+--- surface
 Deep research on AI infrastructure landscape (memory as first-class primitive, MCP protocols, OS integration models) followed by biological exploration of reef: calcification triggers (time, usage, ceremony, consensus, genome), polip budding under pressure, layered geology (active/skeletal/fossil/sediment), digital ecology, and federated validation for reef entry.
-!Genome encodes which calcification triggers apply; polips can bud and mutate under pressure
-!Death model: staleness→fossil, supersession→nutrient cycling, contradiction→skeleton, explicit pruning→deletion
-!Attachment via affinity (semantic similarity) + need (demand signals)
-!Reef is protected zone with immune response, not open membrane
-!Consensus required for entry; quarantine for disputes with escalation option
-[ ] Explore quarantine mechanics and dispute escalation procedures
-[ ] Move to (C) cross-system portability: minimum viable `.reef` primitive for macOS, Linux, Windows, containers, cloud
-[ ] Gap analysis (B): where does AI currently live in existing infrastructure and where are gaps
+
+--- decide
+- Genome encodes which calcification triggers apply; polips can bud and mutate under pressure
+- Death model: staleness→fossil, supersession→nutrient cycling, contradiction→skeleton, explicit pruning→deletion
+- Attachment via affinity (semantic similarity) + need (demand signals)
+- Reef is protected zone with immune response, not open membrane
+- Consensus required for entry; quarantine for disputes with escalation option
+
+--- next
+- [ ] Explore quarantine mechanics and dispute escalation procedures
+- [ ] Move to (C) cross-system portability: minimum viable `.reef` primitive for macOS, Linux, Windows, containers, cloud
+- [ ] Gap analysis (B): where does AI currently live in existing infrastructure and where are gaps

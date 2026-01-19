@@ -1,370 +1,369 @@
-=thread:project reef-native-infrastructure 2026-01-15 active
+~ type: thread
+~ id: reef-native-infrastructure
+~ version: 2
+~ status: active
+@ 2026-01-19
+
+--- surface
 Reef as Native AI Infrastructure - Design Thread + Agent SDK Plan
-!Graph relationships: content-embedded intent + computed similarity (no separate links.xml)
-!Reef and config coexist with clear authority boundaries
-!Promotion pathway: organic → crystallized → human-promoted to config
-!Reef reads config, cannot modify it; human remains gatekeeper
-!Links stored in polip content via [[wiki]] and @directives
-!P0 safety guards (dry-run, deletion limits, undo) must ship before any auto-pruning
-!Implement reef MCP server exposing polip operations as tools
-!Route external-ok tasks to Groq/Ollama/Gemini, reserve Claude for judgment
-!Calcification engine with time × usage × consensus triggers
-!Audit trail, dry-run mode, and validator checks for all automatic operations
-!Worktree harness: spawn child Claude agents in git worktrees, test before merge
-!Format: S-expression + sigil sugar + delta-from-default compression for .reef files
-!Karen: adversarial counsel only, no approval authority, must cite sources
-[x] Phase 0: Create directory structure for agent SDK
-[x] Phase 1: Implement P0 safety guards (dry-run, deletion limits, undo buffer)
-[x] Phase 2: Worker infrastructure (Groq/Ollama/Gemini dispatch)
-[x] Phase 3: MCP server implementation
-[x] Phase 4: Agent orchestrator, strategist, validator
-[x] Phase 5: Skill hotloading (global + project-local)
-[x] Phase 6: Calcification engine + adversarial decay
-[x] Phase 7: Worktree harness - parallel Claude agents with model routing
-[x] Phase 8: Integration polish + documentation
-[ ] Phase 9: .reef format - sigil sugar, delta compression, migration
-~## Session Summary (2026-01-15)
-~Deep brainstorming session exploring reef as native AI infrastructure. Key insight: reef enables AI to grow its own databases organically, rather than conforming to human-designed schemas.
-~### Research Phase (D)
-~- Surveyed AI infrastructure landscape (EverMemOS, MCP, Apple Intelligence vs Copilot)
-~- Found: "Memory is becoming the state layer for agentic systems"
-~- Key paper: "Everything is Context" - file system as universal semantic interface
-~### Biology Phase (A)
-~- Defined polip lifecycle: spawn → drift → attach → grow → bud → calcify
-~- Calcification triggers: Time × Usage × Ceremony × Consensus × Genome (combinatorial)
-~- Death/decay: staleness→fossil, supersession→absorbed, contradiction→skeleton
-~- Reef geology: active → skeletal → fossil → sediment layers
-~### Portability Phase (C)
-~- Start at L0 (plain files), calcify toward L3/L4
-~- Content embedding: lifecycle-based (drifting=ref, calcified=embed)
-~- Activation layers: SDK → middleware → daemon
-~### Gap Analysis (B)
-~- 5 gaps identified; build order: relationships → evolution → sovereignty → provenance → protocol
-~- Gap 4 resolved: hybrid graph (content-embedded links + computed similarity)
-~### Coexistence Resolution
-~- Config = instructions TO AI (human domain, override authority)
-~- Reef = memory OF AI (AI domain, advisory authority)
-~- Promotion pathway from organic → crystallized → human-committed
-~### Paradigm Crystallized
-~Traditional: Human architect → Schema design → Data conforms
-~Reef: AI usage → Polips spawn → Structure emerges → Calcification creates schema
-~The schema isn't designed — it's grown.
-~## Session 2: Agent SDK Deep Dive (2026-01-15 afternoon)
-~### Team Research (7 Agents)
-~Spawned 7 agents in parallel to validate organic schema growth:
-~- **Researcher**: Found AutoSchemaKG (92% alignment), A-MEM (NeurIPS 2025)
-~- **ML Theorist**: Resolved probability vs structure tension (they're complementary)
-~- **Signal Analyst**: Framework for inflection point detection
-~- **Systems Architect**: Stigmergic coordination vision
-~- **Devil's Advocate**: Identified safety gaps (pruning, sync, emergent behavior)
-~- **Competitive Intel**: Reef's coral metaphor is unique differentiator
-~- **Technical Validator**: P0 safeguards are critical path
-~### Comprehensive Implementation Plan
-~Created 7-phase plan at `docs/plans/2026-01-15-agent-sdk-implementation-plan.md`
-~## Session 3: Phase 5-6 Implementation (2026-01-15 evening)
-~### Completed
-~- **Phase 5**: Skill hotloading with SkillLoader, SkillRegistry
-~- Discovery from local (.claude/skills/) and global (~/.claude/skills/)
-~- Hotload tracking via mtime, reload callbacks
-~- CLI: `reef skills list/show/create/check`
-~- Fixed test isolation bug (property descriptor vs evaluated value)
-~- **Phase 6**: Calcification engine (the core thesis)
-~- `CalcificationEngine`: Time × Usage × Ceremony × Consensus scoring
-~- `AdversarialDecay`: Challenge stale/orphan polips (SURVIVE/MERGE/DECOMPOSE)
-~- `ReefHealth`: Vitality scoring, lifecycle stages, recommendations
-~- CLI: `reef health`, `reef calcify`, `reef decay`
-~- Added `related` field to index for consensus scoring
-~### Worker Trench Test
-~- Attempted parallel worker dispatch (Groq + Ollama)
-~- Groq: 403 Forbidden (API key issue)
-~- Ollama: Worked but output too generic without reef context
-~- Insight: Domain-specific code needs full context; workers better for grunt tasks
-~### New Phase Added
-~- **Phase 7**: Worktree harness for parallel Claude agents
-~- Each child session works in isolated git worktree
-~- Tests must pass before merging upstream
-~- Enables true parallel development without conflicts
-~## Session 4: Phase 7 Implementation (2026-01-15)
-~### Completed
-~- **Phase 7**: Worktree harness with model routing
-~- `src/reef/trench.py`: TrenchHarness class
-~- Auto-spawn: `reef trench spawn <name> --task "..." [--model haiku|sonnet|opus]`
-~- Complexity detection: simple→haiku, moderate→sonnet, complex→opus
-~- Aggressive pruning: 3-day default (was 7)
-~- PID tracking for background sessions
-~- Log viewing: `reef trench logs <name> [--follow]`
-~- 35 new tests, 536 total passing
-~### CLI Commands Added
-~```bash
-~reef trench spawn <name> [--task "..." --model ...]  # Create worktree + optional auto-launch
-~reef trench status [name] [--json]                   # Check trench status
-~reef trench test <name>                              # Run tests in trench
-~reef trench merge <name>                             # Merge if tests pass
-~reef trench abort <name> [--force]                   # Kill and cleanup
-~reef trench prune [--days N --execute]               # Remove stale trenches
-~reef trench logs <name> [--follow]                   # View session output
-~```
-~## Session 5: Phase 8 Completion (2026-01-15)
-~### Completed
-~- All 8 phases done and pushed to main
-~- Fixed `--session` → `--task` flag typo in docs
-~- docs/AGENT-SDK.md: Agent orchestration guide
-~- docs/WORKERS.md: External worker configuration
-~- 536 tests passing
-~## Session 6: Cleanup + .reef Format Exploration (2026-01-15)
-~### Completed
-~- **Fixed trench autonomous execution**: Added `--dangerously-skip-permissions` flag
-~- **Tested trench harness**: Claude haiku successfully ran autonomously in worktree
-~- **Removed unused imports**: Cleaned 9 files (calcification, cli, trench, agents, safety, skills, workers)
-~- **Ran 3 parallel trenches**: cleanup-exports, cleanup-coverage, cleanup-logging
-~- **Coverage analysis**: 65-97% across modules, cli.py untested
-~- **Logging audit**: Already clean - all errors use stderr
-~- **Upgraded spark**: Added `--premium` flag to use Claude agents instead of cheap models
-~### .reef File Format Deep Dive (8 Sparks)
-~Explored AI-native memory through 8 spark iterations. Key emergent insights:
-~| Spark | Emergent Insight | Score |
-~|-------|------------------|-------|
-~| Memories that lie | "What if AI memories are already our own?" | 70% |
-~| Memory as immune | "AI has no immune system, only learns from everything" | 80% |
-~| Memory contagion | "Memories viral when incoherent AND eerily consistent" | 90% |
-~| Strategic forgetting | "Forgetting is PRIMARY function of memory" | 80% |
-~| Memory metabolism | "Context isn't digested, merely reflected" | 95% |
-~| Memory sovereignty | "Memories aren't owned at all" | 70% |
-~| Adversarial memory | "Memories are parasites monopolizing resources" | 80% |
-~| Memory inheritance | "Inherited memories risk autoimmune decay" | 80% |
-~**Core Insight:** Memory IS forgetting. The `.reef` format should encode how things DIE, not how they're stored:
-~- decay_rate, half_life, compost_to, immune_to, challenged_by
-~### Incubator Insights Added
-~- `ins_2026011510`: Forgetting is memory's primary function (8.5)
-~- `ins_2026011511`: Memories are parasites competing for resources (8.2)
-~- `ins_2026011512`: Context is reflected, not digested (9.2)
-~## To Resume
-~```bash
-~/surface threads-reef-native-infrastructure
-~```
-~## Next: .reef Format Design + Remaining Cleanup
-~### 1. Claude Code Plugin for Reef (HIGH PRIORITY)
-~- [x] Create reef plugin structure at `~/.claude/plugins/reef/`
-~- [x] Implement `/surface <polip-id>` command - load polip to context (L2 activation)
-~- [x] Implement `/surface` (no args) - show L1 index of available polips
-~- [ ] Add SessionStart hook to auto-inject L1 index (current GLOB behavior)
-~- [ ] Add Stop hook to persist session context to polip
-~- [ ] Register as `reef` plugin in Claude Code (needs restart)
-~Plugin structure:
-~```
-~~/.claude/plugins/reef/
-~├── plugin.json
-~├── commands/
-~│   └── surface.md       # /surface command
-~├── hooks/
-~│   ├── session-start.sh # Auto-inject L1 index
-~│   └── stop.sh          # Persist context
-~└── skills/
-~└── reef.md          # Reef knowledge/help
-~```
-~### 2. .reef Format Specification
-~- [ ] Define .reef file structure (decay protocol, not storage)
-~- [ ] Implement parser/serializer in reef.blob
-~- [ ] Migrate existing .blob.xml files to .reef
-~- [ ] Update CLI commands for new format
-~### 3. Remaining Cleanup
-~- [x] Remove dead code / unused imports
-~- [x] Verify all modules have proper `__all__` exports (trench added them)
-~- [x] Check for TODO/FIXME comments (none found)
-~- [x] Audit print statements → already clean
-~- [ ] Add integration tests for trench harness
-~- [ ] CLI polish - consistent exit codes, help text
-~### 4. Test Coverage Gaps (from trench analysis)
-~- cli.py: Nearly untested
-~- blob.py: 65% - edge cases missing
-~- trench.py: 60% - lifecycle management gaps
-~- dispatcher.py: 58% - worker dispatch logic
-~### Test Gates
-~```bash
-~uv run pytest -v                    # All 541 tests pass
-~reef sync                           # Reef integrity
-~reef health                         # Ecosystem health (AI-native)
-~```
-~## Session 7: AI-Native Calcification Engine (2026-01-15)
-~### Core Insight
-~"Digital time is different. Don't make a reef like it's in the ocean."
-~Biological coral calcifies over years. AI memory operates in sessions and turns.
-~A polip referenced 50 times in one session is more calcified than one touched
-~once over 7 days.
-~### Completed
-~- **Rewrote calcification engine** for session-relative time
-~- Removed all wall-clock dependencies (30d, 60d, 180d thresholds)
-~- New time model: turn (heartbeat) → session (fundamental unit) → epoch
-~- **New calcification triggers**:
-~- Intensity: refs within session (immediate value)
-~- Persistence: sessions that reference (lasting value)
-~- Depth: turn depth when referenced (real work vs surface)
-~- Ceremony: explicit human promotion (authority)
-~- Consensus: refs from other polips (network effect)
-~- **New lifecycle stages** (based on vitals, not age):
-~- spawning → drifting → attached → calcified → fossil
-~- Constraints with scope=always are immediately calcified
-~- 5+ refs/session jumps to attached
-~- **New adversarial decay triggers**:
-~- cold: 0 refs, 0 access (aggressive)
-~- shallow: only first-turn refs (surface-level)
-~- orphan: no connections and not blessed
-~- **Updated CLI**: `reef health` and `reef calcify` show AI-native metrics
-~- **541 tests passing** (up from 536)
-~### Key Code Changes
-~- `src/reef/calcification.py`: Complete rewrite
-~- `src/reef/cli.py`: Updated health/calcify output
-~- `tests/test_calcification.py`: New tests for session-relative scoring
-~## To Resume
-~```bash
-~/surface threads-reef-native-infrastructure
-~```
-~## How to Save to Reef
-~```bash
-~# Option 1: Edit thread polip directly
-~# File: .claude/threads/reef-native-infrastructure.blob.xml
-~# Option 2: Create new polip via CLI
-~uv run python -m reef.cli sprout thread "Summary of work"
-~# Option 3: Ask Claude to update the thread
-~# "Update our reef thread with this session's progress"
-~```
-~## Reef UX Philosophy: The Dive
-~**Above water**: Clear context. Focused task. You know what you're doing.
-~**Diving into reef**: "What do I have?" "What did I forget?" "What's connected?"
-~Exploration, not retrieval. Discovery, not search.
-~**Coming up for air**: Session ends. You surface with something - or you don't.
-~### Core Principle
-~The reef shouldn't feel like a filing cabinet you search.
-~It should feel like diving into your own forgotten depths
-~and discovering what grew there while you weren't looking.
-~"I don't know what's down here" is the right starting posture.
-~The reef reveals itself.
-~### Interaction Model
-~- No phrase mapping or commands to memorize
-~- Just talk naturally - intent is inferred
-~- "Save this", "remember", "pick up tomorrow" - all understood dynamically
-~- The reef is invisible infrastructure, not a tool to learn
-~## Session 8: AI-Native Format Decision + Investigation System (2026-01-15)
-~### Format Decision: S-Expression + Sigil Sugar + Delta Compression
-~**User veto exercised:** "fuck xml. lets push it."
-~#### The Process (10 agents total)
-~1. **Exploration swarm** (6 agents, randomized spark):
-~- Dense-analytical: 38-50% savings, `T:c S:a` syntax
-~- Sigil-analytical: 48-53% savings, `@thread ^always`
-~- Sigil-spark: Challenged premise - "sigils may be irrelevant"
-~- Dense-spark: 95% emergent - "omission IS compression"
-~- Lisp-spark: 100% emergent - "design for digestibility not storability"
-~- Lisp-analytical: **Wrote 589-line parser** at `src/reef/sexpr.py` + 48 tests
-~2. **Visionary synthesis**: S-expression backbone + sigil sugar + delta-from-default
-~3. **Investigation squad** (4 agents):
-~- Researcher: Found TOON (2025), EDN, Protobuf - validates approach
-~- Validator: Adjusted claims - 40% real savings (not 60-70%)
-~- Karen: NIH trap, sigil collision, default brittleness concerns
-~- Industry Analyst: "No S-expressions in production" but Claude trained on XML
-~#### Final Format
-~```lisp
-~(polip @thread reef-session
-~^session ~"exploring format design" +active
-~#["src/reef/cli.py"]
-~(decay :half-life 3))
-~```
-~#### Evidence Summary
-~| Source | Finding |
-~|--------|---------|
-~| TOON benchmarks | Custom formats CAN win (73.9% vs 69.7% accuracy) |
-~| Validator | 40% avg savings, up to 70% on structured data |
-~| Industry | JSON/XML dominant, but not for AI-native use cases |
-~| Karen | Valid concerns - escaping, tooling, migration |
-~### Skill System Updates
-~#### `/investigate` - Recursive Investigation Harness
-~Updated `.claude/skills/investigate.md` with full architecture:
-~- **Global harness** listens for triggers (lock-in, NIH, confirmation bias)
-~- **Curiosity router**: <60% log, 60-80% light, 80-90% full, 90%+ recursive
-~- **Recursive visionary**: 90%+ insights spawn dedicated visionary with own trenches
-~- **Investigation funnel**: Collects all outputs, dedupes, clusters
-~- **Squad deliberation**: Agents present TO EACH OTHER, cross-examine
-~- **Final report**: What/How/Why/Who + consensus/dissent/gaps
-~#### Karen (Reef Validator) - New Contract
-~Updated `.claude/agents/reef-validator.md`:
-~- **Authority**: NONE - advisory only
-~- **Veto power**: NONE - user holds all veto
-~- **Modes**: CRITICAL (find flaws) ↔ SKEPTICAL (question assumptions)
-~- **Constraint**: Must cite sources for all claims
-~- **Role**: Adversarial counsel, not gatekeeper
-~### Tenacious Mode Idea
-~Captured in `.claude/ideas/tenacious-agent-mode.md`:
-~- Agents iterate until explicit failure, not "done enough"
-~- Exit conditions: hard failure, timeout, human interrupt
-~- NOT valid: "I think I've explored enough"
-~### Files Created/Modified This Session
-~- `src/reef/sexpr.py` (589 lines) - S-expression parser
-~- `tests/test_sexpr.py` (456 lines) - 48 tests passing
-~- `.claude/skills/investigate.md` - Full recursive harness
-~- `.claude/agents/reef-validator.md` - Karen's new contract
-~- `.claude/ideas/tenacious-agent-mode.md` - Persistent agent concept
-~## Session 9: Phase 9 Implementation (2026-01-15)
-~### Completed
-~- **Sigil sugar tokenizer/parser**: `@thread ^always ~"summary" +active #["files"]`
-~- **Delta-from-default compression**: Omit defaults (type=thread, scope=project, status=active, version=2)
-~- **Canonical defaults**: Defined in `DEFAULTS` dict
-~- **Migration CLI**: `reef format --stats`, `reef format --convert [--dry-run] [--keep]`
-~- **57 sexpr tests** (up from 48)
-~- **598 total tests passing**
-~### Token Savings Analysis
-~```
-~reef format --convert --dry-run
-~context.blob.xml -> context.reef (29.8% smaller)
-~spark-evolution.blob.xml -> spark-evolution.reef (40.9% smaller)
-~never-commit-secrets.blob.xml -> never-commit-secrets.reef (54.1% smaller)
-~reef-native-infrastructure.blob.xml -> reef-native-infrastructure.reef (8.2% smaller)
-~...
-~Average: ~28% reduction
-~```
-~### Files Modified
-~- `src/reef/sexpr.py`: Sigil sugar + delta compression
-~- `src/reef/cli.py`: `reef format` command
-~- `tests/test_sexpr.py`: New tests for sigils + defaults
-~## Next Steps
-~### Phase 9 Remaining
-~1. [x] Add sigil sugar to `sexpr.py`
-~2. [x] Implement delta-from-default
-~3. [x] Define canonical defaults
-~4. [ ] Add decay protocol support (Blob class needs fields)
-~5. [x] Migration CLI: `reef format --convert`
-~6. [x] Update CLI for new format
-~7. [x] Dual-format auto-detection in Glob.load()
-~### Remaining from Previous Sessions
-~- [ ] Claude Code Plugin hooks (SessionStart, Stop)
-~- [ ] Integration tests for trench harness
-~- [ ] Test coverage gaps (cli.py, blob.py, trench.py)
-~### Test Gates
-~```bash
-~uv run pytest -v              # 827 tests
-~reef sync                     # Reef integrity
-~reef format --stats           # Token savings
-~```
-~## Session 10: MCP MVP - Reef as Substrate (2026-01-16)
-~### Core Insight
-~"MCP isn't just distribution - it's the substrate they build on."
-~### Team Investigation (3 Agents)
-~Spawned architect, visionary, and karen to validate MCP-first strategy:
-~- **Architect**: MCP is strong entry point but needs lifecycle tools exposed
-~- **Visionary**: MCP makes reef "ambient" - 10x = becoming invisible by being essential
-~- **Karen**: Security concerns, protocol risk, but hooks still work for power users
-~**Synthesis**: MCP for distribution, daemon for evolution, lifecycle tools for differentiation.
-~### Completed
-~- **MCP Lifecycle Tools** (reef differentiators):
-~  - `reef_lifecycle`: Calcification stages (drifting → attached → calcified → fossil)
-~  - `reef_calcify_candidates`: Polips ready for promotion
-~  - `reef_decay_status`: At-risk polips and recommendations
-~- **Security Hardening**: Input validation, size limits, sanitization
-~- **Resources**: 11 tools, 3 resources now exposed
-~### Strategic Decisions
-~!MCP-first but expose lifecycle tools to differentiate from Mem0
-~!Input validation + size limits before public release
-~!Keep hooks for Claude Code power users
-~## To Resume
-~```bash
-~/surface threads-reef-native-infrastructure
-~```
-~Key files: `src/reef/mcp/handlers.py`, `src/reef/mcp/server.py`
+
+
+## Session Summary (2026-01-15)
+Deep brainstorming session exploring reef as native AI infrastructure. Key insight: reef enables AI to grow its own databases organically, rather than conforming to human-designed schemas.
+### Research Phase (D)
+- Surveyed AI infrastructure landscape (EverMemOS, MCP, Apple Intelligence vs Copilot)
+- Found: "Memory is becoming the state layer for agentic systems"
+- Key paper: "Everything is Context" - file system as universal semantic interface
+### Biology Phase (A)
+- Defined polip lifecycle: spawn → drift → attach → grow → bud → calcify
+- Calcification triggers: Time × Usage × Ceremony × Consensus × Genome (combinatorial)
+- Death/decay: staleness→fossil, supersession→absorbed, contradiction→skeleton
+- Reef geology: active → skeletal → fossil → sediment layers
+### Portability Phase (C)
+- Start at L0 (plain files), calcify toward L3/L4
+- Content embedding: lifecycle-based (drifting=ref, calcified=embed)
+- Activation layers: SDK → middleware → daemon
+### Gap Analysis (B)
+- 5 gaps identified; build order: relationships → evolution → sovereignty → provenance → protocol
+- Gap 4 resolved: hybrid graph (content-embedded links + computed similarity)
+### Coexistence Resolution
+- Config = instructions TO AI (human domain, override authority)
+- Reef = memory OF AI (AI domain, advisory authority)
+- Promotion pathway from organic → crystallized → human-committed
+### Paradigm Crystallized
+Traditional: Human architect → Schema design → Data conforms
+Reef: AI usage → Polips spawn → Structure emerges → Calcification creates schema
+The schema isn't designed — it's grown.
+## Session 2: Agent SDK Deep Dive (2026-01-15 afternoon)
+### Team Research (7 Agents)
+Spawned 7 agents in parallel to validate organic schema growth:
+- **Researcher**: Found AutoSchemaKG (92% alignment), A-MEM (NeurIPS 2025)
+- **ML Theorist**: Resolved probability vs structure tension (they're complementary)
+- **Signal Analyst**: Framework for inflection point detection
+- **Systems Architect**: Stigmergic coordination vision
+- **Devil's Advocate**: Identified safety gaps (pruning, sync, emergent behavior)
+- **Competitive Intel**: Reef's coral metaphor is unique differentiator
+- **Technical Validator**: P0 safeguards are critical path
+### Comprehensive Implementation Plan
+Created 7-phase plan at `docs/plans/2026-01-15-agent-sdk-implementation-plan.md`
+## Session 3: Phase 5-6 Implementation (2026-01-15 evening)
+### Completed
+- **Phase 5**: Skill hotloading with SkillLoader, SkillRegistry
+- Discovery from local (.claude/skills/) and global (~/.claude/skills/)
+- Hotload tracking via mtime, reload callbacks
+- CLI: `reef skills list/show/create/check`
+- Fixed test isolation bug (property descriptor vs evaluated value)
+- **Phase 6**: Calcification engine (the core thesis)
+- `CalcificationEngine`: Time × Usage × Ceremony × Consensus scoring
+- `AdversarialDecay`: Challenge stale/orphan polips (SURVIVE/MERGE/DECOMPOSE)
+- `ReefHealth`: Vitality scoring, lifecycle stages, recommendations
+- CLI: `reef health`, `reef calcify`, `reef decay`
+- Added `related` field to index for consensus scoring
+### Worker Trench Test
+- Attempted parallel worker dispatch (Groq + Ollama)
+- Groq: 403 Forbidden (API key issue)
+- Ollama: Worked but output too generic without reef context
+- Insight: Domain-specific code needs full context; workers better for grunt tasks
+### New Phase Added
+- **Phase 7**: Worktree harness for parallel Claude agents
+- Each child session works in isolated git worktree
+- Tests must pass before merging upstream
+- Enables true parallel development without conflicts
+## Session 4: Phase 7 Implementation (2026-01-15)
+### Completed
+- **Phase 7**: Worktree harness with model routing
+- `src/reef/trench.py`: TrenchHarness class
+- Auto-spawn: `reef trench spawn <name> --task "..." [--model haiku|sonnet|opus]`
+- Complexity detection: simple→haiku, moderate→sonnet, complex→opus
+- Aggressive pruning: 3-day default (was 7)
+- PID tracking for background sessions
+- Log viewing: `reef trench logs <name> [--follow]`
+- 35 new tests, 536 total passing
+### CLI Commands Added
+```bash
+reef trench spawn <name> [--task "..." --model ...]  # Create worktree + optional auto-launch
+reef trench status [name] [--json]                   # Check trench status
+reef trench test <name>                              # Run tests in trench
+reef trench merge <name>                             # Merge if tests pass
+reef trench abort <name> [--force]                   # Kill and cleanup
+reef trench prune [--days N --execute]               # Remove stale trenches
+reef trench logs <name> [--follow]                   # View session output
+```
+## Session 5: Phase 8 Completion (2026-01-15)
+### Completed
+- All 8 phases done and pushed to main
+- Fixed `--session` → `--task` flag typo in docs
+- docs/AGENT-SDK.md: Agent orchestration guide
+- docs/WORKERS.md: External worker configuration
+- 536 tests passing
+## Session 6: Cleanup + .reef Format Exploration (2026-01-15)
+### Completed
+- **Fixed trench autonomous execution**: Added `--dangerously-skip-permissions` flag
+- **Tested trench harness**: Claude haiku successfully ran autonomously in worktree
+- **Removed unused imports**: Cleaned 9 files (calcification, cli, trench, agents, safety, skills, workers)
+- **Ran 3 parallel trenches**: cleanup-exports, cleanup-coverage, cleanup-logging
+- **Coverage analysis**: 65-97% across modules, cli.py untested
+- **Logging audit**: Already clean - all errors use stderr
+- **Upgraded spark**: Added `--premium` flag to use Claude agents instead of cheap models
+### .reef File Format Deep Dive (8 Sparks)
+Explored AI-native memory through 8 spark iterations. Key emergent insights:
+| Spark | Emergent Insight | Score |
+|-------|------------------|-------|
+| Memories that lie | "What if AI memories are already our own?" | 70% |
+| Memory as immune | "AI has no immune system, only learns from everything" | 80% |
+| Memory contagion | "Memories viral when incoherent AND eerily consistent" | 90% |
+| Strategic forgetting | "Forgetting is PRIMARY function of memory" | 80% |
+| Memory metabolism | "Context isn't digested, merely reflected" | 95% |
+| Memory sovereignty | "Memories aren't owned at all" | 70% |
+| Adversarial memory | "Memories are parasites monopolizing resources" | 80% |
+| Memory inheritance | "Inherited memories risk autoimmune decay" | 80% |
+**Core Insight:** Memory IS forgetting. The `.reef` format should encode how things DIE, not how they're stored:
+- decay_rate, half_life, compost_to, immune_to, challenged_by
+### Incubator Insights Added
+- `ins_2026011510`: Forgetting is memory's primary function (8.5)
+- `ins_2026011511`: Memories are parasites competing for resources (8.2)
+- `ins_2026011512`: Context is reflected, not digested (9.2)
+## To Resume
+```bash
+/surface threads-reef-native-infrastructure
+```
+## Next: .reef Format Design + Remaining Cleanup
+### 1. Claude Code Plugin for Reef (HIGH PRIORITY)
+- [x] Create reef plugin structure at `~/.claude/plugins/reef/`
+- [x] Implement `/surface <polip-id>` command - load polip to context (L2 activation)
+- [x] Implement `/surface` (no args) - show L1 index of available polips
+- [ ] Add SessionStart hook to auto-inject L1 index (current GLOB behavior)
+- [ ] Add Stop hook to persist session context to polip
+- [ ] Register as `reef` plugin in Claude Code (needs restart)
+Plugin structure:
+```
+├── plugin.json
+├── commands/
+│   └── surface.md       # /surface command
+├── hooks/
+│   ├── session-start.sh # Auto-inject L1 index
+│   └── stop.sh          # Persist context
+└── skills/
+└── reef.md          # Reef knowledge/help
+```
+### 2. .reef Format Specification
+- [ ] Define .reef file structure (decay protocol, not storage)
+- [ ] Implement parser/serializer in reef.blob
+- [ ] Migrate existing .blob.xml files to .reef
+- [ ] Update CLI commands for new format
+### 3. Remaining Cleanup
+- [x] Remove dead code / unused imports
+- [x] Verify all modules have proper `__all__` exports (trench added them)
+- [x] Check for TODO/FIXME comments (none found)
+- [x] Audit print statements → already clean
+- [ ] Add integration tests for trench harness
+- [ ] CLI polish - consistent exit codes, help text
+### 4. Test Coverage Gaps (from trench analysis)
+- cli.py: Nearly untested
+- blob.py: 65% - edge cases missing
+- trench.py: 60% - lifecycle management gaps
+- dispatcher.py: 58% - worker dispatch logic
+### Test Gates
+```bash
+uv run pytest -v                    # All 541 tests pass
+reef sync                           # Reef integrity
+reef health                         # Ecosystem health (AI-native)
+```
+## Session 7: AI-Native Calcification Engine (2026-01-15)
+### Core Insight
+"Digital time is different. Don't make a reef like it's in the ocean."
+Biological coral calcifies over years. AI memory operates in sessions and turns.
+A polip referenced 50 times in one session is more calcified than one touched
+once over 7 days.
+### Completed
+- **Rewrote calcification engine** for session-relative time
+- Removed all wall-clock dependencies (30d, 60d, 180d thresholds)
+- New time model: turn (heartbeat) → session (fundamental unit) → epoch
+- **New calcification triggers**:
+- Intensity: refs within session (immediate value)
+- Persistence: sessions that reference (lasting value)
+- Depth: turn depth when referenced (real work vs surface)
+- Ceremony: explicit human promotion (authority)
+- Consensus: refs from other polips (network effect)
+- **New lifecycle stages** (based on vitals, not age):
+- spawning → drifting → attached → calcified → fossil
+- Constraints with scope=always are immediately calcified
+- 5+ refs/session jumps to attached
+- **New adversarial decay triggers**:
+- cold: 0 refs, 0 access (aggressive)
+- shallow: only first-turn refs (surface-level)
+- orphan: no connections and not blessed
+- **Updated CLI**: `reef health` and `reef calcify` show AI-native metrics
+- **541 tests passing** (up from 536)
+### Key Code Changes
+- `src/reef/calcification.py`: Complete rewrite
+- `src/reef/cli.py`: Updated health/calcify output
+- `tests/test_calcification.py`: New tests for session-relative scoring
+## To Resume
+```bash
+/surface threads-reef-native-infrastructure
+```
+## How to Save to Reef
+```bash
+# Option 1: Edit thread polip directly
+# File: .claude/threads/reef-native-infrastructure.blob.xml
+# Option 2: Create new polip via CLI
+uv run python -m reef.cli sprout thread "Summary of work"
+# Option 3: Ask Claude to update the thread
+# "Update our reef thread with this session's progress"
+```
+## Reef UX Philosophy: The Dive
+**Above water**: Clear context. Focused task. You know what you're doing.
+**Diving into reef**: "What do I have?" "What did I forget?" "What's connected?"
+Exploration, not retrieval. Discovery, not search.
+**Coming up for air**: Session ends. You surface with something - or you don't.
+### Core Principle
+The reef shouldn't feel like a filing cabinet you search.
+It should feel like diving into your own forgotten depths
+and discovering what grew there while you weren't looking.
+"I don't know what's down here" is the right starting posture.
+The reef reveals itself.
+### Interaction Model
+- No phrase mapping or commands to memorize
+- Just talk naturally - intent is inferred
+- "Save this", "remember", "pick up tomorrow" - all understood dynamically
+- The reef is invisible infrastructure, not a tool to learn
+## Session 8: AI-Native Format Decision + Investigation System (2026-01-15)
+### Format Decision: S-Expression + Sigil Sugar + Delta Compression
+**User veto exercised:** "fuck xml. lets push it."
+#### The Process (10 agents total)
+1. **Exploration swarm** (6 agents, randomized spark):
+- Dense-analytical: 38-50% savings, `T:c S:a` syntax
+- Sigil-analytical: 48-53% savings, `@thread ^always`
+- Sigil-spark: Challenged premise - "sigils may be irrelevant"
+- Dense-spark: 95% emergent - "omission IS compression"
+- Lisp-spark: 100% emergent - "design for digestibility not storability"
+- Lisp-analytical: **Wrote 589-line parser** at `src/reef/sexpr.py` + 48 tests
+2. **Visionary synthesis**: S-expression backbone + sigil sugar + delta-from-default
+3. **Investigation squad** (4 agents):
+- Researcher: Found TOON (2025), EDN, Protobuf - validates approach
+- Validator: Adjusted claims - 40% real savings (not 60-70%)
+- Karen: NIH trap, sigil collision, default brittleness concerns
+- Industry Analyst: "No S-expressions in production" but Claude trained on XML
+#### Final Format
+```lisp
+(polip @thread reef-session
+^session ~"exploring format design" +active
+#["src/reef/cli.py"]
+(decay :half-life 3))
+```
+#### Evidence Summary
+| Source | Finding |
+|--------|---------|
+| TOON benchmarks | Custom formats CAN win (73.9% vs 69.7% accuracy) |
+| Validator | 40% avg savings, up to 70% on structured data |
+| Industry | JSON/XML dominant, but not for AI-native use cases |
+| Karen | Valid concerns - escaping, tooling, migration |
+### Skill System Updates
+#### `/investigate` - Recursive Investigation Harness
+Updated `.claude/skills/investigate.md` with full architecture:
+- **Global harness** listens for triggers (lock-in, NIH, confirmation bias)
+- **Curiosity router**: <60% log, 60-80% light, 80-90% full, 90%+ recursive
+- **Recursive visionary**: 90%+ insights spawn dedicated visionary with own trenches
+- **Investigation funnel**: Collects all outputs, dedupes, clusters
+- **Squad deliberation**: Agents present TO EACH OTHER, cross-examine
+- **Final report**: What/How/Why/Who + consensus/dissent/gaps
+#### Karen (Reef Validator) - New Contract
+Updated `.claude/agents/reef-validator.md`:
+- **Authority**: NONE - advisory only
+- **Veto power**: NONE - user holds all veto
+- **Modes**: CRITICAL (find flaws) ↔ SKEPTICAL (question assumptions)
+- **Constraint**: Must cite sources for all claims
+- **Role**: Adversarial counsel, not gatekeeper
+### Tenacious Mode Idea
+Captured in `.claude/ideas/tenacious-agent-mode.md`:
+- Agents iterate until explicit failure, not "done enough"
+- Exit conditions: hard failure, timeout, human interrupt
+- NOT valid: "I think I've explored enough"
+### Files Created/Modified This Session
+- `src/reef/sexpr.py` (589 lines) - S-expression parser
+- `tests/test_sexpr.py` (456 lines) - 48 tests passing
+- `.claude/skills/investigate.md` - Full recursive harness
+- `.claude/agents/reef-validator.md` - Karen's new contract
+- `.claude/ideas/tenacious-agent-mode.md` - Persistent agent concept
+## Session 9: Phase 9 Implementation (2026-01-15)
+### Completed
+- **Sigil sugar tokenizer/parser**: `@thread ^always ~"summary" +active #["files"]`
+- **Delta-from-default compression**: Omit defaults (type=thread, scope=project, status=active, version=2)
+- **Canonical defaults**: Defined in `DEFAULTS` dict
+- **Migration CLI**: `reef format --stats`, `reef format --convert [--dry-run] [--keep]`
+- **57 sexpr tests** (up from 48)
+- **598 total tests passing**
+### Token Savings Analysis
+```
+reef format --convert --dry-run
+context.blob.xml -> context.reef (29.8% smaller)
+spark-evolution.blob.xml -> spark-evolution.reef (40.9% smaller)
+never-commit-secrets.blob.xml -> never-commit-secrets.reef (54.1% smaller)
+reef-native-infrastructure.blob.xml -> reef-native-infrastructure.reef (8.2% smaller)
+...
+Average: ~28% reduction
+```
+### Files Modified
+- `src/reef/sexpr.py`: Sigil sugar + delta compression
+- `src/reef/cli.py`: `reef format` command
+- `tests/test_sexpr.py`: New tests for sigils + defaults
+## Next Steps
+### Phase 9 Remaining
+1. [x] Add sigil sugar to `sexpr.py`
+2. [x] Implement delta-from-default
+3. [x] Define canonical defaults
+4. [ ] Add decay protocol support (Blob class needs fields)
+5. [x] Migration CLI: `reef format --convert`
+6. [x] Update CLI for new format
+7. [x] Dual-format auto-detection in Glob.load()
+### Remaining from Previous Sessions
+- [ ] Claude Code Plugin hooks (SessionStart, Stop)
+- [ ] Integration tests for trench harness
+- [ ] Test coverage gaps (cli.py, blob.py, trench.py)
+### Test Gates
+```bash
+uv run pytest -v              # 827 tests
+reef sync                     # Reef integrity
+reef format --stats           # Token savings
+```
+## Session 10: MCP MVP - Reef as Substrate (2026-01-16)
+### Core Insight
+"MCP isn't just distribution - it's the substrate they build on."
+### Team Investigation (3 Agents)
+Spawned architect, visionary, and karen to validate MCP-first strategy:
+- **Architect**: MCP is strong entry point but needs lifecycle tools exposed
+- **Visionary**: MCP makes reef "ambient" - 10x = becoming invisible by being essential
+- **Karen**: Security concerns, protocol risk, but hooks still work for power users
+**Synthesis**: MCP for distribution, daemon for evolution, lifecycle tools for differentiation.
+### Completed
+- **MCP Lifecycle Tools** (reef differentiators):
+  - `reef_lifecycle`: Calcification stages (drifting → attached → calcified → fossil)
+  - `reef_calcify_candidates`: Polips ready for promotion
+  - `reef_decay_status`: At-risk polips and recommendations
+- **Security Hardening**: Input validation, size limits, sanitization
+- **Resources**: 11 tools, 3 resources now exposed
+### Strategic Decisions
+## To Resume
+```bash
+/surface threads-reef-native-infrastructure
+```
+Key files: `src/reef/mcp/handlers.py`, `src/reef/mcp/server.py`
+
+--- decide
+- Graph relationships: content-embedded intent + computed similarity (no separate links.xml)
+- Reef and config coexist with clear authority boundaries
+- Promotion pathway: organic → crystallized → human-promoted to config
+- Reef reads config, cannot modify it; human remains gatekeeper
+- Links stored in polip content via [[wiki]] and @directives
+- P0 safety guards (dry-run, deletion limits, undo) must ship before any auto-pruning
+- Implement reef MCP server exposing polip operations as tools
+- Route external-ok tasks to Groq/Ollama/Gemini, reserve Claude for judgment
+- Calcification engine with time × usage × consensus triggers
+- Audit trail, dry-run mode, and validator checks for all automatic operations
+- Worktree harness: spawn child Claude agents in git worktrees, test before merge
+- Format: S-expression + sigil sugar + delta-from-default compression for .reef files
+- Karen: adversarial counsel only, no approval authority, must cite sources
+
+--- next
+- [ ] Phase 9: .reef format - sigil sugar, delta compression, migration

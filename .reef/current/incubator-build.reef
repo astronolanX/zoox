@@ -1,2 +1,7 @@
-=context:project incubator-build 2026-01-15
+~ type: context
+~ id: incubator-build
+~ version: 2
+@ 2026-01-19
+
+--- surface
 Built global Incubator insight processing engine through Phase 5 (Surfacing). All phases complete. 74 insights processed, 8 promoted, 84 tests passing.

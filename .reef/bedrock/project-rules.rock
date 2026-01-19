@@ -1,9 +1,19 @@
-=constraint:always project-rules 2026-01-13
+~ type: constraint
+~ id: project-rules
+~ version: 2
+~ scope: always
+@ 2026-01-19
+
+--- surface
 reef project constraints
-+Use uv for package management, not pip
-+Run tests with: uv run pytest
-+Local-only package - not published to PyPI
-+Zero dependencies - stdlib only
-~reef is symbiotic memory for AI - XML polips that persist across sessions.
-~Coral terminology: polip (blob), reef (glob), current (thread), bedrock (constraint).
-~A reef is a collection of polips in .claude/ directories.
+
+
+reef is symbiotic memory for AI - XML polips that persist across sessions.
+Coral terminology: polip (blob), reef (glob), current (thread), bedrock (constraint).
+A reef is a collection of polips in .claude/ directories.
+
+--- fact
+- Use uv for package management, not pip
+- Run tests with: uv run pytest
+- Local-only package - not published to PyPI
+- Zero dependencies - stdlib only

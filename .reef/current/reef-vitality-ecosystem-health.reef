@@ -1,82 +1,31 @@
-<blob type="thread" scope="project" updated="2026-01-16" v="2" status="active">
-  <summary>Reef Vitality: Ecosystem Health Through Content Flow</summary>
-  <context>Reefs should function as living indicators of knowledge ecosystem health. Growth signals come from meaningful human-AI resonance, not just accumulation. Content quality matters - toxic patterns trigger reef responses. The human's voice and thinking patterns should strengthen through inference interactions that truly assimilate, not just append.</context>
-  <facts>
-    <fact>Living systems respond to environmental signals - reefs should too</fact>
-    <fact>Content flow creates health signals: stagnation, toxicity, or thriving growth</fact>
-    <fact>AI inference that resonates with human thought patterns indicates quality assimilation</fact>
-    <fact>Voice consistency and strength emerge from aligned inference inflections</fact>
-    <fact>Toxic content accumulation is a reef health problem, not just storage issue</fact>
-  </facts>
-  <decisions>
-    <decision>Reef vitality is measured by content quality flow, not just volume</decision>
-    <decision>Growth = inference resonance with human voice, not polip count</decision>
-    <decision>Toxic content triggers reef responses (pruning, isolation, warnings)</decision>
-    <decision>Human signal strength is a core vitality metric</decision>
-  </decisions>
-  <notes>
-## Reef as Living System
+~ type: thread
+~ id: reef-vitality-ecosystem-health
+~ version: 2
+~ status: active
+@ 2026-01-16
 
-**Core Metaphor:** Coral reefs thrive or die based on water quality. Knowledge reefs thrive or die based on content quality.
+--- surface
+Reef Vitality: Ecosystem Health Through Content Flow
 
-### Vitality Signals
+Reefs should function as living indicators of knowledge ecosystem health. Growth signals come from meaningful human-AI resonance, not just accumulation. Content quality matters - toxic patterns trigger reef responses. The human's voice and thinking patterns should strengthen through inference interactions that truly assimilate, not just append.
 
-**Healthy Growth:**
-- Polips reference each other naturally (organic linking)
-- New content builds on existing patterns (inference alignment)
-- Access patterns show sustained engagement (not one-off dumps)
-- Constraints and decisions remain stable (foundational strength)
+--- decide
+- Reef vitality is measured by content quality flow, not just volume
+- Growth = inference resonance with human voice, not polip count
+- Toxic content triggers reef responses (pruning, isolation, warnings)
+- Human signal strength is a core vitality metric
 
-**Toxic Patterns:**
-- Contradictory polips (decision X conflicts with decision Y)
-- Stale session contexts never accessed (dead tissue)
-- Low-resonance content: created but never surfaced
-- Voice drift: new content doesn't match established patterns
+--- fact
+- Living systems respond to environmental signals - reefs should too
+- Content flow creates health signals: stagnation, toxicity, or thriving growth
+- AI inference that resonates with human thought patterns indicates quality assimilation
+- Voice consistency and strength emerge from aligned inference inflections
+- Toxic content accumulation is a reef health problem, not just storage issue
 
-### Response Mechanisms
-
-**Reef Reactions:**
-1. **Bleaching** - Stale content loses priority in surfacing
-2. **Pruning** - Auto-archive polips with sustained low vitality
-3. **Quarantine** - Flag contradictory content for resolution
-4. **Regeneration** - Calcification merges related high-vitality content
-
-### Human Voice Signal
-
-**What Strengthens Signal:**
-- Consistent terminology and phrasing patterns
-- Decision polips that hold over time (stability)
-- Frequent surfacing/usage of specific polips (validation)
-- Natural linking patterns (organic thought connections)
-
-**What Weakens Signal:**
-- One-off content never revisited
-- Contradictory decisions within short timeframe
-- Abandoned threads (started but never progressed)
-- Import of content that doesn't fit existing voice
-
-### Inference Resonance
-
-**Quality Assimilation:** When AI-generated content naturally extends human thought patterns, showing understanding of context, constraints, and voice.
-
-**Indicators:**
-- Surfaced polips get accessed multiple times
-- New content links to existing foundation
-- Decisions cascade naturally (B builds on A)
-- Thread progression shows coherent evolution
-
-**Anti-patterns:**
-- Generic AI content (could be anyone's voice)
-- Polips that contradict established constraints
-- Content created but never integrated
-- Excessive polip creation without consolidation
-  </notes>
-  <next>
-    <step>Define "toxic content" signals: stale, contradictory, low-resonance polips</step>
-    <step>Implement vitality scoring: voice consistency + inference alignment + content freshness</step>
-    <step>Build reef response mechanisms: auto-prune low-vitality polips, flag conflicts</step>
-    <step>Create resonance metrics: track which polips strengthen vs weaken human signal</step>
-    <step>Add "reef health" command showing vitality score, content flow patterns, toxic signals</step>
-    <step>Implement voice signature tracking: detect when AI inflections align with human patterns</step>
-  </next>
-</blob>
+--- next
+- [ ] Define "toxic content" signals: stale, contradictory, low-resonance polips
+- [ ] Implement vitality scoring: voice consistency + inference alignment + content freshness
+- [ ] Build reef response mechanisms: auto-prune low-vitality polips, flag conflicts
+- [ ] Create resonance metrics: track which polips strengthen vs weaken human signal
+- [ ] Add "reef health" command showing vitality score, content flow patterns, toxic signals
+- [ ] Implement voice signature tracking: detect when AI inflections align with human patterns
