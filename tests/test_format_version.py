@@ -378,3 +378,77 @@ class TestEdgeCases:
 
         assert restored.status == "blocked"
         assert restored.blocked_by == "Waiting for API response"
+
+
+class TestSchemaEvolution:
+    """Tests for forward/backward compatibility across schema versions."""
+
+    def test_v2_2_simulation(self):
+        """Simulate what v2.2 might add - verify v2.1 reader handles it."""
+        # Pretend v2.2 adds a "--- source" section and "~ confidence:" identity
+        future_polip = """~ type: context
+~ id: future-feature
+~ version: 2.2
+~ confidence: 0.95
+
+--- surface
+This polip has features from v2.2.
+
+--- source
+https://example.com/docs
+Referenced in discussion #42
+
+--- fact
+- Forward compatibility should preserve this
+"""
+        polip = Polip.from_reef(future_polip)
+
+        # Known fields parsed correctly
+        assert polip.id == "future-feature"
+        assert polip.version == "2.2"
+        assert polip.surface == "This polip has features from v2.2."
+        assert polip.facts == ["Forward compatibility should preserve this"]
+
+        # Unknown section preserved
+        assert "source" in polip.unknown_sections
+        assert "example.com" in polip.unknown_sections["source"]
+
+        # Roundtrip preserves unknown section
+        serialized = polip.to_reef()
+        assert "--- source" in serialized
+        assert "example.com" in serialized
+
+    def test_v3_0_breaks_reader(self):
+        """v3.0 (new epoch) should fail to parse with v2.1 reader."""
+        # v3.0 might use completely different syntax
+        future_polip = """~ type: context
+~ id: epoch-3-test
+~ version: 3.0
+"""
+        polip = Polip.from_reef(future_polip)
+
+        # We can parse v3.0 syntax if it's similar to v2
+        # But version_can_read should return False
+        assert polip.version == "3.0"
+        assert version_can_read(polip_version(), polip.version) is False
+
+    def test_migration_chain(self):
+        """Verify migration from v1 -> v2.0 -> v2.1 works."""
+        # Start with v1 content
+        v1_content = """=thread:project migration-test 2026-01-19 active
+Testing migration chain
++Fact from v1
+!Decision from v1
+"""
+        polip = Polip.from_reef(v1_content)
+        assert polip.version == "1.0"
+        assert polip.needs_migration() is True
+
+        # Migrate updates to current
+        polip.migrate()
+        assert polip.version == polip_version()
+        assert polip.needs_migration() is False
+
+        # Content preserved
+        assert polip.facts == ["Fact from v1"]
+        assert polip.decisions == ["Decision from v1"]
