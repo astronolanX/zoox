@@ -1,0 +1,18 @@
+~ type: context
+~ id: mcp-format-decisions
+~ version: 2
+~ scope: session
+@ 2026-01-16
+
+--- surface
+MCP protocol fix identified (LSP→newline JSON), AI-native format constraint locked, trench lifecycle fully automated
+
+--- decide
+- AI-native formats only - NO markdown, yaml, json, xml (5 sparks converged on syntax being wrong problem)
+- Trenches auto-merge on test pass, auto-abort on fail (user shouldn't manage trench lifecycle)
+- Stale trenches auto-prune after 1 day via SessionStart hook (reduce cruft)
+
+--- next
+- [ ] Fix reef MCP: Content-Length headers → newline-delimited JSON
+- [ ] Test .current format with real polips
+- [ ] Run architect agent for .signal and .drift formats

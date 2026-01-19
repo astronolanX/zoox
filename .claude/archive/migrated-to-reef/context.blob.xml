@@ -1,0 +1,13 @@
+<blob type="context" scope="session" updated="2026-01-16" v="3">
+  <summary>MCP protocol fix identified (LSP→newline JSON), AI-native format constraint locked, trench lifecycle fully automated</summary>
+  <decisions>
+    <decision why="5 sparks converged on syntax being wrong problem">AI-native formats only - NO markdown, yaml, json, xml</decision>
+    <decision why="user shouldn't manage trench lifecycle">Trenches auto-merge on test pass, auto-abort on fail</decision>
+    <decision why="reduce cruft">Stale trenches auto-prune after 1 day via SessionStart hook</decision>
+  </decisions>
+  <next>
+    <step added="run-043">Fix reef MCP: Content-Length headers → newline-delimited JSON</step>
+    <step added="run-043">Test .current format with real polips</step>
+    <step added="run-043">Run architect agent for .signal and .drift formats</step>
+  </next>
+</blob>

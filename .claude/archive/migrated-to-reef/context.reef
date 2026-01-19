@@ -1,0 +1,9 @@
+=context:session context 2026-01-15
+Designed and implemented .reef format as AI-native polip storage: single file per polip, YAML header with identity metadata, markdown-style prefix syntax (+/!/? for facts/decisions/questions), no XML ceremony—optimized for machine parsing and AI retrieval over human ergonomics.
+!Rejected XML/YAML hybrid; adopted AI-first format: `=type:scope id date` header + line-prefixed content
+!One `.reef` file per polip; empty reef means AI provided no value
+!Added active thread next-step hint to statusline (visible but noted user dislikes current presentation)
+!Scaffolded `reef shell` REPL with ghost text hints from active thread; wired to claude -p with session continuity
+[ ] Wire up `reef migrate --to-reef` to convert legacy blob XML to .reef format
+[ ] Update reef.blob module to read/write .reef files as primary storage
+[ ] Implement Phase 9: delta compression and format versioning in .reef headers

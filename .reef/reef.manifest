@@ -16,3 +16,7 @@ created: 2026-01-16
 
 # the reef is the source
 # everything else is projection
+
+# memory strategy - experiments in forgetting
+# options: default, decay, resurrect, inverse, empty
+strategy: empty

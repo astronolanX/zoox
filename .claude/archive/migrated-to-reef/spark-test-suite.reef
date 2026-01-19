@@ -1,0 +1,4 @@
+=thread:project spark-test-suite 2026-01-15
+Scaffold comprehensive test suite for /spark plugin
+~Built 158-test suite for whatif during this session. Tests live at ~/.claude/tests/whatif/.
+~Now renamed to /spark — tests need migration and the pattern should be documented.

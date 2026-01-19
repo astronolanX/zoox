@@ -1,0 +1,10 @@
+=context:session 20260113-context 2026-01-15
+Fixed three high-priority bugs (XML error handling, verified subdirectory scanning), completed 90% of zoox→reef package rename, designed 6 elegant polip surfacing UX patterns (startup menu, modal questions, inline annotations, constraint interrupts, IDE sidebar, graph viz), and packaged everything with reef for next session including automated migration script and context polips.
+!Added comprehensive XML error handling with try/catch blocks at blob.py lines 437 and 516 to gracefully handle malformed polip files
+!Confirmed KNOWN_SUBDIRS at line 186 includes all 5 subdirectories—subdirectory scanning bugs already fixed
+!Renamed package/branding from zoox to reef in all user-facing surfaces (pyproject.toml, README, CLAUDE.md, polips)
+!Designed non-blocking polip surfacing patterns (startup menu, modal injection, inline annotations, constraint interrupts, IDE sidebar, graph viz) that enhance without obstructing workflow
+!Created run-006 polip, UX design context polip, migration script, and NEXT-SESSION.md to enable instant context loading and priority task surfacing in new session
+[ ] Run complete-reef-migration.sh to finish directory rename and update 11 test file imports from zoox.→reef.
+[ ] Wire 6 UX patterns into Claude Code plugin—start with session startup menu polip surfacing at SessionStart hook
+[ ] Implement polip modal injection into AskUserQuestion to surface context polips as option selections or ambient context

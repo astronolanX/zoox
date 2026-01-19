@@ -1,0 +1,9 @@
+=context:project project-communication 2026-01-14
+Implemented project communication suite: CHANGELOG.md, ROADMAP.md, CONTRIBUTING.md, issue templates, README badges
+!Used Keep a Changelog format for CHANGELOG.md - universal format for humans, not machines
+!Created status legend roadmap (shipped/in-progress/planned/considering) to invite specific contributions
+!CONTRIBUTING.md covers quick start, code style, testing to lower friction for new contributors
+!GitHub issue templates ensure bug reports and feature requests contain necessary context
+[ ] Push v0.1.0 tag to GitHub
+[ ] Enable GitHub Discussions if community grows
+[ ] Consider release-please for automated changelog entries
