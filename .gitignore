@@ -35,6 +35,10 @@ venv/
 .claude/threads/
 .claude/index.json
 
+# reef runtime data (generated, not source)
+.reef/index.json
+.reef/surfacing-history.json
+
 # IDE
 .idea/
 .vscode/
