@@ -1186,6 +1186,17 @@ def cmd_surface(args):
         print(f"Use '/surface' (no args) to see available polips", file=sys.stderr)
         sys.exit(1)
 
+    # Track access for this polip (L2 activation = real usage)
+    if found_path:
+        # Get the key format used in index (e.g., "current/reef-vitality.reef")
+        try:
+            relative = found_path.relative_to(glob.claude_dir)
+            # Convert path to index key format
+            key = str(relative).replace(".blob.xml", ".reef")
+            glob._increment_access([key])
+        except (ValueError, Exception):
+            pass  # Don't fail surfacing if tracking fails
+
     # Output full polip content
     print(blob.to_xml())
 
@@ -1989,6 +2000,48 @@ def cmd_decay(args):
             print(f"Run 'reef decay --execute' to decompose {decompose_count} polips")
 
 
+def cmd_track(args):
+    """Record access to polips for performance tracking."""
+    from reef.blob import Glob
+
+    project_dir = Path.cwd()
+    glob = Glob(project_dir)
+
+    polip_ids = args.polips
+    if not polip_ids:
+        print("No polip IDs provided")
+        return
+
+    # Resolve polip IDs to keys
+    index = glob.get_index()
+    blobs = index.get("blobs", {})
+
+    keys_to_track = []
+    for polip_id in polip_ids:
+        # Find matching key (polip_id might be partial)
+        matched = [k for k in blobs.keys() if polip_id in k]
+        if matched:
+            keys_to_track.extend(matched)
+        elif args.verbose:
+            print(f"Warning: No match for '{polip_id}'", file=sys.stderr)
+
+    if not keys_to_track:
+        if args.verbose:
+            print("No matching polips found")
+        return
+
+    # Increment access counts
+    glob._increment_access(keys_to_track)
+
+    if args.verbose:
+        print(f"Tracked access for {len(keys_to_track)} polip(s):")
+        for key in keys_to_track:
+            count = glob.get_access_count(key)
+            print(f"  {key}: {count}")
+    elif not args.quiet:
+        print(f"Tracked {len(keys_to_track)} polip(s)")
+
+
 def cmd_trench(args):
     """Manage parallel Claude sessions in git worktrees."""
     from reef.trench import TrenchHarness, TrenchStatus
@@ -2758,6 +2811,17 @@ def main():
     decay_parser.add_argument("--execute", "-x", action="store_true", help="Execute decomposition (default: dry-run)")
     decay_parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
     decay_parser.set_defaults(func=cmd_decay)
+
+    # track - Record polip access for performance tracking
+    track_parser = subparsers.add_parser(
+        "track",
+        help="Record polip access for performance metrics",
+        description="Increment access counts for polips. Used by hooks and skills to track which polips are actually used.",
+    )
+    track_parser.add_argument("polips", nargs="*", help="Polip IDs to track (partial matches allowed)")
+    track_parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed tracking info")
+    track_parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output (for hooks)")
+    track_parser.set_defaults(func=cmd_track)
 
     # trench - Parallel Claude agents in git worktrees
     trench_parser = subparsers.add_parser(

@@ -104,6 +104,7 @@ class ReefToolHandlers:
         results = self.glob.search_index(query=query, limit=limit)
 
         polips = []
+        keys_to_track = []
         for key, entry, score in results:
             polips.append(
                 {
@@ -115,6 +116,14 @@ class ReefToolHandlers:
                     "score": round(score, 3),
                 }
             )
+            keys_to_track.append(key)
+
+        # Track access for surfaced polips
+        if keys_to_track:
+            try:
+                self.glob._increment_access(keys_to_track)
+            except Exception:
+                pass  # Don't fail surface if tracking fails
 
         return polips
 
