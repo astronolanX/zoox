@@ -668,7 +668,433 @@ class ReefHealth:
         return recs
 
 
+# =============================================================================
+# DISSOLUTION ENGINE - True Forgetting
+# =============================================================================
+
+
+class DecayStage(Enum):
+    """Three-stage graceful decay toward dissolution."""
+    ACTIVE = "active"          # Full content, fast retrieval
+    COMPRESSED = "compressed"  # Summary only, slower retrieval
+    FOSSIL = "fossil"          # Existence marker, can resurface
+    DISSOLVED = "dissolved"    # Truly forgotten (deleted)
+
+
+@dataclass
+class DecayVitals:
+    """Vitals for determining decay stage."""
+    last_accessed: datetime | None
+    sessions_since_access: int
+    importance_score: float
+    has_incoming_refs: bool
+    is_protected: bool
+    current_stage: DecayStage
+
+
+@dataclass
+class DissolutionReport:
+    """Report from dissolution cycle."""
+    total_polips: int
+    compressed: list[str]
+    fossilized: list[str]
+    dissolved: list[str]
+    protected: list[str]
+    timestamp: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> dict:
+        return {
+            "total": self.total_polips,
+            "compressed": len(self.compressed),
+            "fossilized": len(self.fossilized),
+            "dissolved": len(self.dissolved),
+            "protected": len(self.protected),
+            "details": {
+                "compressed": self.compressed,
+                "fossilized": self.fossilized,
+                "dissolved": self.dissolved,
+            },
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+
+class DissolutionEngine:
+    """
+    True forgetting - graceful decay toward dissolution.
+
+    Three-stage decay:
+    1. ACTIVE → COMPRESSED: After N sessions without access
+       - Full content replaced with summary
+       - Can be decompressed if accessed
+
+    2. COMPRESSED → FOSSIL: After M more sessions
+       - Only existence marker remains
+       - Keywords, type, and timestamp preserved
+
+    3. FOSSIL → DISSOLVED: After P more sessions
+       - File deleted (truly forgotten)
+       - Can only be re-learned, not recovered
+
+    Session-based decay (AI-native time):
+    - COMPRESSION_THRESHOLD: 5 sessions without access
+    - FOSSIL_THRESHOLD: 10 sessions (cumulative)
+    - DISSOLUTION_THRESHOLD: 20 sessions (cumulative)
+
+    Protection:
+    - scope=always polips are never dissolved
+    - type=constraint polips decay slower (2x thresholds)
+    - High network connectivity (3+ refs) extends thresholds by 50%
+    """
+
+    # Session-based thresholds
+    COMPRESSION_THRESHOLD = 5    # Sessions to compress
+    FOSSIL_THRESHOLD = 10        # Sessions to fossilize
+    DISSOLUTION_THRESHOLD = 20   # Sessions to dissolve
+
+    # Protected from dissolution
+    PROTECTED_SCOPES = ["always"]
+    PROTECTED_TYPES = ["constraint"]
+
+    def __init__(self, glob: "Glob", engine: CalcificationEngine | None = None):
+        self.glob = glob
+        self.engine = engine or CalcificationEngine(glob)
+        self._session_count = 0
+
+    def _iter_all_blobs(self):
+        """Iterate over all blobs from root and subdirs."""
+        from .blob import KNOWN_SUBDIRS
+        from .constants import extension_for_type, DEFAULT_EXTENSION
+
+        for name, blob in self.glob.list_blobs():
+            ext = extension_for_type(blob.type.value) if blob.type else DEFAULT_EXTENSION
+            key = f"{name}{ext}"
+            yield key, blob
+
+        for subdir in KNOWN_SUBDIRS:
+            for name, blob in self.glob.list_blobs(subdir):
+                ext = extension_for_type(blob.type.value) if blob.type else DEFAULT_EXTENSION
+                key = f"{subdir}/{name}{ext}"
+                yield key, blob
+
+    def tick_session(self) -> int:
+        """Advance the session counter."""
+        self._session_count += 1
+        return self._session_count
+
+    def get_decay_vitals(self, key: str, blob: "Blob") -> DecayVitals:
+        """Get decay-specific vitals for a polip."""
+        index = self.glob.get_index()
+        blob_meta = index.get("blobs", {}).get(key, {})
+
+        # Last access info
+        last_accessed_str = blob_meta.get("last_accessed")
+        last_accessed = None
+        if last_accessed_str:
+            try:
+                last_accessed = datetime.fromisoformat(last_accessed_str)
+            except ValueError:
+                pass
+
+        # Sessions since access (estimate from access patterns)
+        access_count = blob_meta.get("access_count", 0)
+        sessions_referenced = self.engine.get_vitals(key, blob).sessions_referenced
+
+        # Estimate sessions since last access
+        if sessions_referenced > 0:
+            sessions_since = max(0, self._session_count - sessions_referenced)
+        else:
+            sessions_since = self._session_count
+
+        # Get importance score
+        from .importance import ImportanceDetector
+        importance_detector = ImportanceDetector(self.glob)
+        importance = importance_detector.score(blob.summary or "")
+
+        # Check network connectivity
+        vitals = self.engine.get_vitals(key, blob)
+        has_incoming = vitals.incoming_refs > 0
+
+        # Check protection
+        is_protected = (
+            blob.scope.value in self.PROTECTED_SCOPES or
+            (blob.type and blob.type.value in self.PROTECTED_TYPES)
+        )
+
+        # Determine current stage from metadata
+        stage_str = blob_meta.get("decay_stage", "active")
+        try:
+            current_stage = DecayStage(stage_str)
+        except ValueError:
+            current_stage = DecayStage.ACTIVE
+
+        return DecayVitals(
+            last_accessed=last_accessed,
+            sessions_since_access=sessions_since,
+            importance_score=importance.total,
+            has_incoming_refs=has_incoming,
+            is_protected=is_protected,
+            current_stage=current_stage,
+        )
+
+    def get_effective_threshold(
+        self,
+        base_threshold: int,
+        vitals: DecayVitals,
+        blob: "Blob",
+    ) -> int:
+        """Get effective threshold adjusted for protection factors."""
+        threshold = base_threshold
+
+        # Constraints decay slower
+        if blob.type and blob.type.value == "constraint":
+            threshold *= 2
+
+        # Network connectivity extends threshold
+        if vitals.has_incoming_refs:
+            threshold = int(threshold * 1.5)
+
+        # High importance extends threshold
+        if vitals.importance_score > 0.7:
+            threshold = int(threshold * 1.3)
+
+        return threshold
+
+    def should_compress(self, key: str, blob: "Blob") -> bool:
+        """Check if polip should be compressed."""
+        vitals = self.get_decay_vitals(key, blob)
+
+        if vitals.is_protected:
+            return False
+
+        if vitals.current_stage != DecayStage.ACTIVE:
+            return False
+
+        threshold = self.get_effective_threshold(
+            self.COMPRESSION_THRESHOLD, vitals, blob
+        )
+
+        return vitals.sessions_since_access >= threshold
+
+    def should_fossilize(self, key: str, blob: "Blob") -> bool:
+        """Check if polip should be fossilized."""
+        vitals = self.get_decay_vitals(key, blob)
+
+        if vitals.is_protected:
+            return False
+
+        if vitals.current_stage != DecayStage.COMPRESSED:
+            return False
+
+        threshold = self.get_effective_threshold(
+            self.FOSSIL_THRESHOLD, vitals, blob
+        )
+
+        return vitals.sessions_since_access >= threshold
+
+    def should_dissolve(self, key: str, blob: "Blob") -> bool:
+        """Check if polip should be dissolved (deleted)."""
+        vitals = self.get_decay_vitals(key, blob)
+
+        if vitals.is_protected:
+            return False
+
+        if vitals.current_stage != DecayStage.FOSSIL:
+            return False
+
+        threshold = self.get_effective_threshold(
+            self.DISSOLUTION_THRESHOLD, vitals, blob
+        )
+
+        return vitals.sessions_since_access >= threshold
+
+    def compress(self, key: str, blob: "Blob") -> bool:
+        """
+        Compress a polip - replace content with summary.
+
+        Returns True if compressed.
+        """
+        # Update stage in index
+        index = self.glob.get_index()
+        if "blobs" not in index:
+            index["blobs"] = {}
+        if key not in index["blobs"]:
+            index["blobs"][key] = {}
+
+        index["blobs"][key]["decay_stage"] = DecayStage.COMPRESSED.value
+        index["blobs"][key]["compressed_at"] = datetime.now().isoformat()
+
+        # Save original content length for reference
+        original_len = len(blob.context or "")
+        index["blobs"][key]["original_content_len"] = original_len
+
+        # Replace content with compressed marker
+        blob.context = f"[COMPRESSED] Original: {original_len} chars. Summary: {blob.summary}"
+
+        # Save back
+        self.glob._save_index(index)
+        return True
+
+    def fossilize(self, key: str, blob: "Blob") -> bool:
+        """
+        Fossilize a polip - reduce to existence marker.
+
+        Returns True if fossilized.
+        """
+        from .constants import SUBDIRS
+
+        index = self.glob.get_index()
+        if "blobs" not in index:
+            index["blobs"] = {}
+        if key not in index["blobs"]:
+            index["blobs"][key] = {}
+
+        index["blobs"][key]["decay_stage"] = DecayStage.FOSSIL.value
+        index["blobs"][key]["fossilized_at"] = datetime.now().isoformat()
+
+        # Move to settled/ directory
+        # Extract filename from key
+        if "/" in key:
+            _, filename = key.rsplit("/", 1)
+        else:
+            filename = key
+
+        # Remove old extension, add .sed
+        name = filename.rsplit(".", 1)[0]
+        if name.endswith(".blob"):
+            name = name[:-5]
+
+        # Create fossil content
+        fossil_content = f"""~ id: {name}
+~ type: fossil
+~ summary: {blob.summary}
+~ fossilized: {datetime.now().isoformat()}
+@ {datetime.now().strftime("%Y-%m-%d")}
+
+[FOSSIL] This polip has been fossilized due to inactivity.
+It can be resurrected if referenced again.
+"""
+
+        # Write to settled/
+        settled_dir = self.glob._get_reef_dir() / SUBDIRS["settled"]
+        settled_dir.mkdir(parents=True, exist_ok=True)
+        fossil_path = settled_dir / f"{name}.sed"
+        fossil_path.write_text(fossil_content)
+
+        # Remove original (but keep in index as fossil)
+        try:
+            original_path = self.glob._blob_path(name)
+            if original_path.exists():
+                original_path.unlink()
+        except Exception:
+            pass
+
+        self.glob._save_index(index)
+        return True
+
+    def dissolve(self, key: str) -> bool:
+        """
+        Dissolve a polip - truly delete it.
+
+        Returns True if dissolved.
+        """
+        from .constants import SUBDIRS
+
+        index = self.glob.get_index()
+
+        # Remove from index
+        if "blobs" in index and key in index["blobs"]:
+            del index["blobs"][key]
+
+        # Delete fossil file if exists
+        if "/" in key:
+            _, filename = key.rsplit("/", 1)
+        else:
+            filename = key
+
+        name = filename.rsplit(".", 1)[0]
+        if name.endswith(".blob"):
+            name = name[:-5]
+
+        settled_dir = self.glob._get_reef_dir() / SUBDIRS["settled"]
+        fossil_path = settled_dir / f"{name}.sed"
+
+        if fossil_path.exists():
+            fossil_path.unlink()
+
+        self.glob._save_index(index)
+        return True
+
+    def run_dissolution_cycle(self, dry_run: bool = True) -> DissolutionReport:
+        """
+        Run a complete dissolution cycle.
+
+        Checks all polips and applies decay as appropriate.
+
+        Args:
+            dry_run: If True, don't actually modify anything
+
+        Returns:
+            Report of what was (or would be) done
+        """
+        compressed = []
+        fossilized = []
+        dissolved = []
+        protected = []
+        total = 0
+
+        for key, blob in self._iter_all_blobs():
+            total += 1
+            vitals = self.get_decay_vitals(key, blob)
+
+            if vitals.is_protected:
+                protected.append(key)
+                continue
+
+            if self.should_dissolve(key, blob):
+                dissolved.append(key)
+                if not dry_run:
+                    self.dissolve(key)
+            elif self.should_fossilize(key, blob):
+                fossilized.append(key)
+                if not dry_run:
+                    self.fossilize(key, blob)
+            elif self.should_compress(key, blob):
+                compressed.append(key)
+                if not dry_run:
+                    self.compress(key, blob)
+
+        return DissolutionReport(
+            total_polips=total,
+            compressed=compressed,
+            fossilized=fossilized,
+            dissolved=dissolved,
+            protected=protected,
+        )
+
+    def resurrect(self, key: str) -> bool:
+        """
+        Resurrect a fossilized polip back to active.
+
+        This resets the decay stage and access count.
+
+        Returns True if resurrected.
+        """
+        index = self.glob.get_index()
+        if "blobs" not in index:
+            return False
+        if key not in index["blobs"]:
+            return False
+
+        index["blobs"][key]["decay_stage"] = DecayStage.ACTIVE.value
+        index["blobs"][key]["resurrected_at"] = datetime.now().isoformat()
+        index["blobs"][key]["access_count"] = index["blobs"][key].get("access_count", 0) + 1
+
+        self.glob._save_index(index)
+        return True
+
+
 # Convenience aliases
 Calcification = CalcificationEngine
 Decay = AdversarialDecay
 Health = ReefHealth
+Dissolution = DissolutionEngine

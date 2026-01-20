@@ -38,6 +38,27 @@ from reef.format import (
     Reef as FormatReef,
 )
 from reef import cli
+from reef.calcification import (
+    CalcificationEngine,
+    AdversarialDecay,
+    ReefHealth,
+    DissolutionEngine,
+    DecayStage,
+)
+from reef.importance import (
+    ImportanceDetector,
+    ImportanceScore,
+    SignalType,
+    score_importance,
+)
+from reef.observe import (
+    ObservationExtractor,
+    ConversationObserver,
+    Observation,
+    ObservationType,
+    extract_observations,
+    auto_observe,
+)
 
 # Coral-branded type aliases (recommended API)
 Polip = Blob            # Individual memory unit (legacy XML-based)
@@ -74,6 +95,22 @@ __all__ = [
     "KNOWN_SUBDIRS",
     # Module
     "cli",
+    # Anti-git features
+    "CalcificationEngine",
+    "AdversarialDecay",
+    "ReefHealth",
+    "DissolutionEngine",
+    "DecayStage",
+    "ImportanceDetector",
+    "ImportanceScore",
+    "SignalType",
+    "score_importance",
+    "ObservationExtractor",
+    "ConversationObserver",
+    "Observation",
+    "ObservationType",
+    "extract_observations",
+    "auto_observe",
 ]
 
 __version__ = "0.1.0"
